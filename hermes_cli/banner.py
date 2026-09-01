@@ -421,6 +421,13 @@ def check_for_updates() -> Optional[int]:
     if behind but the count is unknown, ``0`` if up-to-date, or ``None`` if
     the check failed or doesn't apply. Cached for 6 hours.
     """
+    # ARCenal (YunoHost fork): updates belong to the YunoHost package
+    # manager; skip the upstream check entirely (no git fetches/ls-remote).
+    import os as _os
+
+    if _os.environ.get("HERMES_SKIP_UPDATE_CHECK", "") == "1":
+        return None
+
     hermes_home = get_hermes_home()
     cache_file = hermes_home / ".update_check"
     embedded_rev = os.environ.get("HERMES_REVISION") or None

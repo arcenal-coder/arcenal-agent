@@ -13239,6 +13239,17 @@ def _advertise_agent_env() -> None:
 
 def main():
     """Main entry point for hermes CLI."""
+    # ARCenal (YunoHost fork): updates are owned by the YunoHost package
+    # manager, never by git operations inside the install dir.
+    if os.environ.get("HERMES_DISABLE_UPDATE", "") == "1":
+        if sys.argv[1:2] == ["update"]:
+            print(
+                "arcenal update is disabled: this installation is managed by YunoHost.\n"
+                "Run `yunohost app upgrade arcenal` instead."
+            )
+            sys.exit(0)
+        os.environ["HERMES_SKIP_UPDATE_CHECK"] = "1"
+
     # Cosmetic: make the process show up as 'hermes' instead of 'python3.11'
     # in ps/top/htop.  Non-fatal — just a nicer UX.
     _set_process_title()
