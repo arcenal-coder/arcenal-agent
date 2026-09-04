@@ -2,7 +2,7 @@
 
 [project]
 name = "hermes-agent"
-version = "0.21.0+arcenal.3"
+version = "0.21.0+arcenal.4"
 description = "ARCenal Agent — self-hosted fork of Hermes Agent (Nous Research) for YunoHost"
 readme = "README.md"
 # Upper bound is load-bearing, not cosmetic. uv resolves the project's
