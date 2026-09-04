@@ -13239,8 +13239,14 @@ def _advertise_agent_env() -> None:
 
 def main():
     """Main entry point for hermes CLI."""
-    # ARCenal (YunoHost fork): updates are owned by the YunoHost package
-    # manager, never by git operations inside the install dir.
+    # ARCenal est distribué exclusivement par YunoHost. Le paquet écrit un
+    # marqueur dans HERMES_HOME ; le mode développeur doit rester explicite.
+    from arcenal_runtime import require_yunohost_installation
+
+    require_yunohost_installation()
+
+    # ARCenal : les mises à jour appartiennent au gestionnaire YunoHost et ne
+    # doivent jamais être effectuées par Git dans le dossier d'installation.
     if os.environ.get("HERMES_DISABLE_UPDATE", "") == "1":
         if sys.argv[1:2] == ["update"]:
             print(

@@ -1,11 +1,9 @@
 import { Typography } from "@nous-research/ui/ui/components/typography/index";
 import type { StatusResponse } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { useI18n } from "@/i18n";
+import { HERMES_CREDIT, HERMES_PROJECT_URL } from "@/brand";
 
 export function SidebarFooter({ status }: SidebarFooterProps) {
-  const { t } = useI18n();
-
   return (
     <div
       className={cn(
@@ -21,7 +19,7 @@ export function SidebarFooter({ status }: SidebarFooterProps) {
       </Typography>
 
       <a
-        href="https://nousresearch.com"
+        href={HERMES_PROJECT_URL}
         target="_blank"
         rel="noopener noreferrer"
         className={cn(
@@ -30,7 +28,7 @@ export function SidebarFooter({ status }: SidebarFooterProps) {
           "focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-midground/40",
         )}
       >
-        {t.app.footer.org}
+        {HERMES_CREDIT}
       </a>
     </div>
   );

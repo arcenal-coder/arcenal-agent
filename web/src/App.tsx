@@ -105,8 +105,11 @@ import type { PluginManifest } from "@/plugins";
 import { useTheme } from "@/themes";
 import { isDashboardEmbeddedChatEnabled } from "@/lib/dashboard-flags";
 import { latchChatActivation } from "@/lib/chat-activation";
-import { api } from "@/lib/api";
+import { api, HERMES_BASE_PATH } from "@/lib/api";
 import type { StatusResponse, UpdateCheckResponse } from "@/lib/api";
+import { ARCENAL_BRAND, ARCENAL_LOGO_PATH } from "@/brand";
+
+const ARCENAL_LOGO_URL = `${HERMES_BASE_PATH}${ARCENAL_LOGO_PATH}`;
 
 function RouteFallback({ label = "Loading…" }: { label?: string }) {
   return (
@@ -549,9 +552,13 @@ export default function App() {
           <Menu />
         </Button>
 
-        <Typography className="font-bold text-[0.95rem] leading-[0.95] tracking-[0.05em] text-midground">
-          {t.app.brand}
-        </Typography>
+        <div className="relative h-12 w-28 overflow-hidden" title={ARCENAL_BRAND}>
+          <img
+            src={ARCENAL_LOGO_URL}
+            alt={ARCENAL_BRAND}
+            className="absolute left-1/2 top-1/2 w-[150px] max-w-none -translate-x-1/2 -translate-y-1/2"
+          />
+        </div>
       </header>
 
       {mobileOpen && (
@@ -598,7 +605,7 @@ export default function App() {
           >
             <div
               className={cn(
-                "flex h-14 shrink-0 items-center gap-2",
+                "flex h-28 shrink-0 items-center gap-2",
                 "border-b border-current/20",
                 collapsed ? "lg:justify-center lg:px-0" : "px-4 justify-between",
               )}
@@ -611,11 +618,16 @@ export default function App() {
               >
                 <PluginSlot name="header-left" />
 
-                <Typography className="font-bold text-[1.125rem] leading-[0.95] tracking-[0.0525rem] text-midground uppercase">
-                  Hermes
-                  <br />
-                  Agent
-                </Typography>
+                <div
+                  className="relative h-24 w-44 overflow-hidden"
+                  title={ARCENAL_BRAND}
+                >
+                  <img
+                    src={ARCENAL_LOGO_URL}
+                    alt={ARCENAL_BRAND}
+                    className="absolute left-1/2 top-1/2 w-[250px] max-w-none -translate-x-1/2 -translate-y-1/2"
+                  />
+                </div>
               </div>
 
               <Button
