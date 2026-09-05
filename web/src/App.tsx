@@ -108,7 +108,7 @@ import { isDashboardEmbeddedChatEnabled } from "@/lib/dashboard-flags";
 import { latchChatActivation } from "@/lib/chat-activation";
 import { api, HERMES_BASE_PATH } from "@/lib/api";
 import type { StatusResponse, UpdateCheckResponse } from "@/lib/api";
-import { ARCENAL_BRAND, ARCENAL_LOGO_PATH } from "@/brand";
+import { ARCENAL_LOGO_PATH } from "@/brand";
 
 const ARCENAL_LOGO_URL = `${HERMES_BASE_PATH}${ARCENAL_LOGO_PATH}`;
 
@@ -514,7 +514,8 @@ export default function App() {
     <ProfileProvider>
     <div
       data-layout-variant={layoutVariant}
-      className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background-base text-text-primary antialiased"
+      data-arcenal-shell="true"
+      className="arcenal-shell flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background-base text-text-primary antialiased"
     >
       <SelectionSwitcher />
 
@@ -550,12 +551,9 @@ export default function App() {
           <Menu />
         </Button>
 
-        <div className="relative h-12 w-28 overflow-hidden" title={ARCENAL_BRAND}>
-          <img
-            src={ARCENAL_LOGO_URL}
-            alt={ARCENAL_BRAND}
-            className="absolute left-1/2 top-1/2 w-[150px] max-w-none -translate-x-1/2 -translate-y-1/2"
-          />
+        <div className="arcenal-workspace-mark" title="Espace ARCenal">
+          <span aria-hidden>A</span>
+          <strong>ARCENAL</strong>
         </div>
       </header>
 
@@ -616,15 +614,9 @@ export default function App() {
               >
                 <PluginSlot name="header-left" />
 
-                <div
-                  className="relative h-24 w-44 overflow-hidden"
-                  title={ARCENAL_BRAND}
-                >
-                  <img
-                    src={ARCENAL_LOGO_URL}
-                    alt={ARCENAL_BRAND}
-                    className="absolute left-1/2 top-1/2 w-[250px] max-w-none -translate-x-1/2 -translate-y-1/2"
-                  />
+                <div className="arcenal-workspace-mark" title="Espace ARCenal">
+                  <span aria-hidden>A</span>
+                  <strong>ARCENAL</strong>
                 </div>
               </div>
 
@@ -772,6 +764,21 @@ export default function App() {
                 isDocsRoute && "min-h-0 flex-1",
               )}
             >
+              <header className="arcenal-universal-bar">
+                <div className="arcenal-context">
+                  <span className="arcenal-context-mark" aria-hidden>A</span>
+                  <span><strong>ARCenal OS</strong><small>Centre de contrôle</small></span>
+                </div>
+                <NavLink to="/chat" className="arcenal-command-link">
+                  <Sparkles aria-hidden className="h-4 w-4" />
+                  <span>Demander à ARCenal…</span>
+                  <kbd>⌘ K</kbd>
+                </NavLink>
+                <NavLink to="/" className="arcenal-home-link">
+                  <LayoutDashboard aria-hidden className="h-4 w-4" />
+                  <span>Accueil</span>
+                </NavLink>
+              </header>
               <PluginSlot name="pre-main" />
               <div
                 className={cn(
@@ -828,6 +835,12 @@ export default function App() {
                   ) : null)}
               </div>
               <PluginSlot name="post-main" />
+              {!isChatRoute && (
+                <footer className="arcenal-product-signature">
+                  <img src={ARCENAL_LOGO_URL} alt="ARCenal OS" />
+                  <span>Propulsé par ARCenal OS</span>
+                </footer>
+              )}
             </div>
           </PageHeaderProvider>
         </div>
