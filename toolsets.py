@@ -444,6 +444,8 @@ TOOLSETS = {
     "hermes-api-server": {
         "description": "OpenAI-compatible API server — full agent tools accessible via HTTP (no interactive UI tools like clarify or send_message)",
         "tools": [
+            # Supervision native du serveur ARCenal Système.
+            "arcenal_system_status", "arcenal_create_report", "arcenal_repair",
             # Web
             "web_search", "web_extract",
             # Terminal + process management

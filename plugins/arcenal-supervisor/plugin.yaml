@@ -1,0 +1,9 @@
+name: arcenal-supervisor
+version: 0.1.0
+description: "Supervision ARCenal Système accessible depuis le dashboard et le chat."
+author: ARCenal
+kind: backend
+provides_tools:
+  - arcenal_system_status
+  - arcenal_create_report
+  - arcenal_repair

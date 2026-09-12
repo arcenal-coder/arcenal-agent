@@ -1,0 +1,11 @@
+{
+  "name": "arcenal-supervisor",
+  "label": "Supervision",
+  "description": "Supervision, rapports et maintenance sécurisée d’ARCenal Système.",
+  "icon": "Activity",
+  "version": "0.1.0",
+  "tab": { "path": "/supervision", "position": "before:sessions" },
+  "entry": "dist/index.js",
+  "css": "dist/style.css",
+  "api": "plugin_api.py"
+}
