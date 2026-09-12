@@ -26,7 +26,6 @@ SERVICES = (
     ("yunohost-api", "API YunoHost"),
     ("yunohost-portal-api", "Portail YunoHost"),
     ("slapd", "Annuaire LDAP"),
-    ("redis-server", "Cache Redis"),
 )
 
 RESTARTABLE_SERVICES = tuple(service for service, _label in SERVICES)

@@ -100,7 +100,7 @@ REPAIR_SCHEMA = {
         "type": "object",
         "properties": {
             "operation": {"type": "string", "enum": ["refresh-diagnostics", "reload-nginx", "restart-service"]},
-            "service": {"type": "string", "enum": ["arcenal", "nginx", "yunohost-api", "yunohost-portal-api", "slapd", "redis-server"]},
+            "service": {"type": "string", "enum": ["arcenal", "nginx", "yunohost-api", "yunohost-portal-api", "slapd"]},
             "confirmed": {"type": "boolean", "description": "Vrai uniquement après confirmation explicite de l’utilisateur."},
         },
         "required": ["operation", "confirmed"],
