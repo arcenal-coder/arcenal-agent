@@ -74,6 +74,71 @@ def test_maintenance_catalog_requires_approval():
     assert set(supervisor.RESTARTABLE_SERVICES) == {service for service, _label in supervisor.SERVICES}
 
 
+def test_maintenance_rejects_missing_confirmation() -> None:
+    request = supervisor.MaintenanceRequest(operation="refresh-diagnostics")
+
+    try:
+        supervisor._validate_maintenance(request)
+    except supervisor.HTTPException as error:
+        assert error.status_code == 409
+    else:
+        raise AssertionError("La maintenance non confirmée devait être refusée.")
+
+
+def test_maintenance_rejects_unknown_service() -> None:
+    request = supervisor.MaintenanceRequest(
+        operation="restart-service", service="ssh", confirmed=True
+    )
+
+    try:
+        supervisor._validate_maintenance(request)
+    except supervisor.HTTPException as error:
+        assert error.status_code == 422
+    else:
+        raise AssertionError("Le service hors liste devait être refusé.")
+
+
+def test_maintenance_rejects_unknown_operation() -> None:
+    request = supervisor.MaintenanceRequest(operation="run-shell", confirmed=True)
+
+    try:
+        supervisor._validate_maintenance(request)
+    except supervisor.HTTPException as error:
+        assert error.status_code == 422
+    else:
+        raise AssertionError("L’opération hors catalogue devait être refusée.")
+
+
+def test_maintenance_builds_a_fixed_command(monkeypatch, tmp_path) -> None:
+    helper = tmp_path / "helper"
+    captured = []
+    monkeypatch.setattr(supervisor, "_maintenance_helper", lambda: helper)
+    monkeypatch.setattr(supervisor, "_run", lambda command, timeout: captured.append((command, timeout)) or (0, "ok"))
+    request = supervisor.MaintenanceRequest(
+        operation="restart-service", service="nginx", confirmed=True
+    )
+
+    assert supervisor._execute_maintenance(request) == (0, "ok")
+    assert captured == [(["sudo", "-n", str(helper), "restart-service", "nginx"], 120)]
+
+
+def test_maintenance_executes_allowlisted_action(monkeypatch, tmp_path) -> None:
+    helper = tmp_path / "helper"
+    helper.touch()
+    monkeypatch.setattr(supervisor, "_maintenance_helper", lambda: helper)
+    monkeypatch.setattr(supervisor, "_execute_maintenance", lambda _request: (0, "ok"))
+    monkeypatch.setattr(supervisor, "collect_overview", lambda: {"health": "healthy"})
+    request = supervisor.MaintenanceRequest(
+        operation="restart-service", service="nginx", confirmed=True
+    )
+
+    result = supervisor.execute_maintenance(request)
+
+    assert result["status"] == "completed"
+    assert result["service"] == "nginx"
+    assert result["details"] == "ok"
+
+
 def test_plugin_specializes_the_agent_as_arc() -> None:
     plugin = _load_plugin()
     context = PluginContext()

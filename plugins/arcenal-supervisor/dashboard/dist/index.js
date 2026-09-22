@@ -32,6 +32,18 @@
     const busyState = React.useState(false);
     const busy = busyState[0];
     const setBusy = busyState[1];
+    const maintenanceState = React.useState(null);
+    const maintenance = maintenanceState[0];
+    const setMaintenance = maintenanceState[1];
+    const pendingState = React.useState(null);
+    const pending = pendingState[0];
+    const setPending = pendingState[1];
+    const serviceState = React.useState("arcenal");
+    const selectedService = serviceState[0];
+    const setSelectedService = serviceState[1];
+    const resultState = React.useState(null);
+    const maintenanceResult = resultState[0];
+    const setMaintenanceResult = resultState[1];
 
     function refresh() {
       setBusy(true);
@@ -50,7 +62,37 @@
       }).finally(function () { setBusy(false); });
     }
 
-    React.useEffect(refresh, []);
+    function loadMaintenance() {
+      api("/maintenance").then(setMaintenance).catch(function (err) {
+        setError(err.message || "Catalogue de maintenance indisponible");
+      });
+    }
+
+    function prepareMaintenance(action) {
+      setPending(action);
+      setMaintenanceResult(null);
+      if (action.id !== "restart-service") setSelectedService("arcenal");
+    }
+
+    function executeMaintenance() {
+      const payload = { operation: pending.id, confirmed: true };
+      if (pending.id === "restart-service") payload.service = selectedService;
+      setBusy(true);
+      setError("");
+      api("/maintenance/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).then(function (result) {
+        setMaintenanceResult(result);
+        setData(result.overview);
+        setPending(null);
+      }).catch(function (err) {
+        setError(err.message || "Intervention non exécutée");
+      }).finally(function () { setBusy(false); });
+    }
+
+    React.useEffect(function () { refresh(); loadMaintenance(); }, []);
 
     return h("main", { className: "as-page" },
       h("header", { className: "as-heading" },
@@ -97,6 +139,45 @@
             : h("div", { className: "as-incidents" }, data.incidents.map(function (incident, index) {
                 return h("article", { key: incident.source + index }, h("strong", null, incident.source), h("span", null, incident.message));
               }))
+        ),
+        maintenance && h("section", { className: "as-panel" },
+          h("div", { className: "as-section-title" },
+            h("h2", null, "Maintenance sécurisée"),
+            h("span", null, maintenance.execution_enabled ? "canal disponible" : "canal indisponible")
+          ),
+          h("div", { className: "as-maintenance" }, maintenance.actions.map(function (action) {
+            return h("article", { key: action.id },
+              h("div", null,
+                h("strong", null, action.label),
+                h("small", null, action.description),
+                h("span", { className: "as-risk " + action.risk }, "Risque " + action.risk)
+              ),
+              h("button", {
+                disabled: busy || !maintenance.execution_enabled,
+                onClick: function () { prepareMaintenance(action); }
+              }, "Préparer")
+            );
+          })),
+          pending && h("div", { className: "as-confirm", role: "alertdialog", "aria-modal": "true" },
+            h("strong", null, "Confirmer l’intervention"),
+            h("p", null, pending.label + " — ARC vérifiera l’état du serveur après l’exécution."),
+            pending.id === "restart-service" && h("label", null, "Service",
+              h("select", { value: selectedService, onChange: function (event) { setSelectedService(event.target.value); } },
+                data.services.map(function (service) {
+                  return h("option", { key: service.id, value: service.id }, service.label);
+                })
+              )
+            ),
+            h("div", { className: "as-confirm-actions" },
+              h("button", { disabled: busy, onClick: function () { setPending(null); } }, "Annuler"),
+              h("button", { className: "primary", disabled: busy, onClick: executeMaintenance }, busy ? "Intervention…" : "Confirmer et exécuter")
+            )
+          ),
+          maintenanceResult && h("div", { className: "as-maintenance-result", role: "status" },
+            h("strong", null, "Intervention terminée"),
+            h("span", null, maintenanceResult.action.label),
+            maintenanceResult.details && h("pre", null, maintenanceResult.details)
+          )
         )
       )
     );

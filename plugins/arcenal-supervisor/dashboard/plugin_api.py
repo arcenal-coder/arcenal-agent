@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -53,6 +54,16 @@ MAINTENANCE_CATALOG = (
         "description": "Redémarrage borné aux services gérés par ARCenal Système.",
     },
 )
+
+MAINTENANCE_BY_ID = {item["id"]: item for item in MAINTENANCE_CATALOG}
+
+
+class MaintenanceRequest(BaseModel):
+    """Demande bornée provenant du panneau de supervision."""
+
+    operation: str
+    service: str | None = None
+    confirmed: bool = False
 
 
 def _run(command: list[str], timeout: int = 8) -> tuple[int, str]:
@@ -149,6 +160,30 @@ def _reports_dir() -> Path:
     return target
 
 
+def _maintenance_helper() -> Path:
+    return Path("/usr/local/sbin/arcenal-supervisor-helper")
+
+
+def _validate_maintenance(request: MaintenanceRequest) -> dict[str, Any]:
+    action = MAINTENANCE_BY_ID.get(request.operation)
+    if action is None:
+        raise HTTPException(status_code=422, detail="Opération de maintenance non autorisée.")
+    if request.operation == "restart-service" and request.service not in RESTARTABLE_SERVICES:
+        raise HTTPException(status_code=422, detail="Service non autorisé.")
+    if request.operation != "restart-service" and request.service is not None:
+        raise HTTPException(status_code=422, detail="Cette opération n’accepte aucun service.")
+    if not request.confirmed:
+        raise HTTPException(status_code=409, detail="Une confirmation administrateur est requise.")
+    return action
+
+
+def _execute_maintenance(request: MaintenanceRequest) -> tuple[int, str]:
+    command = ["sudo", "-n", str(_maintenance_helper()), request.operation]
+    if request.service:
+        command.append(request.service)
+    return _run(command, timeout=120)
+
+
 @router.get("/overview")
 def overview() -> dict[str, Any]:
     return collect_overview()
@@ -156,8 +191,25 @@ def overview() -> dict[str, Any]:
 
 @router.get("/maintenance")
 def maintenance_catalog() -> dict[str, Any]:
-    helper = Path("/usr/local/sbin/arcenal-supervisor-helper")
+    helper = _maintenance_helper()
     return {"actions": MAINTENANCE_CATALOG, "execution_enabled": helper.is_file()}
+
+
+@router.post("/maintenance/execute")
+def execute_maintenance(request: MaintenanceRequest) -> dict[str, Any]:
+    action = _validate_maintenance(request)
+    if not _maintenance_helper().is_file():
+        raise HTTPException(status_code=503, detail="Le canal de maintenance ARCenal est indisponible.")
+    code, output = _execute_maintenance(request)
+    if code != 0:
+        raise HTTPException(status_code=500, detail=output or "La maintenance a échoué.")
+    return {
+        "status": "completed",
+        "action": action,
+        "service": request.service,
+        "details": output,
+        "overview": collect_overview(),
+    }
 
 
 @router.get("/reports")

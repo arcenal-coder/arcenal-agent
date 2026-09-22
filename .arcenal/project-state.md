@@ -36,6 +36,10 @@ faciliter les mises à jour du moteur amont.
   système par le plugin `arcenal-supervisor`, après la mémoire de session.
 - Un test vérifie la spécialisation et le maintien des trois outils de
   supervision.
+- Le dashboard propose les trois opérations de maintenance autorisées, impose
+  une confirmation visible et transmet uniquement des identifiants bornés.
+- L’API rejette les opérations inconnues, les services hors liste et les
+  requêtes qui ne portent pas la confirmation administrateur.
 
 ## Validation prévue
 
@@ -45,11 +49,13 @@ faciliter les mises à jour du moteur amont.
 4. Relecture du diff et contrôle de compatibilité avec le moteur amont.
 
 Résultats du 2026-09-22 : lint JavaScript/TypeScript réussi avec avertissements
-préexistants, vérification TypeScript réussie, compilation Python réussie. Le
-lanceur de tests Python ne peut pas démarrer : aucun environnement existant ne
-contient `pytest`. Aucune dépendance n’a été installée sans autorisation.
+préexistants, vérification TypeScript réussie, syntaxe du plugin web et
+compilation Python réussies. Les scénarios directs de validation, de rejet et
+d’exécution bornée passent avec le Python applicatif. Le lanceur de tests Python
+ne peut pas démarrer : aucun environnement existant ne contient `pytest`.
+Aucune dépendance n’a été installée sans autorisation.
 
 ## Étape suivante pressentie
 
-Ajouter au tableau de supervision le cycle maintenance sécurisé : proposition,
-confirmation administrateur, exécution bornée et compte rendu vérifiable.
+Produire une livraison immuable du fork, mettre à jour le paquet YunoHost puis
+valider le parcours de maintenance sur l’instance de test.
