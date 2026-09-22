@@ -1,7 +1,8 @@
 # Manuel d’intégration des applications avec ARC
 
-**Contrat :** ARC Application Connector Protocol 1.0 (`AACP/1`)  
-**Statut :** spécification de préparation — aucun connecteur métier n’est livré  
+**Contrat :** ARC Application Connector Protocol 1.0 (`AACP/1`)
+
+**Statut :** spécification de préparation — aucun connecteur métier n’est livré
 **Cible :** applications ARCenal empaquetées pour YunoHost 12 stable
 
 Ce manuel définit comment une application ARCenal doit exposer ses fonctions à
