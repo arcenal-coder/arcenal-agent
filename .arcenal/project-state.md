@@ -1,6 +1,7 @@
 # État du projet ARCenal Agent
 
-Dernière mise à jour : 2026-09-22  
+Dernière mise à jour : 2026-09-22
+
 Branche : `arcenal`
 
 ## Objectif courant
