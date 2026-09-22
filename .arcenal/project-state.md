@@ -40,6 +40,9 @@ faciliter les mises à jour du moteur amont.
   une confirmation visible et transmet uniquement des identifiants bornés.
 - L’API rejette les opérations inconnues, les services hors liste et les
   requêtes qui ne portent pas la confirmation administrateur.
+- La livraison applicative `v0.21.0-arcenal9`, le paquet
+  `arcenal_ynh` `0.21.0~ynh21` et sa référence dans le catalogue ARCenal sont
+  publiés sur GitHub.
 
 ## Validation prévue
 
@@ -57,5 +60,5 @@ Aucune dépendance n’a été installée sans autorisation.
 
 ## Étape suivante pressentie
 
-Produire une livraison immuable du fork, mettre à jour le paquet YunoHost puis
-valider le parcours de maintenance sur l’instance de test.
+Mettre à niveau l’instance YunoHost de test vers `0.21.0~ynh21`, puis valider le
+parcours complet avec SSO administrateur et le helper privilégié réel.
