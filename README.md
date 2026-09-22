@@ -31,6 +31,10 @@ versions du moteur upstream.
 - données, mémoire et compétences persistantes séparées du code applicatif ;
 - mises à niveau effectuées par YunoHost, jamais par `arcenal update`.
 
+Les applications ARCenal peuvent préparer leur future connexion à ARC avec le
+[manuel AACP/1](docs/arc-application-connector.md). Aucun connecteur métier
+n’est activé tant qu’il n’a pas été explicitement développé et autorisé.
+
 <p align="right">
   <sub>Propulsé par <a href="https://github.com/NousResearch/hermes-agent">Hermes Agent</a> — Nous Research</sub>
 </p>
