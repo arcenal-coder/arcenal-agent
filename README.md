@@ -35,6 +35,11 @@ Les applications ARCenal peuvent préparer leur future connexion à ARC avec le
 [manuel AACP/1](docs/arc-application-connector.md). Aucun connecteur métier
 n’est activé tant qu’il n’a pas été explicitement développé et autorisé.
 
+Le troisième volet d'ARC regroupera le RAG, le wiki documentaire et la Liste
+des Documents Applicables du système QSSERP. Son architecture fonctionnelle et
+son workflow d'amélioration continue sont décrits dans la
+[spécification RAG/LDA](docs/rag-lda.md).
+
 <p align="right">
   <sub>Propulsé par <a href="https://github.com/NousResearch/hermes-agent">Hermes Agent</a> — Nous Research</sub>
 </p>

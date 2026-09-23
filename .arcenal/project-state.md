@@ -1,6 +1,6 @@
 # État du projet ARCenal Agent
 
-Dernière mise à jour : 2026-09-22
+Dernière mise à jour : 2026-09-23
 
 Branche : `arcenal`
 
@@ -29,6 +29,12 @@ faciliter les mises à jour du moteur amont.
 - Les opérations destructives ou sensibles exigent une confirmation explicite
   de l’administrateur dans la conversation en cours.
 - Les applications tierces suivront AACP/1 lorsqu’un connecteur sera développé.
+- Le volet RAG repose sur un corpus Markdown portable, un wiki documentaire et
+  une LDA calculée à partir des seules versions au statut `Applicable`.
+- Les révisions documentaires suivent le cycle Brouillon, En révision, À
+  approuver, Applicable, Archivé ; ARC peut proposer une révision, mais le
+  workflow d'approbation contrôle sa publication.
+- Wiki.js et BookStack sont les candidats prioritaires à comparer sur YunoHost.
 
 ## Travail en cours
 
@@ -43,6 +49,8 @@ faciliter les mises à jour du moteur amont.
 - La livraison applicative `v0.21.0-arcenal9`, le paquet
   `arcenal_ynh` `0.21.0~ynh21` et sa référence dans le catalogue ARCenal sont
   publiés sur GitHub.
+- La spécification fonctionnelle du RAG, de la LDA et du wiki est conservée
+  dans `docs/rag-lda.md`. Son implémentation n'est pas encore commencée.
 
 ## Validation prévue
 
@@ -58,7 +66,13 @@ d’exécution bornée passent avec le Python applicatif. Le lanceur de tests Py
 ne peut pas démarrer : aucun environnement existant ne contient `pytest`.
 Aucune dépendance n’a été installée sans autorisation.
 
+Contrôle documentaire du 2026-09-23 : `git diff --check` réussit. La commande
+globale `npm run check` reste inexécutable dans ce clone, car les outils locaux
+`tsc` et `esbuild` ne sont pas installés. Aucun test applicatif n'est affecté
+par l'ajout de la spécification RAG/LDA.
+
 ## Étape suivante pressentie
 
-Mettre à niveau l’instance YunoHost de test vers `0.21.0~ynh21`, puis valider le
-parcours complet avec SSO administrateur et le helper privilégié réel.
+Corriger et vérifier la configuration du fournisseur OpenRouter, puis comparer
+Wiki.js et BookStack sur l'instance YunoHost avant de figer l'architecture
+technique du volet RAG.
