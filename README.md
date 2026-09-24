@@ -44,6 +44,10 @@ de bord technique Hermes :
 3. **RAG & LDA** : un coffre Markdown relié, une Liste des Documents
    Applicables calculée et un wiki documentaire en lecture.
 
+Le menu secondaire **Paramètres** permet de connecter OpenRouter, de tester la
+clé API sans lancer de génération et de choisir le modèle principal d'ARC. La
+clé reste dans les données privées de l'application et n'est jamais réaffichée.
+
 Le coffre RAG est persistant et interrogeable par ARC avec des sources
 traçables. Seules les versions au statut `Applicable` alimentent la LDA et le
 wiki. Son architecture et son workflow d'amélioration continue sont détaillés

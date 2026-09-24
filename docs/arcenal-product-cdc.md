@@ -1,6 +1,6 @@
 # Cahier des charges — ARCenal Agent
 
-Version : **1.0 approuvée**
+Version : **1.1 approuvée**
 
 Date : 24 septembre 2026
 
@@ -54,6 +54,16 @@ Le cycle documentaire est : Brouillon, En révision, À approuver, Applicable,
 Archivé. ARC peut préparer une révision, mais ne peut pas publier seul une
 version applicable.
 
+### Paramètres secondaires
+
+Un accès secondaire « Paramètres », distinct des trois volets, permet à un
+administrateur de connecter OpenRouter sans manipuler de variable technique :
+
+- saisie ou rotation de la clé API dans le stockage privé existant ;
+- test de la clé auprès de l'API OpenRouter sans requête de génération ;
+- choix du modèle principal d'ARC ;
+- affichage d'un état clair sans jamais restituer la clé enregistrée.
+
 ## Critères d'acceptation
 
 1. L'arrivée dans l'application ouvre ARC et non un écran de pilotage Hermes.
@@ -64,3 +74,5 @@ version applicable.
 6. Un brouillon, une révision ou une archive n'apparaît pas dans ces vues.
 7. ARC peut rechercher un document et restituer une source traçable.
 8. Le paquet YunoHost conserve les données lors d'une mise à jour.
+9. Un administrateur peut connecter OpenRouter, vérifier la clé et choisir le
+   modèle principal depuis le menu Paramètres.
