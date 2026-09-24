@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type Dispatch, type ReactElement, type SetStateAction } from "react";
-import { Bot, CheckCircle2, KeyRound, LoaderCircle, Network, Plus, ShieldCheck } from "lucide-react";
+import { Bot, CheckCircle2, KeyRound, LoaderCircle, Monitor, Moon, Network, Plus, ShieldCheck, Sun } from "lucide-react";
 import { api, type EnvVarInfo, type ModelOptionsResponse } from "@/lib/api";
 import { autonomyFromConfig, buildProviderConnections, normalizeCustomEnvKey, type AutonomyLevel, type ProviderConnection } from "@/lib/arcenal-providers";
+import { ArcenalAccessManager } from "@/components/ArcenalAccessManager";
+import { useArcColorMode, type ArcColorMode } from "@/lib/arcenal-color-mode";
 
 interface SettingsState {
   autonomy: AutonomyLevel;
@@ -51,12 +53,20 @@ function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
     <header className="arc-workspace-heading"><p>Paramètres · Intelligence et sécurité</p><h1 id="settings-title">Connexions et autonomie d’ARC</h1><span>Ajoutez plusieurs moteurs IA, choisissez leurs usages et gardez la maîtrise des actions d’administration.</span></header>
     {state.error && <p className="arc-alert arc-alert-error" role="alert">{state.error}</p>}
     {state.notice && <p className="arc-alert arc-alert-success" role="status">{state.notice}</p>}
+    <AppearanceSettings />
     <section className="arc-settings-section"><SectionTitle icon={<Network />} eyebrow="Moteurs IA" title="Connexions et API" description="Les connexions restent disponibles simultanément. Une clé enregistrée n’est jamais réaffichée." />
       <div className="arc-provider-grid">{connections.map((provider) => <ProviderCard key={provider.id} provider={provider} state={state} setState={setState} reload={reload} />)}</div>
       <CustomConnection state={state} setState={setState} reload={reload} />
     </section>
+    <ArcenalAccessManager config={state.config} env={state.env} reload={reload} />
     <AutonomySettings state={state} setState={setState} />
   </main>;
+}
+
+function AppearanceSettings(): ReactElement {
+  const { mode, setMode } = useArcColorMode();
+  const options: Array<{ icon: ReactElement; id: ArcColorMode; label: string }> = [{ icon: <Sun />, id: "light", label: "Clair" }, { icon: <Moon />, id: "dark", label: "Sombre" }, { icon: <Monitor />, id: "system", label: "Système" }];
+  return <section className="arc-appearance" aria-label="Apparence"><strong>Thème</strong><div>{options.map((option) => <button aria-pressed={mode === option.id} key={option.id} onClick={() => setMode(option.id)} type="button">{option.icon}<span>{option.label}</span></button>)}</div></section>;
 }
 
 function SectionTitle({ icon, eyebrow, title, description }: { icon: ReactElement; eyebrow: string; title: string; description: string }): ReactElement {

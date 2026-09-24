@@ -103,6 +103,7 @@ import type { Translations } from "@/i18n/types";
 import { PluginPage, PluginSlot, usePlugins } from "@/plugins";
 import type { PluginManifest } from "@/plugins";
 import { useTheme } from "@/themes";
+import { useArcColorMode } from "@/lib/arcenal-color-mode";
 import { isDashboardEmbeddedChatEnabled } from "@/lib/dashboard-flags";
 import { latchChatActivation } from "@/lib/chat-activation";
 import { api, HERMES_BASE_PATH } from "@/lib/api";
@@ -352,6 +353,7 @@ export default function App(): ReactElement {
 }
 
 function ArcenalAdminApp(): ReactElement {
+  useArcColorMode();
   const { t } = useI18n();
   const { pathname } = useLocation();
   const { manifests, loading: pluginsLoading } = usePlugins();
