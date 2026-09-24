@@ -76,7 +76,7 @@ export default function ArcenalAgentsPage(): ReactElement {
           </div>
           <button className="arc-primary-button" disabled={creating || !draft.name.trim()} type="submit"><Sparkles aria-hidden />{creating ? "Création…" : "Créer l’agent"}</button>
           <small>L’agent est créé dans un profil isolé. Aucun connecteur applicatif n’est activé automatiquement.</small>
-          <Link to="/env" className="arc-provider-link">Configurer les clés OpenRouter, OpenAI ou Anthropic</Link>
+          <Link to="/settings" className="arc-provider-link">Connecter OpenRouter dans les paramètres ARCenal</Link>
         </form>
       </section>
       <ConnectorRoadmap />

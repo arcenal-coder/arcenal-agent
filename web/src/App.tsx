@@ -76,6 +76,7 @@ import type { SystemAction } from "@/contexts/system-actions-context";
 const ConfigPage = lazy(() => import("@/pages/ConfigPage"));
 const ArcenalAgentsPage = lazy(() => import("@/pages/ArcenalAgentsPage"));
 const ArcenalKnowledgePage = lazy(() => import("@/pages/ArcenalKnowledgePage"));
+const ArcenalSettingsPage = lazy(() => import("@/pages/ArcenalSettingsPage"));
 const ArcenalWikiPage = lazy(() => import("@/pages/ArcenalWikiPage"));
 const DocsPage = lazy(() => import("@/pages/DocsPage"));
 const EnvPage = lazy(() => import("@/pages/EnvPage"));
@@ -159,6 +160,7 @@ const BUILTIN_ROUTES_CORE: Record<string, ComponentType> = {
   "/": HomeRouteRedirect,
   "/agents": ArcenalAgentsPage,
   "/knowledge": ArcenalKnowledgePage,
+  "/settings": ArcenalSettingsPage,
   "/sessions": SessionsPage,
   "/files": FilesPage,
   "/analytics": AnalyticsPage,

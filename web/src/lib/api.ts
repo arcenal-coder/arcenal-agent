@@ -546,6 +546,15 @@ export const api = {
         body: JSON.stringify({ query, limit }),
       },
     ),
+  testArcenalOpenRouter: (apiKey?: string) =>
+    fetchJSON<ArcenalOpenRouterProbeResponse>(
+      "/api/plugins/arcenal-supervisor/openrouter/test",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_key: apiKey?.trim() || null }),
+      },
+    ),
   getLogs: (params: { file?: string; lines?: number; level?: string; component?: string }) => {
     const qs = new URLSearchParams();
     if (params.file) qs.set("file", params.file);
@@ -2202,6 +2211,12 @@ export interface ArcenalDocumentWriteResponse {
 export interface ArcenalKnowledgeSearchResponse {
   query: string;
   results: Array<ArcenalDocumentSummary & { score: number }>;
+}
+
+export interface ArcenalOpenRouterProbeResponse {
+  configured: boolean;
+  connection: "connected" | "invalid" | "missing" | "unreachable";
+  message: string;
 }
 
 export interface AnalyticsDailyEntry {

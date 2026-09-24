@@ -37,6 +37,8 @@ describe("resolvePageTitle", () => {
     expect(resolvePageTitle("/webhooks", t, [])).toBe("Webhooks");
     expect(resolvePageTitle("/pairing", t, [])).toBe("Pairing");
     expect(resolvePageTitle("/files", t, [])).toBe("Files");
+    expect(resolvePageTitle("/knowledge", t, [])).toBe("RAG & LDA");
+    expect(resolvePageTitle("/settings", t, [])).toBe("Paramètres");
   });
 
   it("prefers plugin tab labels", () => {

@@ -119,6 +119,33 @@ describe("api.getModelOptions", () => {
   });
 });
 
+describe("api.testArcenalOpenRouter", () => {
+  it("envoie la clé uniquement au test ARCenal demandé", async () => {
+    const fetchMock = jsonFetchMock({ configured: true, connection: "connected" });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.testArcenalOpenRouter("  sk-or-test  ");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/openrouter/test",
+      expect.objectContaining({
+        body: JSON.stringify({ api_key: "sk-or-test" }),
+        method: "POST",
+      }),
+    );
+  });
+
+  it("demande au serveur de tester la clé déjà enregistrée", async () => {
+    const fetchMock = jsonFetchMock({ configured: false, connection: "missing" });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.testArcenalOpenRouter();
+
+    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(options.body).toBe(JSON.stringify({ api_key: null }));
+  });
+});
+
 describe("api OAuth helpers", () => {
   it("starts OAuth login in gated mode without requiring an injected session token", async () => {
     vi.stubGlobal("window", { __HERMES_AUTH_REQUIRED__: true });

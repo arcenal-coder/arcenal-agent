@@ -1,4 +1,4 @@
-import { Bot, BrainCircuit, MessageCircleMore } from "lucide-react";
+import { Bot, BrainCircuit, MessageCircleMore, Settings } from "lucide-react";
 import type { ReactElement } from "react";
 import { NavLink } from "react-router";
 import { HERMES_BASE_PATH } from "@/lib/api";
@@ -26,7 +26,10 @@ export function ArcenalPrimaryHeader(): ReactElement {
           </NavLink>
         ))}
       </nav>
-      <span className="arc-engine-credit">Moteur<br /><b>Hermes</b></span>
+      <div className="arc-header-meta">
+        <NavLink to="/settings" className="arc-settings-link"><Settings aria-hidden /><span>Paramètres</span></NavLink>
+        <span className="arc-engine-credit">Moteur <b>Hermes</b></span>
+      </div>
     </header>
   );
 }

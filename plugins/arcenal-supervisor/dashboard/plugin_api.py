@@ -20,7 +20,7 @@ from types import ModuleType
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 router = APIRouter()
 
@@ -83,6 +83,51 @@ class MaintenanceRequest(BaseModel):
     operation: str
     service: str | None = None
     confirmed: bool = False
+
+
+class OpenRouterProbeRequest(BaseModel):
+    """Clé facultative à tester sans jamais la persister dans cette API."""
+
+    api_key: str | None = Field(default=None, max_length=512)
+
+
+class OpenRouterProbeResponse(BaseModel):
+    """État de connexion présentable sans exposer le secret utilisé."""
+
+    configured: bool
+    connection: str = Field(pattern="^(connected|invalid|missing|unreachable)$")
+    message: str
+
+
+def _configured_openrouter_key() -> str:
+    """Lit la clé gérée par Hermes depuis le magasin privé de l'application."""
+    from hermes_cli.config import load_env
+
+    return load_env().get("OPENROUTER_API_KEY", "").strip()
+
+
+def _openrouter_probe_result(status_code: int) -> OpenRouterProbeResponse:
+    """Traduit la réponse distante en état métier stable pour l'interface."""
+    if status_code in {200, 429}:
+        return OpenRouterProbeResponse(configured=True, connection="connected", message="Connexion OpenRouter opérationnelle.")
+    if status_code in {401, 403}:
+        return OpenRouterProbeResponse(configured=True, connection="invalid", message="OpenRouter a refusé cette clé API.")
+    return OpenRouterProbeResponse(configured=True, connection="unreachable", message=f"OpenRouter répond avec le code HTTP {status_code}.")
+
+
+async def _probe_openrouter(api_key: str) -> OpenRouterProbeResponse:
+    """Teste une clé avec l'endpoint de lecture OpenRouter prévu à cet effet."""
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(8.0)) as client:
+            response = await client.get(
+                "https://openrouter.ai/api/v1/key",
+                headers={"Accept": "application/json", "Authorization": f"Bearer {api_key}"},
+            )
+    except httpx.HTTPError:
+        return OpenRouterProbeResponse(configured=True, connection="unreachable", message="OpenRouter est temporairement inaccessible.")
+    return _openrouter_probe_result(response.status_code)
 
 
 def _run(command: list[str], timeout: int = 8) -> tuple[int, str]:
@@ -206,6 +251,19 @@ def _execute_maintenance(request: MaintenanceRequest) -> tuple[int, str]:
 @router.get("/overview")
 def overview() -> dict[str, Any]:
     return collect_overview()
+
+
+@router.post("/openrouter/test", response_model=OpenRouterProbeResponse)
+async def test_openrouter(request: OpenRouterProbeRequest) -> OpenRouterProbeResponse:
+    """Teste la clé saisie ou, à défaut, la clé déjà configurée."""
+    api_key = (request.api_key or "").strip() or _configured_openrouter_key()
+    if not api_key:
+        return OpenRouterProbeResponse(
+            configured=False,
+            connection="missing",
+            message="Ajoutez une clé API OpenRouter pour établir la connexion.",
+        )
+    return await _probe_openrouter(api_key)
 
 
 @router.get("/maintenance")
