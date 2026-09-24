@@ -1,18 +1,19 @@
 # État du projet ARCenal Agent
 
-Dernière mise à jour : 2026-09-23
+Dernière mise à jour : 2026-09-24
 
 Branche : `arcenal`
 
 ## Objectif courant
 
-Transformer le fork Hermes en ARC, architecte natif d’ARCenal Système sur
-YunoHost, tout en maintenant les adaptations dans une surcouche limitée afin de
-faciliter les mises à jour du moteur amont.
+Livrer ARCenal Agent comme produit YunoHost autonome à trois volets — ARC,
+Agents et RAG & LDA — sans exposer le tableau de bord Hermes comme interface
+principale, tout en conservant Hermes comme moteur amont actualisable.
 
 ## État observé
 
-- Le rebranding ARCenal et le tableau de supervision sont présents.
+- L'ancien tableau de pilotage est remplacé dans la navigation par trois
+  espaces ARC, Agents et RAG & LDA ; le contrôle visuel reste à exécuter.
 - Le plugin `arcenal-supervisor` expose l’état système, les rapports et trois
   réparations strictement autorisées.
 - Le paquet natif est maintenu séparément dans `arcenal_ynh`.
@@ -34,23 +35,30 @@ faciliter les mises à jour du moteur amont.
 - Les révisions documentaires suivent le cycle Brouillon, En révision, À
   approuver, Applicable, Archivé ; ARC peut proposer une révision, mais le
   workflow d'approbation contrôle sa publication.
-- Wiki.js et BookStack sont les candidats prioritaires à comparer sur YunoHost.
+- Le socle documentaire intégré utilise Markdown, FastAPI et React ; il reprend
+  les liens et liens entrants d'Obsidian sans ajouter de service externe.
 
 ## Travail en cours
 
 - L’identité et les règles opérationnelles d’ARC sont injectées dans le prompt
   système par le plugin `arcenal-supervisor`, après la mémoire de session.
-- Un test vérifie la spécialisation et le maintien des trois outils de
-  supervision.
+- Les tests vérifient la spécialisation et les cinq outils de supervision et
+  de recherche documentaire exposés à ARC.
 - Le dashboard propose les trois opérations de maintenance autorisées, impose
   une confirmation visible et transmet uniquement des identifiants bornés.
 - L’API rejette les opérations inconnues, les services hors liste et les
   requêtes qui ne portent pas la confirmation administrateur.
-- La livraison applicative `v0.21.0-arcenal9`, le paquet
-  `arcenal_ynh` `0.21.0~ynh21` et sa référence dans le catalogue ARCenal sont
-  publiés sur GitHub.
-- La spécification fonctionnelle du RAG, de la LDA et du wiki est conservée
-  dans `docs/rag-lda.md`. Son implémentation n'est pas encore commencée.
+- La livraison applicative `v0.21.0-arcenal11` et le paquet `arcenal_ynh`
+  `0.21.0~ynh24` sont publiés sur GitHub. Le catalogue ARCenal direct référence
+  cette version ; le catalogue système l'a validée et promue en `preview`.
+- Le coffre Markdown persistant, la recherche plein texte pour ARC, les liens
+  entrants, l'historique, la LDA calculée et le wiki en lecture sont
+  implémentés dans le plugin `arcenal-supervisor` et l'interface React.
+- Le wiki dispose d'une route séparée `/wiki` qui ne charge pas la façade
+  d'administration et n'expose que les versions `Applicable`.
+- Le paquet YunoHost fixe l'administration au groupe `admins`
+  et réserve au groupe `all_users` la route du wiki et ses API de lecture.
+- Le CDC approuvé est formalisé dans `docs/arcenal-product-cdc.md`.
 
 ## Validation prévue
 
@@ -59,20 +67,16 @@ faciliter les mises à jour du moteur amont.
 3. Tests unitaires ciblés du superviseur ARCenal.
 4. Relecture du diff et contrôle de compatibilité avec le moteur amont.
 
-Résultats du 2026-09-22 : lint JavaScript/TypeScript réussi avec avertissements
-préexistants, vérification TypeScript réussie, syntaxe du plugin web et
-compilation Python réussies. Les scénarios directs de validation, de rejet et
-d’exécution bornée passent avec le Python applicatif. Le lanceur de tests Python
-ne peut pas démarrer : aucun environnement existant ne contient `pytest`.
-Aucune dépendance n’a été installée sans autorisation.
-
-Contrôle documentaire du 2026-09-23 : `git diff --check` réussit. La commande
-globale `npm run check` reste inexécutable dans ce clone, car les outils locaux
-`tsc` et `esbuild` ne sont pas installés. Aucun test applicatif n'est affecté
-par l'ajout de la spécification RAG/LDA.
+Résultats du 2026-09-24 : Ruff et ESLint réussis sans erreur, vérification
+TypeScript et compilation Python réussies, 20 tests Python et 7 tests Vitest
+réussis, tests du paquet YunoHost et 9 tests du catalogue réussis. Le build de
+production Vite réussit et les trois volets ainsi que le wiki ont été contrôlés
+visuellement. Les avertissements ESLint restants proviennent du socle Hermes
+préexistant.
 
 ## Étape suivante pressentie
 
-Corriger et vérifier la configuration du fournisseur OpenRouter, puis comparer
-Wiki.js et BookStack sur l'instance YunoHost avant de figer l'architecture
-technique du volet RAG.
+Après autorisation distincte de mise en production, promouvoir le catalogue
+système de `preview` vers `stable`, puis installer la mise à jour sur le serveur
+YunoHost de recette et vérifier le fournisseur OpenRouter dans son environnement
+réel.
