@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactElement } from "react";
 import { Archive, ChevronLeft, ChevronRight, Download, FileText, Filter, Plus, Search } from "lucide-react";
 import type { ArcenalDocumentSummary } from "@/lib/api";
 import { filterLdaDocuments, paginateLdaDocuments, uniqueLdaValues, type LdaRegisterTab } from "@/lib/arcenal-lda";
-import { ldaToCsv } from "@/lib/arcenal-knowledge";
+import { arcenalAttachmentUrl, ldaToCsv } from "@/lib/arcenal-knowledge";
 
 interface ArcenalLdaRegisterProps {
   busy: boolean;
@@ -36,8 +36,9 @@ function RegisterHeading({ onCreate }: { onCreate: () => void }): ReactElement {
 
 function RegisterTabs({ documents, tab, onChange }: { documents: readonly ArcenalDocumentSummary[]; tab: LdaRegisterTab; onChange: (tab: LdaRegisterTab) => void }): ReactElement {
   const usable = documents.filter((document) => document.status === "Applicable").length;
+  const pending = documents.filter((document) => ["Brouillon", "En révision", "À approuver"].includes(document.status)).length;
   const archived = documents.filter((document) => document.status === "Archivé").length;
-  return <div className="arc-lda-tabs"><button type="button" aria-pressed={tab === "usable"} onClick={() => onChange("usable")}><strong>{usable}</strong><span>Utilisables</span></button><button type="button" aria-pressed={tab === "archived"} onClick={() => onChange("archived")}><strong>{archived}</strong><span>Archivés</span></button></div>;
+  return <div className="arc-lda-tabs"><button type="button" aria-pressed={tab === "usable"} onClick={() => onChange("usable")}><strong>{usable}</strong><span>Utilisables</span></button><button type="button" aria-pressed={tab === "pending"} onClick={() => onChange("pending")}><strong>{pending}</strong><span>À traiter</span></button><button type="button" aria-pressed={tab === "archived"} onClick={() => onChange("archived")}><strong>{archived}</strong><span>Archivés</span></button></div>;
 }
 
 interface ToolbarProps {
@@ -83,7 +84,12 @@ function RegisterRow({ document, archived, onArchive, onOpen }: { document: Arce
     if (!window.confirm(`Archiver « ${document.title} » ?`)) return;
     void onArchive(document);
   };
-  return <tr><td><Badge tone="green">{document.type}</Badge></td><td><Badge tone="blue">{document.activity || "Non définie"}</Badge></td><td>{document.number || document.reference}</td><td className="arc-lda-title">{document.title}</td><td><Badge tone="gold">{document.change_type || "Création"}</Badge></td><td>{document.validation_date || "—"}</td><td>{document.revision || document.version}</td><td>{document.reason || "—"}</td><td><button type="button" className="arc-table-action" onClick={() => onOpen(document.path)} title="Ouvrir la fiche"><FileText aria-hidden /></button></td>{!archived && <td><button type="button" className="arc-table-action danger" onClick={requestArchive} title="Archiver le document"><Archive aria-hidden /></button></td>}</tr>;
+  return <tr><td><Badge tone="green">{document.type}</Badge></td><td><Badge tone="blue">{document.activity || "Non définie"}</Badge></td><td>{document.number || document.reference}</td><td className="arc-lda-title">{document.title}</td><td><Badge tone="gold">{document.change_type || "Création"}</Badge></td><td>{document.validation_date || "—"}</td><td>{document.revision || document.version}</td><td>{document.reason || "—"}</td><td><DocumentAction document={document} onOpen={onOpen} /></td>{!archived && <td><button type="button" className="arc-table-action danger" onClick={requestArchive} title="Archiver le document"><Archive aria-hidden /></button></td>}</tr>;
+}
+
+function DocumentAction({ document, onOpen }: { document: ArcenalDocumentSummary; onOpen: (path: string) => void }): ReactElement {
+  if (!document.attachment_path) return <button type="button" className="arc-table-action" onClick={() => onOpen(document.path)} title="Ouvrir la fiche"><FileText aria-hidden /></button>;
+  return <a className="arc-table-action" href={arcenalAttachmentUrl(document.attachment_path)} title={`Télécharger ${document.attachment_name}`}><Download aria-hidden /></a>;
 }
 
 function Badge({ children, tone }: { children: string; tone: "blue" | "gold" | "green" }): ReactElement {

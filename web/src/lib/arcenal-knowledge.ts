@@ -17,6 +17,7 @@ export interface DocumentTemplateFields {
   reason?: string;
   reference?: string;
   revision?: string;
+  status?: ArcenalDocumentStatus;
   type?: string;
   validationDate?: string;
 }
@@ -36,7 +37,7 @@ date_validation: ${fields.validationDate?.trim() || ""}
 revision: ${revision}
 motif: ${fields.reason?.trim() || ""}
 version: ${revision}
-statut: Brouillon
+statut: ${fields.status || "Brouillon"}
 proprietaire: ""
 date_application: ${fields.validationDate?.trim() || ""}
 prochaine_revue: ""
@@ -47,6 +48,21 @@ tags: []
 
 Commencez la rédaction ici.
 `;
+}
+
+export const LDA_ATTACHMENT_ACCEPT = ".pdf,.docx,.odt,.txt,.md";
+export const LDA_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
+
+export function validateLdaAttachment(file: File): string {
+  const suffix = file.name.toLocaleLowerCase("fr").match(/\.[^.]+$/)?.[0] ?? "";
+  if (!LDA_ATTACHMENT_ACCEPT.split(",").includes(suffix)) return "Format accepté : PDF, DOCX, ODT, TXT ou Markdown.";
+  if (file.size === 0) return "Le document sélectionné est vide.";
+  if (file.size > LDA_ATTACHMENT_MAX_BYTES) return "Le document dépasse la limite de 20 Mio.";
+  return "";
+}
+
+export function arcenalAttachmentUrl(path: string): string {
+  return `/api/plugins/arcenal-supervisor/knowledge/attachment?path=${encodeURIComponent(path)}`;
 }
 
 export function filterDocuments(

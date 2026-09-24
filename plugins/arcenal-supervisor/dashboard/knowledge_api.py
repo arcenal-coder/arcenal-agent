@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import mimetypes
 import os
 import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/knowledge")
@@ -22,6 +25,8 @@ ALLOWED_STATUSES = (
     "Archivé",
 )
 MAX_DOCUMENT_BYTES = 1_048_576
+MAX_ATTACHMENT_BYTES = 20 * 1_048_576
+ALLOWED_ATTACHMENT_SUFFIXES = {".docx", ".md", ".odt", ".pdf", ".txt"}
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*(?:\n|\Z)", re.DOTALL)
 LINK_RE = re.compile(r"\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]")
 WORD_RE = re.compile(r"[\wÀ-ÿ-]{2,}", re.UNICODE)
@@ -59,6 +64,29 @@ def _safe_path(relative_path: str) -> Path:
     target = (knowledge_root() / candidate).resolve()
     if knowledge_root().resolve() not in target.parents:
         raise HTTPException(status_code=422, detail="Chemin documentaire invalide.")
+    return target
+
+
+def _safe_attachment_name(filename: str) -> str:
+    cleaned = Path(filename.replace("\\", "/")).name.strip()
+    cleaned = re.sub(r"[^\w .()\-]", "_", cleaned, flags=re.UNICODE)
+    if not cleaned or Path(cleaned).suffix.lower() not in ALLOWED_ATTACHMENT_SUFFIXES:
+        raise HTTPException(status_code=422, detail="Format de pièce jointe non accepté.")
+    return cleaned[:180]
+
+
+def _attachment_relative_path(document_path: str, filename: str) -> Path:
+    document = Path(document_path)
+    return Path(".attachments") / document.parent / document.stem / filename
+
+
+def _safe_attachment_path(relative_path: str) -> Path:
+    candidate = Path(relative_path.strip().replace("\\", "/"))
+    if candidate.is_absolute() or ".." in candidate.parts or candidate.parts[:1] != (".attachments",):
+        raise HTTPException(status_code=422, detail="Chemin de pièce jointe invalide.")
+    target = (knowledge_root() / candidate).resolve()
+    if knowledge_root() not in target.parents:
+        raise HTTPException(status_code=422, detail="Chemin de pièce jointe invalide.")
     return target
 
 
@@ -119,6 +147,9 @@ def _document_summary(path: Path) -> dict[str, Any]:
         "validation_date": metadata.get("date_validation", metadata.get("date_application", "")),
         "revision": metadata.get("revision", metadata.get("version", "1")),
         "reason": metadata.get("motif", ""),
+        "attachment_name": metadata.get("piece_jointe_nom", ""),
+        "attachment_path": metadata.get("piece_jointe", ""),
+        "attachment_size": _integer(metadata.get("piece_jointe_taille", "0")),
         "status": _status(metadata),
         "owner": metadata.get("proprietaire", ""),
         "application_date": metadata.get("date_application", ""),
@@ -138,7 +169,7 @@ def list_documents() -> list[dict[str, Any]]:
     documents: list[dict[str, Any]] = []
     root = knowledge_root()
     for path in sorted(root.rglob("*.md")):
-        if ".history" in path.relative_to(root).parts:
+        if {".history", ".attachments"}.intersection(path.relative_to(root).parts):
             continue
         try:
             resolved = path.resolve(strict=True)
@@ -148,6 +179,13 @@ def list_documents() -> list[dict[str, Any]]:
         except (OSError, UnicodeDecodeError):
             continue
     return documents
+
+
+def _integer(value: str) -> int:
+    try:
+        return max(0, int(value))
+    except ValueError:
+        return 0
 
 
 def _statistics(documents: list[dict[str, Any]]) -> dict[str, int]:
@@ -235,6 +273,20 @@ def _atomic_write(target: Path, content: str) -> None:
         raise HTTPException(status_code=500, detail="Écriture du document impossible.") from exc
 
 
+def _atomic_write_bytes(target: Path, content: bytes) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(content)
+        os.replace(temporary, target)
+        target.chmod(0o600)
+    except OSError as exc:
+        temporary.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail="Enregistrement de la pièce jointe impossible.") from exc
+
+
 def _history_directory(target: Path) -> Path:
     relative = target.relative_to(knowledge_root())
     return knowledge_root() / ".history" / relative.parent / relative.stem
@@ -280,6 +332,73 @@ def create_document(payload: DocumentWrite) -> dict[str, Any]:
     if target.exists():
         raise HTTPException(status_code=409, detail="Un document existe déjà à cet emplacement.")
     return write_document(payload)
+
+
+def create_document_with_attachment(
+    payload: DocumentWrite, filename: str, media_type: str, data: bytes
+) -> dict[str, Any]:
+    target = _safe_path(payload.path)
+    if target.exists():
+        raise HTTPException(status_code=409, detail="Un document existe déjà à cet emplacement.")
+    safe_name = _safe_attachment_name(filename)
+    _validate_attachment(data, safe_name)
+    relative = _attachment_relative_path(payload.path, safe_name)
+    attachment = _safe_attachment_path(relative.as_posix())
+    if attachment.exists():
+        raise HTTPException(status_code=409, detail="Cette pièce jointe existe déjà.")
+    _atomic_write_bytes(attachment, data)
+    try:
+        enriched = _with_attachment(payload.content, relative, safe_name, media_type, len(data))
+        return create_document(DocumentWrite(path=payload.path, content=enriched))
+    except Exception:
+        attachment.unlink(missing_ok=True)
+        raise
+
+
+def _validate_attachment(data: bytes, filename: str) -> None:
+    if not data:
+        raise HTTPException(status_code=422, detail="La pièce jointe est vide.")
+    if len(data) > MAX_ATTACHMENT_BYTES:
+        raise HTTPException(status_code=413, detail="La pièce jointe dépasse 20 Mio.")
+    suffix = Path(filename).suffix.lower()
+    if suffix == ".pdf" and not data.startswith(b"%PDF-"):
+        raise HTTPException(status_code=422, detail="Le fichier PDF est invalide.")
+    if suffix in {".docx", ".odt"} and not data.startswith(b"PK\x03\x04"):
+        raise HTTPException(status_code=422, detail="Le document bureautique est invalide.")
+    if suffix in {".md", ".txt"}:
+        _validate_text_attachment(data)
+
+
+def _validate_text_attachment(data: bytes) -> None:
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=422, detail="Le document texte doit être encodé en UTF-8.") from exc
+
+
+def _with_attachment(content: str, path: Path, name: str, media_type: str, size: int) -> str:
+    safe_media = media_type.replace("\n", "").replace("\r", "")[:120]
+    metadata = (
+        f"piece_jointe: {path.as_posix()}\n"
+        f"piece_jointe_nom: {name}\n"
+        f"piece_jointe_type: {safe_media}\n"
+        f"piece_jointe_taille: {size}\n"
+    )
+    if content.startswith("---\n"):
+        content = content.replace("---\n", f"---\n{metadata}", 1)
+    encoded_path = quote(path.as_posix(), safe="")
+    return f"{content.rstrip()}\n\n## Document source\n\n[{name}](/api/plugins/arcenal-supervisor/knowledge/attachment?path={encoded_path})\n"
+
+
+async def _read_upload(file: UploadFile) -> bytes:
+    chunks: list[bytes] = []
+    size = 0
+    while chunk := await file.read(1_048_576):
+        size += len(chunk)
+        if size > MAX_ATTACHMENT_BYTES:
+            raise HTTPException(status_code=413, detail="La pièce jointe dépasse 20 Mio.")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def read_wiki_document(relative_path: str) -> dict[str, Any]:
@@ -330,6 +449,30 @@ def save_document(payload: DocumentWrite) -> dict[str, Any]:
 @router.post("/document", status_code=201)
 def new_document(payload: DocumentWrite) -> dict[str, Any]:
     return create_document(payload)
+
+
+@router.post("/document/upload", status_code=201)
+async def upload_document(
+    path: str = Form(..., min_length=1, max_length=240),
+    content: str = Form(..., max_length=MAX_DOCUMENT_BYTES),
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    try:
+        data = await _read_upload(file)
+        return create_document_with_attachment(
+            DocumentWrite(path=path, content=content), file.filename or "", file.content_type or "", data
+        )
+    finally:
+        await file.close()
+
+
+@router.get("/attachment")
+def attachment(path: str = Query(min_length=1, max_length=500)) -> FileResponse:
+    target = _safe_attachment_path(path)
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="Pièce jointe introuvable.")
+    media_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+    return FileResponse(target, media_type=media_type, filename=target.name)
 
 
 @router.get("/wiki/overview")

@@ -1,7 +1,7 @@
 import type { ArcenalDocumentSummary } from "@/lib/api";
 import { filterDocuments } from "@/lib/arcenal-knowledge";
 
-export type LdaRegisterTab = "usable" | "archived";
+export type LdaRegisterTab = "usable" | "pending" | "archived";
 
 export interface LdaFilters {
   activity: string;
@@ -21,12 +21,18 @@ export function filterLdaDocuments(
   documents: readonly ArcenalDocumentSummary[],
   filters: LdaFilters,
 ): ArcenalDocumentSummary[] {
-  const status = filters.tab === "usable" ? "Applicable" : "Archivé";
+  const statuses = statusesForTab(filters.tab);
   return filterDocuments([...documents], filters.query).filter((document) => (
-    document.status === status
+    statuses.has(document.status)
     && matches(document.activity, filters.activity)
     && matches(document.type, filters.type)
   ));
+}
+
+function statusesForTab(tab: LdaRegisterTab): ReadonlySet<string> {
+  if (tab === "usable") return new Set(["Applicable"]);
+  if (tab === "archived") return new Set(["Archivé"]);
+  return new Set(["Brouillon", "En révision", "À approuver"]);
 }
 
 export function uniqueLdaValues(

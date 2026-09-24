@@ -322,3 +322,69 @@ def test_knowledge_update_archives_previous_version(monkeypatch, tmp_path) -> No
     summary = supervisor.knowledge.read_document("note.md")["document"]
     assert summary["history_count"] == 1
     assert supervisor.knowledge.knowledge_overview()["statistics"]["documents"] == 1
+
+
+def test_knowledge_upload_stores_attachment_and_document(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    payload = supervisor.knowledge.DocumentWrite(path="QSSERP/procedure.md", content=_applicable_document())
+
+    saved = supervisor.knowledge.create_document_with_attachment(
+        payload, "procédure validée.pdf", "application/pdf", b"%PDF-1.7\nsource"
+    )
+
+    document = saved["document"]
+    attachment = supervisor.knowledge.knowledge_root() / document["attachment_path"]
+    assert document["attachment_name"] == "procédure validée.pdf"
+    assert attachment.read_bytes() == b"%PDF-1.7\nsource"
+    assert "Document source" in supervisor.knowledge.read_document(payload.path)["content"]
+
+
+def test_knowledge_upload_rejects_unsupported_format(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    payload = supervisor.knowledge.DocumentWrite(path="QSSERP/script.md", content="# Script")
+
+    try:
+        supervisor.knowledge.create_document_with_attachment(
+            payload, "script.exe", "application/octet-stream", b"executable"
+        )
+    except supervisor.HTTPException as error:
+        assert error.status_code == 422
+    else:
+        raise AssertionError("Un format exécutable devait être refusé.")
+
+
+def test_knowledge_upload_rejects_empty_file(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    payload = supervisor.knowledge.DocumentWrite(path="QSSERP/vide.md", content="# Vide")
+
+    try:
+        supervisor.knowledge.create_document_with_attachment(payload, "vide.pdf", "application/pdf", b"")
+    except supervisor.HTTPException as error:
+        assert error.status_code == 422
+    else:
+        raise AssertionError("Une pièce jointe vide devait être refusée.")
+
+
+def test_knowledge_upload_rejects_fake_pdf(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    payload = supervisor.knowledge.DocumentWrite(path="QSSERP/faux.md", content="# Faux")
+
+    try:
+        supervisor.knowledge.create_document_with_attachment(
+            payload, "faux.pdf", "application/pdf", b"contenu non PDF"
+        )
+    except supervisor.HTTPException as error:
+        assert error.status_code == 422
+    else:
+        raise AssertionError("Un faux PDF devait être refusé.")
+
+
+def test_knowledge_attachment_rejects_path_escape(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+    try:
+        supervisor.knowledge._safe_attachment_path(".attachments/../../secret.pdf")
+    except supervisor.HTTPException as error:
+        assert error.status_code == 422
+    else:
+        raise AssertionError("La sortie du répertoire des pièces jointes devait être refusée.")

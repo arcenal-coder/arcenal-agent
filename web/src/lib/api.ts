@@ -537,6 +537,16 @@ export const api = {
         body: JSON.stringify({ path, content }),
       },
     ),
+  uploadArcenalDocument: (path: string, content: string, file: File) => {
+    const form = new FormData();
+    form.append("path", path);
+    form.append("content", content);
+    form.append("file", file, file.name);
+    return fetchJSON<ArcenalDocumentWriteResponse>(
+      "/api/plugins/arcenal-supervisor/knowledge/document/upload",
+      { method: "POST", body: form },
+    );
+  },
   searchArcenalKnowledge: (query: string, limit = 8) =>
     fetchJSON<ArcenalKnowledgeSearchResponse>(
       "/api/plugins/arcenal-supervisor/knowledge/search",
@@ -2167,6 +2177,9 @@ export type ArcenalDocumentStatus =
 export interface ArcenalDocumentSummary {
   activity: string;
   application_date: string;
+  attachment_name: string;
+  attachment_path: string;
+  attachment_size: number;
   backlinks: string[];
   change_type: string;
   excerpt: string;

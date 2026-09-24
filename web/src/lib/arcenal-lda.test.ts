@@ -6,6 +6,9 @@ function document(overrides: Partial<ArcenalDocumentSummary> = {}): ArcenalDocum
   return {
     activity: "Qualité",
     application_date: "",
+    attachment_name: "",
+    attachment_path: "",
+    attachment_size: 0,
     backlinks: [],
     change_type: "Création",
     excerpt: "",
@@ -43,6 +46,12 @@ describe("registre LDA", () => {
     expect(filterLdaDocuments(documents, { activity: "", query: "", tab: "archived", type: "" }))
       .toHaveLength(1);
     expect(uniqueLdaValues(documents, "activity")).toEqual(["Qualité", "Sécurité"]);
+  });
+
+  it("conserve les documents déposés dans la file à traiter", () => {
+    const documents = [document({ status: "À approuver" }), document({ status: "Brouillon" })];
+    expect(filterLdaDocuments(documents, { activity: "", query: "", tab: "pending", type: "" }))
+      .toHaveLength(2);
   });
 
   it("borne la pagination quand la page demandée n'existe pas", () => {

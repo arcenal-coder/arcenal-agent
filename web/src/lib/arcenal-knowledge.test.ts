@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ArcenalDocumentSummary } from "@/lib/api";
-import { createDocumentTemplate, filterDocuments, ldaToCsv, slugifyDocumentTitle, statusTone, withDocumentStatus } from "@/lib/arcenal-knowledge";
+import { createDocumentTemplate, filterDocuments, ldaToCsv, slugifyDocumentTitle, statusTone, validateLdaAttachment, withDocumentStatus } from "@/lib/arcenal-knowledge";
 
 const DOCUMENT: ArcenalDocumentSummary = {
   activity: "Qualité",
   application_date: "2026-09-22",
+  attachment_name: "procedure.pdf",
+  attachment_path: ".attachments/QSSERP/PR-QSSE-001/procedure.pdf",
+  attachment_size: 1024,
   backlinks: [],
   change_type: "Révision",
   excerpt: "Maîtrise des documents",
@@ -81,5 +84,17 @@ describe("modèle documentaire ARCenal", () => {
   it("ajoute un en-tête documentaire au contenu sans métadonnées", () => {
     expect(withDocumentStatus("# Note", "Applicable"))
       .toBe("---\nstatut: Applicable\n---\n# Note");
+  });
+
+  it("accepte un document PDF non vide sous la limite", () => {
+    expect(validateLdaAttachment(new File(["pdf"], "procedure.pdf"))).toBe("");
+  });
+
+  it("refuse un format de pièce jointe dangereux", () => {
+    expect(validateLdaAttachment(new File(["code"], "script.exe"))).toContain("Format accepté");
+  });
+
+  it("refuse une pièce jointe vide", () => {
+    expect(validateLdaAttachment(new File([], "vide.pdf"))).toContain("vide");
   });
 });
