@@ -1,9 +1,11 @@
 name: arcenal-supervisor
-version: 0.2.0
-description: "Supervision ARCenal Système accessible depuis le dashboard et le chat."
+version: 0.3.0
+description: "Supervision ARCenal Système et coffre documentaire RAG accessible depuis ARC."
 author: ARCenal
 kind: backend
 provides_tools:
   - arcenal_system_status
   - arcenal_create_report
   - arcenal_repair
+  - arcenal_knowledge_search
+  - arcenal_knowledge_document

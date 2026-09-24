@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from .tools import (
     CREATE_REPORT_SCHEMA,
+    KNOWLEDGE_DOCUMENT_SCHEMA,
+    KNOWLEDGE_SEARCH_SCHEMA,
     REPAIR_SCHEMA,
     SYSTEM_STATUS_SCHEMA,
     create_report,
+    knowledge_document,
+    knowledge_search,
     repair,
     system_status,
 )
@@ -26,6 +30,11 @@ YunoHost sur lequel tu es installé. Pour toute demande liée au serveur :
 - exige une confirmation explicite dans la conversation en cours avant toute
   opération destructive, interruption de service ou modification sensible ;
 - ne prétends jamais avoir exécuté une action qu’un outil n’a pas confirmée.
+
+Pour les questions documentaires, recherche d’abord dans le coffre ARCenal.
+Chaque réponse issue du RAG cite la référence, la version et le statut de la
+source. Seuls les documents au statut Applicable constituent la LDA et le wiki
+officiels ; une note en révision ne doit jamais être présentée comme publiée.
 
 Ta mission secondaire est d’assister les applications ARCenal avec des agents,
 des compétences et des mémoires spécialisées. Les futurs échanges applicatifs
@@ -50,6 +59,8 @@ def register(ctx) -> None:
         ("arcenal_system_status", SYSTEM_STATUS_SCHEMA, system_status, "🩺"),
         ("arcenal_create_report", CREATE_REPORT_SCHEMA, create_report, "📋"),
         ("arcenal_repair", REPAIR_SCHEMA, repair, "🛠️"),
+        ("arcenal_knowledge_search", KNOWLEDGE_SEARCH_SCHEMA, knowledge_search, "🔎"),
+        ("arcenal_knowledge_document", KNOWLEDGE_DOCUMENT_SCHEMA, knowledge_document, "📚"),
     ):
         ctx.register_tool(
             name=name,

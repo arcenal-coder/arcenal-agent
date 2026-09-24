@@ -3,7 +3,7 @@
 import importlib.util
 import sys
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 
@@ -41,6 +41,11 @@ def _load_plugin() -> ModuleType:
 
 
 def test_overview_shape(monkeypatch):
+    monkeypatch.setattr(
+        supervisor.shutil,
+        "disk_usage",
+        lambda _path: SimpleNamespace(total=100, used=20, free=80),
+    )
     monkeypatch.setattr(
         supervisor,
         "_service_status",
@@ -155,4 +160,165 @@ def test_plugin_specializes_the_agent_as_arc() -> None:
         "arcenal_system_status",
         "arcenal_create_report",
         "arcenal_repair",
+        "arcenal_knowledge_search",
+        "arcenal_knowledge_document",
     }
+
+
+def _applicable_document() -> str:
+    return """---
+reference: PR-QSSE-001
+titre: Gestion documentaire
+type: Procédure
+version: 4
+statut: Applicable
+proprietaire: Direction Q&D
+date_application: 2026-09-22
+prochaine_revue: 2027-09-22
+tags: [qualité, documentation]
+---
+# Gestion documentaire
+
+La version applicable définit la maîtrise des documents. Voir [[Politique QSSE]].
+"""
+
+
+def test_knowledge_persists_markdown_and_builds_lda(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    payload = supervisor.knowledge.DocumentWrite(
+        path="QSSERP/PR-QSSE-001.md", content=_applicable_document()
+    )
+
+    saved = supervisor.knowledge.write_document(payload)
+    overview = supervisor.knowledge.knowledge_overview()
+
+    assert saved["document"]["reference"] == "PR-QSSE-001"
+    assert [item["path"] for item in overview["lda"]] == ["QSSERP/PR-QSSE-001.md"]
+    assert overview["statistics"] == {
+        "documents": 1,
+        "applicable": 1,
+        "pending": 0,
+        "overdue": 0,
+    }
+
+
+def test_knowledge_search_returns_traceable_source(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    supervisor.knowledge.write_document(
+        supervisor.knowledge.DocumentWrite(path="procedure.md", content=_applicable_document())
+    )
+
+    results = supervisor.knowledge.search_documents("maîtrise documents")
+
+    assert len(results) == 1
+    assert results[0]["reference"] == "PR-QSSE-001"
+    assert results[0]["version"] == "4"
+    assert results[0]["score"] > 0
+
+
+def test_knowledge_builds_obsidian_style_backlinks(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    supervisor.knowledge.write_document(
+        supervisor.knowledge.DocumentWrite(path="procedure.md", content=_applicable_document())
+    )
+    supervisor.knowledge.write_document(
+        supervisor.knowledge.DocumentWrite(
+            path="politique.md",
+            content="---\ntitre: Politique QSSE\nstatut: Applicable\n---\n# Politique QSSE\n",
+        )
+    )
+
+    documents = supervisor.knowledge.knowledge_overview()["documents"]
+    policy = next(item for item in documents if item["title"] == "Politique QSSE")
+
+    assert policy["backlinks"] == ["Gestion documentaire"]
+
+
+def test_knowledge_empty_vault_is_valid(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+    overview = supervisor.knowledge.knowledge_overview()
+
+    assert overview["documents"] == []
+    assert overview["lda"] == []
+    assert overview["wiki"] == []
+
+
+def test_knowledge_rejects_path_escape(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    payload = supervisor.knowledge.DocumentWrite(path="../secret.md", content="# Secret")
+
+    try:
+        supervisor.knowledge.write_document(payload)
+    except supervisor.HTTPException as error:
+        assert error.status_code == 422
+    else:
+        raise AssertionError("La sortie du coffre documentaire devait être refusée.")
+
+
+def test_knowledge_never_indexes_a_symlink_outside_vault(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
+    external = tmp_path / "secret.md"
+    external.write_text("# Secret extérieur", encoding="utf-8")
+    root = supervisor.knowledge.knowledge_root()
+    (root / "secret.md").symlink_to(external)
+
+    assert supervisor.knowledge.knowledge_overview()["documents"] == []
+
+
+def test_knowledge_rejects_unknown_status(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    content = "---\ntitre: Test\nstatut: Publié\n---\n# Test\n"
+    payload = supervisor.knowledge.DocumentWrite(path="test.md", content=content)
+
+    try:
+        supervisor.knowledge.write_document(payload)
+    except supervisor.HTTPException as error:
+        assert error.status_code == 422
+    else:
+        raise AssertionError("Un statut inconnu devait être refusé.")
+
+
+def test_wiki_never_exposes_a_draft(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    draft = "---\ntitre: Projet\nstatut: Brouillon\n---\n# Projet\n"
+    supervisor.knowledge.write_document(
+        supervisor.knowledge.DocumentWrite(path="projet.md", content=draft)
+    )
+
+    assert supervisor.knowledge.wiki_overview()["documents"] == []
+    try:
+        supervisor.knowledge.read_wiki_document("projet.md")
+    except supervisor.HTTPException as error:
+        assert error.status_code == 404
+    else:
+        raise AssertionError("Le wiki ne devait pas exposer un brouillon.")
+
+
+def test_knowledge_create_never_overwrites_existing_document(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    payload = supervisor.knowledge.DocumentWrite(path="note.md", content="# Première version")
+    supervisor.knowledge.create_document(payload)
+
+    try:
+        supervisor.knowledge.create_document(
+            supervisor.knowledge.DocumentWrite(path="note.md", content="# Remplacement")
+        )
+    except supervisor.HTTPException as error:
+        assert error.status_code == 409
+    else:
+        raise AssertionError("La création ne devait pas écraser un document existant.")
+    assert supervisor.knowledge.read_document("note.md")["content"] == "# Première version"
+
+
+def test_knowledge_update_archives_previous_version(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    first = supervisor.knowledge.DocumentWrite(path="note.md", content="# Version 1")
+    second = supervisor.knowledge.DocumentWrite(path="note.md", content="# Version 2")
+    supervisor.knowledge.write_document(first)
+
+    supervisor.knowledge.write_document(second)
+
+    summary = supervisor.knowledge.read_document("note.md")["document"]
+    assert summary["history_count"] == 1
+    assert supervisor.knowledge.knowledge_overview()["statistics"]["documents"] == 1

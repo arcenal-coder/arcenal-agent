@@ -7,19 +7,38 @@ strictement autorisés dans le paquet YunoHost.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import platform
 import shutil
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 router = APIRouter()
+
+
+def _load_knowledge_api() -> ModuleType:
+    """Charge le volet documentaire sans coupler le moteur Hermes à ARCenal."""
+    source = Path(__file__).with_name("knowledge_api.py")
+    spec = importlib.util.spec_from_file_location("arcenal_knowledge_api", source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Le module documentaire ARCenal est introuvable.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+knowledge = _load_knowledge_api()
+router.include_router(knowledge.router)
 
 SERVICES = (
     ("arcenal", "ARCenal Agent"),

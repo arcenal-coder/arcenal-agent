@@ -6,13 +6,14 @@ import importlib.util
 import subprocess
 from functools import lru_cache
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 from tools.registry import tool_error, tool_result
 
 
 @lru_cache(maxsize=1)
-def _supervisor_module():
+def _supervisor_module() -> ModuleType:
     """Charge la même logique que l’API du dashboard, sans la dupliquer."""
     source = Path(__file__).parent / "dashboard" / "plugin_api.py"
     spec = importlib.util.spec_from_file_location("arcenal_supervisor_api", source)
@@ -37,6 +38,29 @@ def create_report(args: dict[str, Any], **_: Any) -> str:
         return tool_result(_supervisor_module().create_report())
     except Exception as exc:
         return tool_error(f"Création du compte rendu impossible : {exc}")
+
+
+def knowledge_search(args: dict[str, Any], **_: Any) -> str:
+    """Recherche les passages utiles et conserve référence et version."""
+    query = str(args.get("query") or "").strip()
+    if len(query) < 2:
+        return tool_error("La recherche documentaire doit contenir au moins deux caractères.")
+    try:
+        results = _supervisor_module().knowledge.search_documents(query, 8)
+        return tool_result(query=query, results=results)
+    except Exception as exc:
+        return tool_error(f"Recherche documentaire impossible : {exc}")
+
+
+def knowledge_document(args: dict[str, Any], **_: Any) -> str:
+    """Lit une source précise retenue par la recherche documentaire."""
+    path = str(args.get("path") or "").strip()
+    if not path:
+        return tool_error("Le chemin du document est requis.")
+    try:
+        return tool_result(_supervisor_module().knowledge.read_document(path))
+    except Exception as exc:
+        return tool_error(f"Lecture documentaire impossible : {exc}")
 
 
 def repair(args: dict[str, Any], **_: Any) -> str:
@@ -104,5 +128,25 @@ REPAIR_SCHEMA = {
             "confirmed": {"type": "boolean", "description": "Vrai uniquement après confirmation explicite de l’utilisateur."},
         },
         "required": ["operation", "confirmed"],
+    },
+}
+
+KNOWLEDGE_SEARCH_SCHEMA = {
+    "name": "arcenal_knowledge_search",
+    "description": "Recherche dans le RAG Markdown, la LDA et le wiki ARCenal. Renvoie des sources avec référence, version et statut.",
+    "parameters": {
+        "type": "object",
+        "properties": {"query": {"type": "string", "minLength": 2}},
+        "required": ["query"],
+    },
+}
+
+KNOWLEDGE_DOCUMENT_SCHEMA = {
+    "name": "arcenal_knowledge_document",
+    "description": "Lit un document précis du coffre après une recherche RAG.",
+    "parameters": {
+        "type": "object",
+        "properties": {"path": {"type": "string", "pattern": "^[^/].*\\.md$"}},
+        "required": ["path"],
     },
 }
