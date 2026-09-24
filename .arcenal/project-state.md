@@ -57,10 +57,10 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
   une confirmation visible et transmet uniquement des identifiants bornés.
 - L’API rejette les opérations inconnues, les services hors liste et les
   requêtes qui ne portent pas la confirmation administrateur.
-- La livraison applicative `v0.21.0-arcenal16` et le paquet `arcenal_ynh`
-  `0.21.0~ynh30` sont publiés sur GitHub. Le catalogue ARCenal direct et le
+- La livraison applicative `v0.21.0-arcenal17` et le paquet `arcenal_ynh`
+  `0.21.0~ynh31` sont publiés sur GitHub. Le catalogue ARCenal direct et le
   catalogue système stable référencent la révision de paquet
-  `12abc2727d957d81f3c658c0892c4a3a4f7ddf2e`.
+  `c4c0dd83025b849e7f11e3d61875cacae1ada876`.
 - Le paquet reconstruit proprement le code et les dépendances pendant
   l'upgrade, réinstalle `uv` si nécessaire et accepte la restauration
   `BACKUP_CORE_ONLY` sans masquer l'erreur initiale.
@@ -117,9 +117,9 @@ l'environnement disponible pour le lot précédent.
 Le registre LDA passe ESLint sans nouvelle erreur, la vérification TypeScript,
 13 tests Vitest ciblés, la compilation Python et le build Vite de production.
 Son affichage et son formulaire de création ont été contrôlés dans le navigateur.
-Le paquet ynh30 passe les cinq tests shell et le catalogue système ses 9 tests
+Le paquet ynh31 passe les six tests shell et le catalogue système ses 9 tests
 Python. Les promotions development, preview et stable ainsi que la publication
-GitHub Pages sont réussies ; le flux stable public annonce bien ynh30.
+GitHub Pages sont réussies ; les deux flux publics annoncent bien ynh31.
 Le lot suivant passe ESLint sans erreur nouvelle, TypeScript, 27 tests Vitest,
 la compilation Python, le test shell du pont YunoHost et le build Vite. Les
 thèmes clair et système ainsi que le coffre d’accès ont été contrôlés dans le
@@ -127,6 +127,6 @@ navigateur. La suite Python n’a pas démarré sur le Mac faute de module `pyte
 
 ## Étape suivante pressentie
 
-Publier une nouvelle version source et un paquet YunoHost, puis valider sur le
-serveur de recette le dépôt LDA, le coffre d’accès, l’historique du chat, le
-pont YunoHost et les permissions réelles des espaces privés.
+Actualiser le catalogue sur le serveur YunoHost de recette, installer ynh31,
+puis valider le dépôt LDA, le coffre d’accès, l’historique du chat, le pont
+YunoHost et les permissions réelles des espaces privés.
