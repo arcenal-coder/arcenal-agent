@@ -9,6 +9,7 @@ import {
   type ComponentType,
   type FocusEvent,
   type MouseEvent,
+  type ReactElement,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -23,7 +24,7 @@ import {
 import {
   Activity,
   BarChart3,
-  BookOpen,
+  BrainCircuit,
   Clock,
   Code,
   Cpu,
@@ -35,24 +36,19 @@ import {
   Globe,
   Heart,
   KeyRound,
-  LayoutDashboard,
   Menu,
   MessageSquare,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
-  Plug,
   Puzzle,
-  Radio,
   RotateCw,
   Settings,
   Shield,
-  ShieldCheck,
   Sparkles,
   Star,
   Terminal,
   Users,
-  Webhook,
   Wrench,
   X,
   Zap,
@@ -78,7 +74,9 @@ import type { SystemAction } from "@/contexts/system-actions-context";
 // Route pages are lazy-loaded so the initial dashboard shell does not pay for
 // every admin surface (and heavy deps like xterm) up front.
 const ConfigPage = lazy(() => import("@/pages/ConfigPage"));
-const ControlCenterPage = lazy(() => import("@/pages/ControlCenterPage"));
+const ArcenalAgentsPage = lazy(() => import("@/pages/ArcenalAgentsPage"));
+const ArcenalKnowledgePage = lazy(() => import("@/pages/ArcenalKnowledgePage"));
+const ArcenalWikiPage = lazy(() => import("@/pages/ArcenalWikiPage"));
 const DocsPage = lazy(() => import("@/pages/DocsPage"));
 const EnvPage = lazy(() => import("@/pages/EnvPage"));
 const FilesPage = lazy(() => import("@/pages/FilesPage"));
@@ -109,6 +107,7 @@ import { latchChatActivation } from "@/lib/chat-activation";
 import { api, HERMES_BASE_PATH } from "@/lib/api";
 import type { StatusResponse, UpdateCheckResponse } from "@/lib/api";
 import { ARCENAL_LOGO_PATH } from "@/brand";
+import { ArcenalPrimaryHeader } from "@/components/ArcenalPrimaryHeader";
 
 const ARCENAL_LOGO_URL = `${HERMES_BASE_PATH}${ARCENAL_LOGO_PATH}`;
 
@@ -137,10 +136,13 @@ function UnknownRouteFallback({ pluginsLoading }: { pluginsLoading: boolean }) {
 
 const CHAT_NAV_ITEM: NavItem = {
   path: "/chat",
-  labelKey: "chat",
-  label: "Chat",
+  label: "ARC",
   icon: Terminal,
 };
+
+function HomeRouteRedirect(): ReactElement {
+  return <Navigate to="/chat" replace />;
+}
 
 /**
  * Built-in routes except /chat.  Chat is rendered persistently (outside
@@ -154,7 +156,9 @@ const CHAT_NAV_ITEM: NavItem = {
  * keep working.
  */
 const BUILTIN_ROUTES_CORE: Record<string, ComponentType> = {
-  "/": ControlCenterPage,
+  "/": HomeRouteRedirect,
+  "/agents": ArcenalAgentsPage,
+  "/knowledge": ArcenalKnowledgePage,
   "/sessions": SessionsPage,
   "/files": FilesPage,
   "/analytics": AnalyticsPage,
@@ -184,45 +188,11 @@ function ChatRouteSink() {
 }
 
 const BUILTIN_NAV_REST: NavItem[] = [
-  { path: "/", label: "Pilotage", icon: LayoutDashboard },
-  {
-    path: "/sessions",
-    labelKey: "sessions",
-    label: "Sessions",
-    icon: MessageSquare,
-  },
-  { path: "/files", label: "Files", icon: FolderOpen },
-  {
-    path: "/analytics",
-    labelKey: "analytics",
-    label: "Analytics",
-    icon: BarChart3,
-  },
-  {
-    path: "/models",
-    labelKey: "models",
-    label: "Models",
-    icon: Cpu,
-  },
-  { path: "/logs", labelKey: "logs", label: "Logs", icon: FileText },
-  { path: "/cron", labelKey: "cron", label: "Cron", icon: Clock },
-  { path: "/skills", labelKey: "skills", label: "Skills", icon: Package },
-  { path: "/plugins", labelKey: "plugins", label: "Plugins", icon: Puzzle },
-  { path: "/mcp", label: "MCP", icon: Plug },
-  { path: "/channels", label: "Channels", icon: Radio },
-  { path: "/webhooks", label: "Webhooks", icon: Webhook },
-  { path: "/pairing", label: "Pairing", icon: ShieldCheck },
-  { path: "/profiles", labelKey: "profiles", label: "Profiles", icon: Users },
-  { path: "/config", labelKey: "config", label: "Config", icon: Settings },
-  { path: "/env", labelKey: "keys", label: "Keys", icon: KeyRound },
-  { path: "/system", label: "System", icon: Wrench },
-  {
-    path: "/docs",
-    labelKey: "documentation",
-    label: "Documentation",
-    icon: BookOpen,
-  },
+  { path: "/agents", label: "Agents", icon: Users },
+  { path: "/knowledge", label: "RAG & LDA", icon: BrainCircuit },
 ];
+
+const SHOW_TECHNICAL_SIDEBAR = false;
 
 const ICON_MAP: Record<string, ComponentType<{ className?: string }>> = {
   Activity,
@@ -370,7 +340,16 @@ function buildRoutes(
 
 const SIDEBAR_COLLAPSED_KEY = "hermes-sidebar-collapsed";
 
-export default function App() {
+export default function App(): ReactElement {
+  const { pathname } = useLocation();
+  const normalizedPath = pathname.replace(/\/$/, "") || "/";
+  if (normalizedPath === "/wiki") {
+    return <Suspense fallback={<RouteFallback label="Chargement du wiki…" />}><ArcenalWikiPage /></Suspense>;
+  }
+  return <ArcenalAdminApp />;
+}
+
+function ArcenalAdminApp(): ReactElement {
   const { t } = useI18n();
   const { pathname } = useLocation();
   const { manifests, loading: pluginsLoading } = usePlugins();
@@ -452,23 +431,21 @@ export default function App() {
   const builtinRoutes = useMemo(
     () => ({
       ...BUILTIN_ROUTES_CORE,
-      ...(embeddedChat ? { "/chat": ChatRouteSink } : {}),
+      "/chat": embeddedChat ? ChatRouteSink : ChatPage,
     }),
     [embeddedChat],
   );
 
   const builtinNav = useMemo(() => {
-    const base = embeddedChat
-      ? [CHAT_NAV_ITEM, ...BUILTIN_NAV_REST]
-      : BUILTIN_NAV_REST;
+    const base = [CHAT_NAV_ITEM, ...BUILTIN_NAV_REST];
     return showTokenAnalytics
       ? base
       : base.filter((n) => n.path !== "/analytics");
-  }, [embeddedChat, showTokenAnalytics]);
+  }, [showTokenAnalytics]);
 
   const sidebarNav = useMemo(
-    () => partitionSidebarNav(builtinNav, manifests),
-    [builtinNav, manifests],
+    () => partitionSidebarNav(builtinNav, []),
+    [builtinNav],
   );
   const routes = useMemo(
     () => buildRoutes(builtinRoutes, manifests),
@@ -647,7 +624,7 @@ export default function App() {
               </Button>
             </div>
 
-            <ProfileSwitcher collapsed={isDesktopCollapsed} />
+            {SHOW_TECHNICAL_SIDEBAR && <ProfileSwitcher collapsed={isDesktopCollapsed} />}
 
             <nav
               className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden border-t border-current/10 py-2"
@@ -699,12 +676,14 @@ export default function App() {
               )}
             </nav>
 
-            <SidebarSystemActions
-              collapsed={isDesktopCollapsed}
-              onNavigate={closeMobile}
-              status={sidebarStatus}
-              tooltipWarmRef={tooltipWarmRef}
-            />
+            {SHOW_TECHNICAL_SIDEBAR && (
+              <SidebarSystemActions
+                collapsed={isDesktopCollapsed}
+                onNavigate={closeMobile}
+                status={sidebarStatus}
+                tooltipWarmRef={tooltipWarmRef}
+              />
+            )}
 
             <div
               className={cn(
@@ -764,21 +743,7 @@ export default function App() {
                 isDocsRoute && "min-h-0 flex-1",
               )}
             >
-              <header className="arcenal-universal-bar">
-                <div className="arcenal-context">
-                  <span className="arcenal-context-mark" aria-hidden>A</span>
-                  <span><strong>ARCenal OS</strong><small>Centre de contrôle</small></span>
-                </div>
-                <NavLink to="/chat" className="arcenal-command-link">
-                  <Sparkles aria-hidden className="h-4 w-4" />
-                  <span>Demander à ARCenal…</span>
-                  <kbd>⌘ K</kbd>
-                </NavLink>
-                <NavLink to="/" className="arcenal-home-link">
-                  <LayoutDashboard aria-hidden className="h-4 w-4" />
-                  <span>Accueil</span>
-                </NavLink>
-              </header>
+              <ArcenalPrimaryHeader />
               <PluginSlot name="pre-main" />
               <div
                 className={cn(
@@ -838,7 +803,7 @@ export default function App() {
               {!isChatRoute && (
                 <footer className="arcenal-product-signature">
                   <img src={ARCENAL_LOGO_URL} alt="ARCenal OS" />
-                  <span>Propulsé par ARCenal OS</span>
+                  <span>ARCenal Agent · by Hermes</span>
                 </footer>
               )}
             </div>

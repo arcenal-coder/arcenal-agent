@@ -503,6 +503,49 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path, recursive }),
     }),
+  getArcenalKnowledge: () =>
+    fetchJSON<ArcenalKnowledgeOverview>(
+      "/api/plugins/arcenal-supervisor/knowledge/overview",
+    ),
+  getArcenalWiki: () =>
+    fetchJSON<ArcenalKnowledgeOverview>(
+      "/api/plugins/arcenal-supervisor/knowledge/wiki/overview",
+    ),
+  getArcenalDocument: (path: string) =>
+    fetchJSON<ArcenalDocumentResponse>(
+      `/api/plugins/arcenal-supervisor/knowledge/document?path=${encodeURIComponent(path)}`,
+    ),
+  getArcenalWikiDocument: (path: string) =>
+    fetchJSON<ArcenalDocumentResponse>(
+      `/api/plugins/arcenal-supervisor/knowledge/wiki/document?path=${encodeURIComponent(path)}`,
+    ),
+  saveArcenalDocument: (path: string, content: string) =>
+    fetchJSON<ArcenalDocumentWriteResponse>(
+      "/api/plugins/arcenal-supervisor/knowledge/document",
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, content }),
+      },
+    ),
+  createArcenalDocument: (path: string, content: string) =>
+    fetchJSON<ArcenalDocumentWriteResponse>(
+      "/api/plugins/arcenal-supervisor/knowledge/document",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, content }),
+      },
+    ),
+  searchArcenalKnowledge: (query: string, limit = 8) =>
+    fetchJSON<ArcenalKnowledgeSearchResponse>(
+      "/api/plugins/arcenal-supervisor/knowledge/search",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, limit }),
+      },
+    ),
   getLogs: (params: { file?: string; lines?: number; level?: string; component?: string }) => {
     const qs = new URLSearchParams();
     if (params.file) qs.set("file", params.file);
@@ -2103,6 +2146,62 @@ export interface ManagedFileWriteResponse {
   root: string | null;
   locked_root: string | null;
   can_change_path: boolean;
+}
+
+export type ArcenalDocumentStatus =
+  | "Brouillon"
+  | "En révision"
+  | "À approuver"
+  | "Applicable"
+  | "Archivé";
+
+export interface ArcenalDocumentSummary {
+  application_date: string;
+  backlinks: string[];
+  excerpt: string;
+  history_count: number;
+  links: string[];
+  owner: string;
+  path: string;
+  reference: string;
+  review_date: string;
+  scope: string;
+  status: ArcenalDocumentStatus;
+  tags: string[];
+  title: string;
+  type: string;
+  updated_at: string;
+  version: string;
+}
+
+export interface ArcenalKnowledgeStatistics {
+  applicable: number;
+  documents: number;
+  overdue: number;
+  pending: number;
+}
+
+export interface ArcenalKnowledgeOverview {
+  documents: ArcenalDocumentSummary[];
+  lda: ArcenalDocumentSummary[];
+  statistics: ArcenalKnowledgeStatistics;
+  statuses: ArcenalDocumentStatus[];
+  wiki: ArcenalDocumentSummary[];
+}
+
+export interface ArcenalDocumentResponse {
+  content: string;
+  document: ArcenalDocumentSummary;
+}
+
+export interface ArcenalDocumentWriteResponse {
+  document: ArcenalDocumentSummary;
+  ok: boolean;
+}
+
+export interface ArcenalKnowledgeSearchResponse {
+  query: string;
+  results: Array<ArcenalDocumentSummary & { score: number }>;
 }
 
 export interface AnalyticsDailyEntry {
