@@ -1,6 +1,6 @@
 # Architecture du RAG, de la LDA et du wiki documentaire
 
-Statut : **orientation fonctionnelle validée, réalisation à planifier**  
+Statut : **socle fonctionnel réalisé, index sémantique à compléter**
 Date : 23 septembre 2026
 
 ## 1. Objectif
@@ -125,36 +125,39 @@ ARC doit pouvoir :
 
 ## 7. Interface du troisième volet
 
-Le volet **RAG** du tableau de bord ARC comportera au minimum :
+Le volet **RAG & LDA** d'ARC comporte :
 
-- une recherche conversationnelle avec sources ;
+- une recherche plein texte utilisable par ARC avec sources ;
 - l'accès au wiki documentaire ;
 - une vue LDA filtrable et exportable ;
 - les documents en révision ou en attente d'approbation ;
-- les alertes de revue, d'obsolescence et d'incohérence ;
-- les demandes issues de l'amélioration continue.
+- les alertes de revue arrivées à échéance ;
+- les liens, liens entrants, tags et versions antérieures.
 
-## 8. Base logicielle à sélectionner
+L'index sémantique par embeddings, la détection automatique de contradictions
+et le traitement complet des demandes d'amélioration restent des évolutions du
+socle. Leur absence ne change pas la portabilité du corpus ni les règles de
+publication de la LDA.
 
-Les candidats prioritaires sont **Wiki.js** et **BookStack**, à évaluer sur une
-installation YunoHost représentative. SilverBullet reste une piste pour un
-usage Markdown programmable, mais ne suffit pas seul à la maîtrise documentaire
-QSSERP attendue.
+## 8. Base logicielle retenue
 
-La sélection finale devra vérifier :
+Le socle est intégré à ARCenal Agent et repose sur des composants libres déjà
+présents dans le projet : fichiers Markdown, API FastAPI et interface React.
+Il reprend le modèle utile d'Obsidian — notes portables, liens `[[Wiki]]`, liens
+entrants, tags et historique — sans dépendre d'un format propriétaire ni d'un
+second service à administrer.
 
-- licence et pérennité du projet ;
-- disponibilité ou maintenabilité d'un paquet YunoHost ;
-- authentification SSO et gestion fine des droits ;
-- API documentée et événements exploitables ;
-- historique, révisions et restauration ;
-- stockage exportable sans verrouillage propriétaire ;
-- performances d'indexation et sauvegarde ;
-- séparation entre contenu salarié et contenu d'administration.
+Ce choix apporte :
+
+- une installation unique par le paquet YunoHost ;
+- des documents sauvegardables et exportables sans verrouillage ;
+- une séparation stricte entre l'administration et le wiki salarié ;
+- une API bornée que le chat ARC peut interroger avec traçabilité ;
+- la possibilité d'ajouter ultérieurement un moteur vectoriel sans migrer le
+  corpus Markdown.
 
 ## 9. Hors périmètre de cette décision
 
-Ce document ne choisit pas encore le moteur vectoriel, le modèle d'embeddings,
-le wiki final ni le protocole d'indexation. Ces choix techniques devront être
-comparés sur l'instance YunoHost cible sans modifier les principes précédents.
-
+Le moteur vectoriel et le modèle d'embeddings ne sont pas encore retenus. La
+recherche lexicale actuelle reste la solution de repli déterministe ; leur ajout
+ne devra modifier ni le format du corpus, ni les règles de publication.
