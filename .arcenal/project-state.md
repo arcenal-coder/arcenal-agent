@@ -52,13 +52,15 @@ sans créer un quatrième volet métier.
   une confirmation visible et transmet uniquement des identifiants bornés.
 - L’API rejette les opérations inconnues, les services hors liste et les
   requêtes qui ne portent pas la confirmation administrateur.
-- La livraison applicative `v0.21.0-arcenal12` et le paquet `arcenal_ynh`
-  `0.21.0~ynh26` sont publiés sur GitHub. Le catalogue ARCenal direct référence
+- La livraison applicative `v0.21.0-arcenal13` et le paquet `arcenal_ynh`
+  `0.21.0~ynh27` sont publiés sur GitHub. Le catalogue ARCenal direct référence
   cette version ; le catalogue système l'a validée et promue en `stable` à la
-  révision `1d5d25aa5776cb8e0de29305b61a1f5e82be75f7`.
-- Le paquet `ynh26` reconstruit proprement le code et les dépendances pendant
+  révision `92fdcf818b3e416e378d7fb97d4597865b417f61`.
+- Le paquet reconstruit proprement le code et les dépendances pendant
   l'upgrade, réinstalle `uv` si nécessaire et accepte la restauration
   `BACKUP_CORE_ONLY` sans masquer l'erreur initiale.
+- Le build web de production exclut désormais les fichiers de test ; il réussit
+  sur YunoHost sans installer `@testing-library/react`.
 - Le menu Paramètres permet de saisir et tester la clé OpenRouter, choisir un
   modèle puis l'activer comme modèle principal d'ARC. Le diagnostic distingue
   une clé absente, invalide ou un service OpenRouter injoignable.
@@ -83,8 +85,9 @@ TypeScript et compilation Python réussies. Pour le lot OpenRouter, 3 tests
 Python isolés et 20 tests Vitest ciblés réussissent ; les tests du paquet
 YunoHost et les 9 tests du catalogue réussissent également. Le build de
 production Vite réussit et la page Paramètres a été contrôlée visuellement.
-Le test de non-régression de l'upgrade et de sa restauration réussit. Les
-avertissements ESLint restants proviennent du socle Hermes préexistant.
+Le test de non-régression de l'upgrade et de sa restauration réussit. Le build
+YunoHost a aussi été reproduit sans la dépendance de test absente du serveur.
+Les avertissements ESLint restants proviennent du socle Hermes préexistant.
 
 ## Étape suivante pressentie
 
