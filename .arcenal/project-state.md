@@ -53,10 +53,10 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
   une confirmation visible et transmet uniquement des identifiants bornés.
 - L’API rejette les opérations inconnues, les services hors liste et les
   requêtes qui ne portent pas la confirmation administrateur.
-- La livraison applicative `v0.21.0-arcenal15` et le paquet `arcenal_ynh`
-  `0.21.0~ynh29` sont publiés sur GitHub. Le catalogue ARCenal direct référence
-  cette version ; le catalogue système l'a validée et promue en `stable` à la
-  révision `551be483de36d4b52f1ec7b39b2503c68f04b513`.
+- La livraison applicative `v0.21.0-arcenal16` et le paquet `arcenal_ynh`
+  `0.21.0~ynh30` sont publiés sur GitHub. Le catalogue ARCenal direct et le
+  catalogue système stable référencent la révision de paquet
+  `12abc2727d957d81f3c658c0892c4a3a4f7ddf2e`.
 - Le paquet reconstruit proprement le code et les dépendances pendant
   l'upgrade, réinstalle `uv` si nécessaire et accepte la restauration
   `BACKUP_CORE_ONLY` sans masquer l'erreur initiale.
@@ -107,9 +107,12 @@ l'environnement disponible pour le lot précédent.
 Le registre LDA passe ESLint sans nouvelle erreur, la vérification TypeScript,
 13 tests Vitest ciblés, la compilation Python et le build Vite de production.
 Son affichage et son formulaire de création ont été contrôlés dans le navigateur.
+Le paquet ynh30 passe les cinq tests shell et le catalogue système ses 9 tests
+Python. Les promotions development, preview et stable ainsi que la publication
+GitHub Pages sont réussies ; le flux stable public annonce bien ynh30.
 
 ## Étape suivante pressentie
 
-Installer la mise à jour stable sur le serveur YunoHost de recette, puis valider
-le chat natif, les connexions multi-fournisseurs et les permissions réelles des
-espaces d'administration et du wiki.
+Actualiser le catalogue sur le serveur YunoHost de recette, installer ynh30,
+puis valider la LDA, le chat natif, les connexions multi-fournisseurs et les
+permissions réelles des espaces d'administration et du wiki.
