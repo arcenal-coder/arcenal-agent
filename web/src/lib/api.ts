@@ -2165,14 +2165,19 @@ export type ArcenalDocumentStatus =
   | "Archivé";
 
 export interface ArcenalDocumentSummary {
+  activity: string;
   application_date: string;
   backlinks: string[];
+  change_type: string;
   excerpt: string;
   history_count: number;
   links: string[];
+  number: string;
   owner: string;
   path: string;
   reference: string;
+  reason: string;
+  revision: string;
   review_date: string;
   scope: string;
   status: ArcenalDocumentStatus;
@@ -2180,6 +2185,7 @@ export interface ArcenalDocumentSummary {
   title: string;
   type: string;
   updated_at: string;
+  validation_date: string;
   version: string;
 }
 

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactElement } from "react";
 import { Link } from "react-router";
-import { BookOpen, Check, CircleAlert, Download, FilePenLine, Files, GitFork, Library, Plus, Save, Search, X } from "lucide-react";
+import { BookOpen, Check, CircleAlert, FilePenLine, Files, GitFork, Library, Plus, Save, Search, X } from "lucide-react";
+import { ArcenalLdaRegister } from "@/components/ArcenalLdaRegister";
 import { Markdown } from "@/components/Markdown";
 import { api, type ArcenalDocumentSummary, type ArcenalKnowledgeOverview } from "@/lib/api";
-import { createDocumentTemplate, filterDocuments, ldaToCsv, slugifyDocumentTitle, statusTone } from "@/lib/arcenal-knowledge";
+import { createDocumentTemplate, filterDocuments, slugifyDocumentTitle, statusTone, withDocumentStatus, type DocumentTemplateFields } from "@/lib/arcenal-knowledge";
 
 type KnowledgeMode = "vault" | "lda" | "wiki";
 type EditorMode = "read" | "edit";
@@ -80,15 +81,30 @@ export default function ArcenalKnowledgePage(): ReactElement {
     }
   };
 
+  const archive = async (document: ArcenalDocumentSummary): Promise<void> => {
+    try {
+      const result = await api.getArcenalDocument(document.path);
+      await api.saveArcenalDocument(document.path, withDocumentStatus(result.content, "Archivé"));
+      await loadOverview();
+    } catch (cause) {
+      setError(errorMessage(cause, "Archivage impossible."));
+    }
+  };
+
+  const openFromLda = (path: string): void => {
+    setSelectedPath(path);
+    setMode("vault");
+  };
+
   return (
     <main className="arc-knowledge" aria-labelledby="knowledge-title">
       <KnowledgeHeader overview={overview} mode={mode} onModeChange={setMode} onCreate={() => setNewDocumentOpen(true)} />
       {error && <p className="arc-alert arc-alert-error" role="alert">{error}</p>}
-      <section className="arc-vault" aria-busy={busy}>
+      {mode === "lda" ? <ArcenalLdaRegister busy={busy} documents={overview?.documents ?? []} onArchive={archive} onCreate={() => setNewDocumentOpen(true)} onOpen={openFromLda} /> : <section className="arc-vault" aria-busy={busy}>
         <DocumentRail documents={filtered} selectedPath={activePath} query={query} mode={mode} onQuery={changeQuery} onSelect={setSelectedPath} />
         <DocumentCanvas document={selected} content={content} editorMode={editorMode} onContent={setContent} onMode={setEditorMode} onSave={() => void save()} />
         <KnowledgeContext document={selected} overview={overview} mode={mode} />
-      </section>
+      </section>}
       {newDocumentOpen && <NewDocumentDialog onClose={() => setNewDocumentOpen(false)} onCreated={async (path) => { setNewDocumentOpen(false); await loadOverview(); setSelectedPath(path); setEditorMode("edit"); }} />}
     </main>
   );
@@ -114,15 +130,7 @@ function filterVisibleDocuments(documents: ArcenalDocumentSummary[], query: stri
 
 function KnowledgeHeader({ overview, mode, onModeChange, onCreate }: { overview: ArcenalKnowledgeOverview | null; mode: KnowledgeMode; onModeChange: (mode: KnowledgeMode) => void; onCreate: () => void }): ReactElement {
   const stats = overview?.statistics;
-  return <header className="arc-knowledge-header"><div><p>Volet 3 · Intelligence documentaire</p><h1 id="knowledge-title">RAG, LDA et wiki</h1><span>Un coffre Markdown portable, relié et exploitable par ARC.</span></div><div className="arc-knowledge-actions"><div className="arc-mode-switch"><ModeButton active={mode === "vault"} label="Coffre" icon={Library} onClick={() => onModeChange("vault")} /><ModeButton active={mode === "lda"} label={`LDA · ${stats?.applicable ?? 0}`} icon={Files} onClick={() => onModeChange("lda")} /><ModeButton active={mode === "wiki"} label="Wiki" icon={BookOpen} onClick={() => onModeChange("wiki")} /></div>{mode === "lda" && <button type="button" className="arc-secondary-button" onClick={() => downloadLda(overview?.lda ?? [])}><Download aria-hidden /> Export CSV</button>}{mode === "wiki" && <Link to="/wiki" className="arc-secondary-button"><BookOpen aria-hidden /> Ouvrir le wiki salarié</Link>}<button type="button" className="arc-primary-button" onClick={onCreate}><Plus aria-hidden /> Nouveau document</button></div></header>;
-}
-
-function downloadLda(documents: ArcenalDocumentSummary[]): void {
-  const blob = new Blob(["\ufeff", ldaToCsv(documents)], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = Object.assign(document.createElement("a"), { href: url, download: "LDA-ARCenal.csv" });
-  link.click();
-  URL.revokeObjectURL(url);
+  return <header className="arc-knowledge-header"><div><p>Volet 3 · Intelligence documentaire</p><h1 id="knowledge-title">RAG, LDA et wiki</h1><span>Un coffre Markdown portable, relié et exploitable par ARC.</span></div><div className="arc-knowledge-actions"><div className="arc-mode-switch"><ModeButton active={mode === "vault"} label="Coffre" icon={Library} onClick={() => onModeChange("vault")} /><ModeButton active={mode === "lda"} label={`LDA · ${stats?.applicable ?? 0}`} icon={Files} onClick={() => onModeChange("lda")} /><ModeButton active={mode === "wiki"} label="Wiki" icon={BookOpen} onClick={() => onModeChange("wiki")} /></div>{mode === "wiki" && <Link to="/wiki" className="arc-secondary-button"><BookOpen aria-hidden /> Ouvrir le wiki salarié</Link>}{mode !== "lda" && <button type="button" className="arc-primary-button" onClick={onCreate}><Plus aria-hidden /> Nouveau document</button>}</div></header>;
 }
 
 function ModeButton({ active, label, icon: Icon, onClick }: { active: boolean; label: string; icon: typeof Library; onClick: () => void }): ReactElement {
@@ -171,14 +179,20 @@ function Meta({ label, value }: { label: string; value: string }): ReactElement 
 function NewDocumentDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (path: string) => Promise<void> }): ReactElement {
   const [title, setTitle] = useState("");
   const [folder, setFolder] = useState("QSSERP");
+  const [fields, setFields] = useState<DocumentTemplateFields>({ changeType: "Création", revision: "1", type: "Procédure" });
   const [error, setError] = useState("");
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     const slug = slugifyDocumentTitle(title);
     if (!slug) return setError("Le titre doit contenir au moins une lettre ou un chiffre.");
     const path = `${folder.trim().replace(/^\/+|\/+$/g, "") || "Notes"}/${slug}.md`;
-    try { await api.createArcenalDocument(path, createDocumentTemplate(title.trim(), path)); await onCreated(path); }
+    try { await api.createArcenalDocument(path, createDocumentTemplate(title.trim(), path, fields)); await onCreated(path); }
     catch (cause) { setError(errorMessage(cause, "Création impossible.")); }
   };
-  return <div className="arc-dialog-backdrop" role="presentation"><form className="arc-dialog" role="dialog" aria-modal="true" aria-labelledby="new-document-title" onSubmit={(event) => void submit(event)}><button className="arc-dialog-close" type="button" onClick={onClose} aria-label="Fermer"><X aria-hidden /></button><p>Nouveau document</p><h2 id="new-document-title">Ajouter une note au coffre</h2>{error && <span className="arc-alert arc-alert-error">{error}</span>}<label className="arc-field"><span>Titre</span><input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Gestion des habilitations" /></label><label className="arc-field"><span>Dossier</span><input value={folder} onChange={(event) => setFolder(event.target.value)} placeholder="QSSERP" /></label><button className="arc-primary-button" type="submit" disabled={!title.trim()}><Plus aria-hidden /> Créer en brouillon</button></form></div>;
+  const update = (key: keyof DocumentTemplateFields, value: string): void => setFields((current) => ({ ...current, [key]: value }));
+  return <div className="arc-dialog-backdrop" role="presentation"><form className="arc-dialog arc-document-dialog" role="dialog" aria-modal="true" aria-labelledby="new-document-title" onSubmit={(event) => void submit(event)}><button className="arc-dialog-close" type="button" onClick={onClose} aria-label="Fermer"><X aria-hidden /></button><p>Nouveau document LDA</p><h2 id="new-document-title">Ajouter une fiche documentaire</h2>{error && <span className="arc-alert arc-alert-error">{error}</span>}<label className="arc-field"><span>Titre</span><input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Gestion des habilitations" /></label><div className="arc-form-row"><DialogInput label="Dénomination" value={fields.type ?? ""} onChange={(value) => update("type", value)} placeholder="Procédure" /><DialogInput label="Activité" value={fields.activity ?? ""} onChange={(value) => update("activity", value)} placeholder="Qualité" /></div><div className="arc-form-row"><DialogInput label="Numérotation" value={fields.number ?? ""} onChange={(value) => update("number", value)} placeholder="PRO-Q-01" /><DialogInput label="Révision N°" value={fields.revision ?? ""} onChange={(value) => update("revision", value)} placeholder="1" /></div><div className="arc-form-row"><label className="arc-field"><span>Nature</span><select value={fields.changeType} onChange={(event) => update("changeType", event.target.value)}><option>Création</option><option>Révision</option></select></label><DialogInput label="Date de validation" type="date" value={fields.validationDate ?? ""} onChange={(value) => update("validationDate", value)} /></div><DialogInput label="Motif" value={fields.reason ?? ""} onChange={(value) => update("reason", value)} placeholder="Création initiale ou motif de révision" /><DialogInput label="Dossier Markdown" value={folder} onChange={setFolder} placeholder="QSSERP" /><button className="arc-primary-button" type="submit" disabled={!title.trim()}><Plus aria-hidden /> Créer en brouillon</button></form></div>;
+}
+
+function DialogInput({ label, value, onChange, placeholder = "", type = "text" }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }): ReactElement {
+  return <label className="arc-field"><span>{label}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} /></label>;
 }
