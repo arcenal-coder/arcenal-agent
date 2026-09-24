@@ -53,14 +53,17 @@ sans créer un quatrième volet métier.
 - L’API rejette les opérations inconnues, les services hors liste et les
   requêtes qui ne portent pas la confirmation administrateur.
 - La livraison applicative `v0.21.0-arcenal13` et le paquet `arcenal_ynh`
-  `0.21.0~ynh27` sont publiés sur GitHub. Le catalogue ARCenal direct référence
+  `0.21.0~ynh28` sont publiés sur GitHub. Le catalogue ARCenal direct référence
   cette version ; le catalogue système l'a validée et promue en `stable` à la
-  révision `92fdcf818b3e416e378d7fb97d4597865b417f61`.
+  révision `cc89ae3a41a60c60f5d6c9f512b9228e4cc6b713`.
 - Le paquet reconstruit proprement le code et les dépendances pendant
   l'upgrade, réinstalle `uv` si nécessaire et accepte la restauration
   `BACKUP_CORE_ONLY` sans masquer l'erreur initiale.
 - Le build web de production exclut désormais les fichiers de test ; il réussit
   sur YunoHost sans installer `@testing-library/react`.
+- Le service YunoHost reçoit le chemin Node.js géré par la ressource officielle
+  et utilise un terminal TUI préconstruit ; l'erreur `Chat unavailable: 1` est
+  couverte par un test de non-régression du paquet.
 - Le menu Paramètres permet de saisir et tester la clé OpenRouter, choisir un
   modèle puis l'activer comme modèle principal d'ARC. Le diagnostic distingue
   une clé absente, invalide ou un service OpenRouter injoignable.
@@ -87,7 +90,9 @@ YunoHost et les 9 tests du catalogue réussissent également. Le build de
 production Vite réussit et la page Paramètres a été contrôlée visuellement.
 Le test de non-régression de l'upgrade et de sa restauration réussit. Le build
 YunoHost a aussi été reproduit sans la dépendance de test absente du serveur.
-Les avertissements ESLint restants proviennent du socle Hermes préexistant.
+Le terminal TUI se compile et passe sa vérification TypeScript. Les quatre tests
+du paquet et les 9 tests du catalogue réussissent. Les avertissements ESLint
+restants proviennent du socle Hermes préexistant.
 
 ## Étape suivante pressentie
 
