@@ -9,8 +9,8 @@ Branche : `arcenal`
 Livrer ARCenal Agent comme produit YunoHost autonome à trois volets — ARC,
 Agents et RAG & LDA — sans exposer le tableau de bord Hermes comme interface
 principale, tout en conservant Hermes comme moteur amont actualisable. Un accès
-secondaire Paramètres permet à l'administrateur de connecter ARC à OpenRouter
-sans créer un quatrième volet métier.
+secondaire Paramètres permet à l'administrateur de connecter plusieurs moteurs
+IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
 
 ## État observé
 
@@ -39,8 +39,9 @@ sans créer un quatrième volet métier.
   workflow d'approbation contrôle sa publication.
 - Le socle documentaire intégré utilise Markdown, FastAPI et React ; il reprend
   les liens et liens entrants d'Obsidian sans ajouter de service externe.
-- La clé OpenRouter est saisie uniquement dans Paramètres, stockée par le
-  mécanisme de secrets existant et n'est jamais renvoyée par l'API ou l'interface.
+- Les clés des fournisseurs sont saisies uniquement dans Paramètres, stockées
+  par le mécanisme de secrets existant et ne sont jamais renvoyées par l'API ou
+  l'interface.
 
 ## Travail en cours
 
@@ -52,21 +53,23 @@ sans créer un quatrième volet métier.
   une confirmation visible et transmet uniquement des identifiants bornés.
 - L’API rejette les opérations inconnues, les services hors liste et les
   requêtes qui ne portent pas la confirmation administrateur.
-- La livraison applicative `v0.21.0-arcenal13` et le paquet `arcenal_ynh`
-  `0.21.0~ynh28` sont publiés sur GitHub. Le catalogue ARCenal direct référence
+- La livraison applicative `v0.21.0-arcenal15` et le paquet `arcenal_ynh`
+  `0.21.0~ynh29` sont publiés sur GitHub. Le catalogue ARCenal direct référence
   cette version ; le catalogue système l'a validée et promue en `stable` à la
-  révision `cc89ae3a41a60c60f5d6c9f512b9228e4cc6b713`.
+  révision `551be483de36d4b52f1ec7b39b2503c68f04b513`.
 - Le paquet reconstruit proprement le code et les dépendances pendant
   l'upgrade, réinstalle `uv` si nécessaire et accepte la restauration
   `BACKUP_CORE_ONLY` sans masquer l'erreur initiale.
 - Le build web de production exclut désormais les fichiers de test ; il réussit
   sur YunoHost sans installer `@testing-library/react`.
-- Le service YunoHost reçoit le chemin Node.js géré par la ressource officielle
-  et utilise un terminal TUI préconstruit ; l'erreur `Chat unavailable: 1` est
-  couverte par un test de non-régression du paquet.
-- Le menu Paramètres permet de saisir et tester la clé OpenRouter, choisir un
-  modèle puis l'activer comme modèle principal d'ARC. Le diagnostic distingue
-  une clé absente, invalide ou un service OpenRouter injoignable.
+- Le volet ARC remplace le terminal TUI par un chat web natif relié à la
+  passerelle conversationnelle Hermes. Il gère l'historique, le flux de réponse,
+  l'arrêt d'une action et les validations administrateur.
+- Le menu Paramètres conserve simultanément les accès OpenRouter, OpenAI,
+  Anthropic, Gemini, Ollama et les clés personnalisées. Il permet de sélectionner
+  le modèle principal et de choisir une autonomie manuelle, encadrée ou étendue.
+- L'interface ARC reprend le thème Gratitude : fond crème et vert clair, cartes
+  blanches arrondies, ombres chaudes, typographie Inter et accent terre cuite.
 - Le coffre Markdown persistant, la recherche plein texte pour ARC, les liens
   entrants, l'historique, la LDA calculée et le wiki en lecture sont
   implémentés dans le plugin `arcenal-supervisor` et l'interface React.
@@ -90,12 +93,14 @@ YunoHost et les 9 tests du catalogue réussissent également. Le build de
 production Vite réussit et la page Paramètres a été contrôlée visuellement.
 Le test de non-régression de l'upgrade et de sa restauration réussit. Le build
 YunoHost a aussi été reproduit sans la dépendance de test absente du serveur.
-Le terminal TUI se compile et passe sa vérification TypeScript. Les quatre tests
-du paquet et les 9 tests du catalogue réussissent. Les avertissements ESLint
-restants proviennent du socle Hermes préexistant.
+Le chat ARC et le build web passent leur vérification TypeScript. Les 22 tests
+Vitest ciblés, les quatre tests du paquet et les 9 tests du catalogue réussissent.
+Les avertissements ESLint restants proviennent du socle Hermes préexistant. Les
+tests Python du plugin n'ont pas été relancés localement faute de `pytest` dans
+l'environnement disponible ; leur code serveur n'a pas été modifié dans ce lot.
 
 ## Étape suivante pressentie
 
-Installer la mise à jour stable sur le serveur YunoHost de recette, puis
-valider la connexion OpenRouter et les permissions réelles des espaces
-d'administration et du wiki.
+Installer la mise à jour stable sur le serveur YunoHost de recette, puis valider
+le chat natif, les connexions multi-fournisseurs et les permissions réelles des
+espaces d'administration et du wiki.
