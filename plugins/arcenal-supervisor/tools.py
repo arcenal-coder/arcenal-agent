@@ -3,13 +3,32 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import subprocess
+from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, TypedDict
 
+from hermes_cli.config import load_config_readonly, load_env
 from tools.registry import tool_error, tool_result
+
+
+ACCESS_ENV_PATTERN = re.compile(r"^ARCENAL_ACCESS_[A-Z0-9_]+_(?:API_KEY|PASSWORD)$")
+
+
+class AccessRecord(TypedDict):
+    """Description non secrète d’un accès confié à ARC."""
+
+    autonomy: str
+    id: str
+    kind: str
+    label: str
+    login: str | None
+    secretAvailable: bool
+    secretEnv: str
+    serviceUrl: str
 
 
 @lru_cache(maxsize=1)
@@ -61,6 +80,53 @@ def knowledge_document(args: dict[str, Any], **_: Any) -> str:
         return tool_result(_supervisor_module().knowledge.read_document(path))
     except Exception as exc:
         return tool_error(f"Lecture documentaire impossible : {exc}")
+
+
+def access_catalog(args: dict[str, Any], **_: Any) -> str:
+    """Liste les accès autorisés sans jamais exposer leurs secrets."""
+    try:
+        return tool_result(accesses=_access_records(load_config_readonly(), load_env()))
+    except Exception as exc:
+        return tool_error(f"Lecture du coffre d’accès impossible : {exc}")
+
+
+def yunohost_query(args: dict[str, Any], **_: Any) -> str:
+    """Interroge l’interface locale YunoHost au travers du pont privilégié."""
+    resource = str(args.get("resource") or "").strip()
+    if resource not in {"apps", "services", "version"}:
+        return tool_error("Ressource YunoHost non autorisée.")
+    command = ["sudo", "-n", "/usr/local/sbin/arcenal-supervisor-helper", "yunohost-query", resource]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=60, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return tool_error(f"API locale YunoHost indisponible : {exc}")
+    output = (result.stdout or result.stderr).strip()[:20000]
+    if result.returncode != 0:
+        return tool_error("L’API locale YunoHost a refusé la requête.", resource=resource, details=output)
+    return tool_result(resource=resource, details=output)
+
+
+def _access_records(config: Mapping[str, object], environment: Mapping[str, str]) -> list[AccessRecord]:
+    arcenal = config.get("arcenal")
+    if not isinstance(arcenal, Mapping):
+        return []
+    credentials = arcenal.get("access_credentials")
+    if not isinstance(credentials, list):
+        return []
+    return [record for item in credentials if (record := _safe_access_record(item, environment))]
+
+
+def _safe_access_record(item: object, environment: Mapping[str, str]) -> AccessRecord | None:
+    if not isinstance(item, Mapping):
+        return None
+    required = ("id", "kind", "label", "serviceUrl", "secretEnv", "autonomy")
+    if not all(isinstance(item.get(key), str) for key in required):
+        return None
+    values = {key: str(item[key]) for key in required}
+    if not ACCESS_ENV_PATTERN.fullmatch(values["secretEnv"]):
+        return None
+    login = item.get("login")
+    return AccessRecord(**values, login=login if isinstance(login, str) else None, secretAvailable=bool(environment.get(values["secretEnv"])))
 
 
 def repair(args: dict[str, Any], **_: Any) -> str:
@@ -148,5 +214,21 @@ KNOWLEDGE_DOCUMENT_SCHEMA = {
         "type": "object",
         "properties": {"path": {"type": "string", "pattern": "^[^/].*\\.md$"}},
         "required": ["path"],
+    },
+}
+
+ACCESS_CATALOG_SCHEMA = {
+    "name": "arcenal_access_catalog",
+    "description": "Liste les comptes et API confiés à ARC, leur autonomie et leur variable secrète, sans révéler le secret.",
+    "parameters": {"type": "object", "properties": {}},
+}
+
+YUNOHOST_QUERY_SCHEMA = {
+    "name": "arcenal_yunohost_query",
+    "description": "Interroge l’API locale YunoHost sans mot de passe pour obtenir la version, les applications ou les services.",
+    "parameters": {
+        "type": "object",
+        "properties": {"resource": {"type": "string", "enum": ["apps", "services", "version"]}},
+        "required": ["resource"],
     },
 }

@@ -162,7 +162,35 @@ def test_plugin_specializes_the_agent_as_arc() -> None:
         "arcenal_repair",
         "arcenal_knowledge_search",
         "arcenal_knowledge_document",
+        "arcenal_access_catalog",
+        "arcenal_yunohost_query",
     }
+
+
+def test_access_catalog_reports_availability_without_secret() -> None:
+    plugin = _load_plugin()
+    tools = sys.modules[plugin.access_catalog.__module__]
+    config = {"arcenal": {"access_credentials": [{"autonomy": "smart", "id": "nextcloud", "kind": "account", "label": "Nextcloud", "login": "arc", "secretEnv": "ARCENAL_ACCESS_NEXTCLOUD_PASSWORD", "serviceUrl": "https://cloud.test/"}]}}
+
+    records = tools._access_records(config, {"ARCENAL_ACCESS_NEXTCLOUD_PASSWORD": "never-returned"})
+
+    assert records[0]["secretAvailable"] is True
+    assert "never-returned" not in str(records)
+
+
+def test_access_catalog_ignores_unsafe_secret_variable() -> None:
+    plugin = _load_plugin()
+    tools = sys.modules[plugin.access_catalog.__module__]
+    config = {"arcenal": {"access_credentials": [{"autonomy": "off", "id": "bad", "kind": "api", "label": "Bad", "secretEnv": "PATH", "serviceUrl": "https://bad.test/"}]}}
+
+    assert tools._access_records(config, {"PATH": "secret"}) == []
+
+
+def test_access_catalog_accepts_an_empty_configuration() -> None:
+    plugin = _load_plugin()
+    tools = sys.modules[plugin.access_catalog.__module__]
+
+    assert tools._access_records({}, {}) == []
 
 
 def _applicable_document() -> str:
