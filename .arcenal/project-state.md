@@ -17,7 +17,8 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
 - L'ancien tableau de pilotage est remplacé dans la navigation par trois
   espaces ARC, Agents et RAG & LDA ; le contrôle visuel est validé.
 - Le plugin `arcenal-supervisor` expose l’état système, les rapports et trois
-  réparations strictement autorisées.
+  réparations strictement autorisées, ainsi qu’un pont local en lecture vers
+  les données natives YunoHost.
 - Le paquet natif est maintenu séparément dans `arcenal_ynh`.
 - AACP/1 est documenté, mais aucun connecteur applicatif n’est encore livré.
 - Une modification utilisateur hors périmètre existe dans
@@ -42,6 +43,9 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
 - Les clés des fournisseurs sont saisies uniquement dans Paramètres, stockées
   par le mécanisme de secrets existant et ne sont jamais renvoyées par l'API ou
   l'interface.
+- Les comptes métier et jetons API sont séparés de leurs métadonnées : les
+  secrets restent dans `.env`, tandis que le catalogue d’accès ne fournit à ARC
+  que le service, le login, le périmètre et le nom de variable à utiliser.
 
 ## Travail en cours
 
@@ -68,6 +72,9 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
 - Le menu Paramètres conserve simultanément les accès OpenRouter, OpenAI,
   Anthropic, Gemini, Ollama et les clés personnalisées. Il permet de sélectionner
   le modèle principal et de choisir une autonomie manuelle, encadrée ou étendue.
+- Paramètres contient désormais un coffre de comptes et d’API métier, avec une
+  autonomie propre à chaque service, ainsi qu’un commutateur clair, sombre ou
+  synchronisé sur le système.
 - L'interface ARC reprend le thème Gratitude : fond crème et vert clair, cartes
   blanches arrondies, ombres chaudes, typographie Inter et accent terre cuite.
 - Le coffre Markdown persistant, la recherche plein texte pour ARC, les liens
@@ -78,7 +85,10 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
   pagination, l'ouverture des fiches et l'archivage avec confirmation.
 - Le formulaire de création documentaire collecte la dénomination, l'activité,
   la numérotation, la nature, la date de validation, la révision et le motif,
-  tout en conservant le document source dans le coffre Markdown.
+  tout en conservant le document source original dans un espace privé. Les
+  formats PDF, DOCX, ODT, TXT et Markdown sont acceptés jusqu’à 20 Mio.
+- L’historique visible depuis le chat permet maintenant d’archiver ou de
+  supprimer une conversation après confirmation.
 - Le wiki dispose d'une route séparée `/wiki` qui ne charge pas la façade
   d'administration et n'expose que les versions `Applicable`.
 - Le paquet YunoHost fixe l'administration au groupe `admins`
@@ -110,9 +120,13 @@ Son affichage et son formulaire de création ont été contrôlés dans le navig
 Le paquet ynh30 passe les cinq tests shell et le catalogue système ses 9 tests
 Python. Les promotions development, preview et stable ainsi que la publication
 GitHub Pages sont réussies ; le flux stable public annonce bien ynh30.
+Le lot suivant passe ESLint sans erreur nouvelle, TypeScript, 27 tests Vitest,
+la compilation Python, le test shell du pont YunoHost et le build Vite. Les
+thèmes clair et système ainsi que le coffre d’accès ont été contrôlés dans le
+navigateur. La suite Python n’a pas démarré sur le Mac faute de module `pytest`.
 
 ## Étape suivante pressentie
 
-Actualiser le catalogue sur le serveur YunoHost de recette, installer ynh30,
-puis valider la LDA, le chat natif, les connexions multi-fournisseurs et les
-permissions réelles des espaces d'administration et du wiki.
+Publier une nouvelle version source et un paquet YunoHost, puis valider sur le
+serveur de recette le dépôt LDA, le coffre d’accès, l’historique du chat, le
+pont YunoHost et les permissions réelles des espaces privés.
