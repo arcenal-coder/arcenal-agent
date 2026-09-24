@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run build:arcenal && tsc -b && vite build",
+    "build:arcenal": "tsc -p ../plugins/arcenal-supervisor/dashboard/tsconfig.json --noEmit && node ../plugins/arcenal-supervisor/dashboard/build.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "fix": "npm run lint:fix",

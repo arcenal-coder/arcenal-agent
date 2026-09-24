@@ -43,4 +43,20 @@ describe("plugin SDK dialog/toast surface", () => {
     expect(typeof sdk.hooks.useState).toBe("function");
     expect(typeof sdk.hooks.useCallback).toBe("function");
   });
+
+  it("expose un client de conversation réutilisable par les plugins", () => {
+    exposePluginSDK();
+    const sdk = (globalThis as unknown as {
+      window: { __HERMES_PLUGIN_SDK__: { gateway: { createClient: () => unknown } } };
+    }).window.__HERMES_PLUGIN_SDK__;
+
+    expect(typeof sdk.gateway.createClient).toBe("function");
+    expect(sdk.gateway.createClient()).toMatchObject({
+      connect: expect.any(Function),
+      request: expect.any(Function),
+      on: expect.any(Function),
+      onState: expect.any(Function),
+      close: expect.any(Function),
+    });
+  });
 });

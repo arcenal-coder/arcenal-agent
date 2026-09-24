@@ -76,6 +76,22 @@ export type BuildWsUrl = (
 /** Lower-level: just the ``[authParamName, authParamValue]`` pair. */
 export type BuildWsAuthParam = () => Promise<[string, string]>;
 
+export type PluginConnectionState = "idle" | "connecting" | "open" | "closed" | "error";
+
+export interface PluginGatewayEvent<Payload = unknown> {
+  payload?: Payload;
+  session_id?: string;
+  type: string;
+}
+
+export interface PluginGatewayClient {
+  close(): void;
+  connect(token?: string): Promise<void>;
+  on<Payload = unknown>(type: string, handler: (event: PluginGatewayEvent<Payload>) => void): () => void;
+  onState(handler: (state: PluginConnectionState) => void): () => void;
+  request<Result>(method: string, params?: Record<string, unknown>): Promise<Result>;
+}
+
 // ---------------------------------------------------------------------------
 // Registry surface (window.__HERMES_PLUGINS__)
 // ---------------------------------------------------------------------------
@@ -147,6 +163,9 @@ export interface HermesPluginSDK {
   buildWsUrl: BuildWsUrl;
   /** Resolve just the WS auth query-param pair. */
   buildWsAuthParam: BuildWsAuthParam;
+  gateway: {
+    createClient: () => PluginGatewayClient;
+  };
 
   /**
    * Shared UI primitives (Nous DS / shadcn). Typed permissively at the
