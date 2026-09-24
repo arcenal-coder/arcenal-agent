@@ -1,32 +1,32 @@
-import { useCallback, useEffect, useState, type ChangeEvent, type Dispatch, type FormEvent, type ReactElement, type SetStateAction } from "react";
-import { CheckCircle2, CircleAlert, ExternalLink, KeyRound, LoaderCircle, PlugZap, RefreshCw, ShieldCheck } from "lucide-react";
-import { api, type ArcenalOpenRouterProbeResponse, type ModelAssignmentResponse } from "@/lib/api";
-import { connectionLabel, openRouterModelSelection } from "@/lib/arcenal-openrouter";
+import { useCallback, useEffect, useState, type ChangeEvent, type Dispatch, type ReactElement, type SetStateAction } from "react";
+import { Bot, CheckCircle2, KeyRound, LoaderCircle, Network, Plus, ShieldCheck } from "lucide-react";
+import { api, type EnvVarInfo, type ModelOptionsResponse } from "@/lib/api";
+import { autonomyFromConfig, buildProviderConnections, normalizeCustomEnvKey, type AutonomyLevel, type ProviderConnection } from "@/lib/arcenal-providers";
 
-interface OpenRouterSettingsState {
-  apiKey: string;
+interface SettingsState {
+  autonomy: AutonomyLevel;
   busy: boolean;
-  configured: boolean;
+  config: Record<string, unknown>;
+  customKey: string;
+  customSecret: string;
+  env: Record<string, EnvVarInfo>;
   error: string;
-  model: string;
-  models: string[];
+  models: ModelOptionsResponse;
   notice: string;
-  probe: ArcenalOpenRouterProbeResponse | null;
+  ollamaUrl: string;
+  secrets: Record<string, string>;
+  selectedModels: Record<string, string>;
 }
 
-const INITIAL_STATE: OpenRouterSettingsState = {
-  apiKey: "", busy: true, configured: false, error: "", model: "", models: [], notice: "", probe: null,
-};
+const EMPTY_OPTIONS: ModelOptionsResponse = { providers: [] };
+const INITIAL_STATE: SettingsState = { autonomy: "manual", busy: true, config: {}, customKey: "", customSecret: "", env: {}, error: "", models: EMPTY_OPTIONS, notice: "", ollamaUrl: "http://127.0.0.1:11434/v1", secrets: {}, selectedModels: {} };
 
 export default function ArcenalSettingsPage(): ReactElement {
-  const [state, setState] = useState<OpenRouterSettingsState>(INITIAL_STATE);
+  const [state, setState] = useState<SettingsState>(INITIAL_STATE);
   const load = useCallback(async (): Promise<void> => {
     try {
-      const [variables, options, probe] = await Promise.all([
-        api.getEnvVars(), api.getModelOptions(), api.testArcenalOpenRouter(),
-      ]);
-      const selection = openRouterModelSelection(options);
-      setState((current) => ({ ...current, busy: false, configured: variables.OPENROUTER_API_KEY?.is_set === true, model: selection.current, models: selection.models, probe }));
+      const [env, config, models] = await Promise.all([api.getEnvVars(), api.getConfig(), api.getModelOptions()]);
+      setState((current) => loadedState(current, env, config, models));
     } catch (cause) {
       setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));
     }
@@ -35,117 +35,126 @@ export default function ArcenalSettingsPage(): ReactElement {
   return <SettingsView state={state} setState={setState} reload={load} />;
 }
 
-function SettingsView({ state, setState, reload }: { state: OpenRouterSettingsState; setState: Dispatch<SetStateAction<OpenRouterSettingsState>>; reload: () => Promise<void> }): ReactElement {
-  const submit = (event: FormEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    void connectOpenRouter(state, setState, reload);
-  };
-  return (
-    <main className="arc-workspace arc-settings" aria-labelledby="settings-title">
-      <SettingsHeading />
-      {state.error && <p className="arc-alert arc-alert-error" role="alert">{state.error}</p>}
-      {state.notice && <p className="arc-alert arc-alert-success" role="status">{state.notice}</p>}
-      <section className="arc-settings-grid">
-        <OpenRouterForm state={state} setState={setState} onSubmit={submit} />
-        <ConnectionSummary state={state} setState={setState} />
-      </section>
-    </main>
-  );
+function loadedState(current: SettingsState, env: Record<string, EnvVarInfo>, config: Record<string, unknown>, models: ModelOptionsResponse): SettingsState {
+  const providers = config.providers as Record<string, { base_url?: string }> | undefined;
+  return { ...current, autonomy: autonomyFromConfig(config), busy: false, config, env, models, ollamaUrl: providers?.ollama?.base_url || current.ollamaUrl, selectedModels: modelDefaults(models) };
 }
 
-function SettingsHeading(): ReactElement {
-  return <header className="arc-workspace-heading"><p>Paramètres · Fournisseur IA</p><h1 id="settings-title">Connecter ARC à OpenRouter</h1><span>La clé reste dans l’espace privé de l’application YunoHost. Elle n’est jamais affichée après son enregistrement.</span></header>;
+function modelDefaults(options: ModelOptionsResponse): Record<string, string> {
+  return Object.fromEntries((options.providers ?? []).map((provider) => [provider.slug, provider.slug === options.provider ? options.model ?? provider.models?.[0] ?? "" : provider.models?.[0] ?? ""]));
 }
 
-function OpenRouterForm({ state, setState, onSubmit }: { state: OpenRouterSettingsState; setState: Dispatch<SetStateAction<OpenRouterSettingsState>>; onSubmit: (event: FormEvent<HTMLFormElement>) => void }): ReactElement {
-  return (
-    <form className="arc-settings-card" onSubmit={onSubmit}>
-      <div className="arc-settings-card-title"><span><KeyRound aria-hidden /></span><div><small>Identifiants</small><h2>Compte OpenRouter</h2></div></div>
-      <PasswordField state={state} setState={setState} />
-      <ModelField state={state} setState={setState} />
-      <button className="arc-primary-button" disabled={state.busy || (!state.configured && !state.apiKey.trim()) || !state.model.trim()} type="submit">
-        {state.busy ? <LoaderCircle className="arc-spin" aria-hidden /> : <PlugZap aria-hidden />}
-        {state.configured ? "Enregistrer et reconnecter" : "Connecter OpenRouter"}
-      </button>
-      <small className="arc-settings-help">La modification s’applique aux nouvelles conversations ARC. La conversation en cours conserve son modèle jusqu’à son redémarrage.</small>
-    </form>
-  );
+function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
+  const providers = state.config.providers as Record<string, { base_url?: unknown }> | undefined;
+  const connections = buildProviderConnections(state.env, providers);
+  return <main className="arc-workspace arc-settings" aria-labelledby="settings-title">
+    <header className="arc-workspace-heading"><p>Paramètres · Intelligence et sécurité</p><h1 id="settings-title">Connexions et autonomie d’ARC</h1><span>Ajoutez plusieurs moteurs IA, choisissez leurs usages et gardez la maîtrise des actions d’administration.</span></header>
+    {state.error && <p className="arc-alert arc-alert-error" role="alert">{state.error}</p>}
+    {state.notice && <p className="arc-alert arc-alert-success" role="status">{state.notice}</p>}
+    <section className="arc-settings-section"><SectionTitle icon={<Network />} eyebrow="Moteurs IA" title="Connexions et API" description="Les connexions restent disponibles simultanément. Une clé enregistrée n’est jamais réaffichée." />
+      <div className="arc-provider-grid">{connections.map((provider) => <ProviderCard key={provider.id} provider={provider} state={state} setState={setState} reload={reload} />)}</div>
+      <CustomConnection state={state} setState={setState} reload={reload} />
+    </section>
+    <AutonomySettings state={state} setState={setState} />
+  </main>;
 }
 
-function PasswordField({ state, setState }: SettingsControlProps): ReactElement {
-  const change = (event: ChangeEvent<HTMLInputElement>): void => setState((current) => ({ ...current, apiKey: event.target.value, error: "", notice: "" }));
-  return <label className="arc-field"><span>Clé API OpenRouter</span><input type="password" autoComplete="new-password" value={state.apiKey} placeholder={state.configured ? "Clé enregistrée — saisissez uniquement pour la remplacer" : "sk-or-v1-…"} onChange={change} /><small>Créez ou gérez vos clés sur <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noreferrer">OpenRouter <ExternalLink aria-hidden /></a>.</small></label>;
+function SectionTitle({ icon, eyebrow, title, description }: { icon: ReactElement; eyebrow: string; title: string; description: string }): ReactElement {
+  return <div className="arc-settings-section-title"><span>{icon}</span><div><small>{eyebrow}</small><h2>{title}</h2><p>{description}</p></div></div>;
 }
 
-function ModelField({ state, setState }: SettingsControlProps): ReactElement {
-  const change = (event: ChangeEvent<HTMLInputElement>): void => setState((current) => ({ ...current, model: event.target.value, error: "", notice: "" }));
-  return <label className="arc-field"><span>Modèle principal d’ARC</span><input list="arc-openrouter-models" value={state.model} placeholder="Choisissez ou saisissez un modèle" onChange={change} /><datalist id="arc-openrouter-models">{state.models.map((model) => <option key={model} value={model} />)}</datalist><small>{state.models.length > 0 ? `${state.models.length} modèles OpenRouter disponibles.` : "Le catalogue sera disponible après la connexion."}</small></label>;
+function ProviderCard({ provider, state, setState, reload }: ProviderProps): ReactElement {
+  const models = state.models.providers?.find((item) => item.slug === provider.id)?.models ?? [];
+  const secret = state.secrets[provider.id] ?? "";
+  const save = (): void => { void saveProvider(provider, state, setState, reload); };
+  return <article className="arc-provider-card" data-configured={provider.configured}>
+    <header><span><Bot aria-hidden /></span><div><h3>{provider.label}</h3><small>{provider.local ? "Moteur local" : "Service externe"}</small></div><em>{provider.configured ? <><CheckCircle2 /> Configuré</> : "À connecter"}</em></header>
+    {provider.keyRequired ? <SecretInput provider={provider} value={secret} setState={setState} /> : <OllamaInput state={state} setState={setState} />}
+    <ModelSelect provider={provider} models={models} state={state} setState={setState} />
+    <button className="arc-primary-button" disabled={state.busy || (provider.keyRequired && !provider.configured && !secret.trim())} onClick={save} type="button">{state.busy ? <LoaderCircle className="arc-spin" /> : <KeyRound />} {provider.configured ? "Mettre à jour" : "Connecter"}</button>
+  </article>;
 }
 
-function ConnectionSummary({ state, setState }: SettingsControlProps): ReactElement {
-  const test = (): void => { void testConnection(state.apiKey, setState); };
-  return (
-    <aside className="arc-settings-card arc-connection-card">
-      <div className="arc-settings-card-title"><span><ShieldCheck aria-hidden /></span><div><small>Diagnostic</small><h2>État de la connexion</h2></div></div>
-      <ConnectionBadge probe={state.probe} busy={state.busy} />
-      <dl><div><dt>Clé</dt><dd>{state.configured ? "Enregistrée" : "À configurer"}</dd></div><div><dt>Fournisseur</dt><dd>OpenRouter</dd></div><div><dt>Modèle</dt><dd>{state.model || "À choisir"}</dd></div></dl>
-      <p>{state.probe?.message ?? "Lancez le test pour vérifier l’accès sans exécuter de requête de génération."}</p>
-      <button className="arc-secondary-button" disabled={state.busy || (!state.configured && !state.apiKey.trim())} onClick={test} type="button"><RefreshCw aria-hidden /> Tester la connexion</button>
-    </aside>
-  );
+function SecretInput({ provider, value, setState }: { provider: ProviderConnection; value: string; setState: SetState }): ReactElement {
+  const change = (event: ChangeEvent<HTMLInputElement>): void => setState((current) => ({ ...current, secrets: { ...current.secrets, [provider.id]: event.target.value } }));
+  return <label className="arc-field"><span>Clé API</span><input autoComplete="new-password" onChange={change} placeholder={provider.configured ? "Clé enregistrée — saisir pour remplacer" : "Coller la clé API"} type="password" value={value} /></label>;
 }
 
-function ConnectionBadge({ probe, busy }: { probe: ArcenalOpenRouterProbeResponse | null; busy: boolean }): ReactElement {
-  const connected = probe?.connection === "connected";
-  return <div className="arc-connection-badge" data-status={probe?.connection ?? "unknown"}>{connected ? <CheckCircle2 aria-hidden /> : <CircleAlert aria-hidden />}<span><small>OpenRouter</small><strong>{busy ? "Vérification…" : connectionLabel(probe)}</strong></span></div>;
+function OllamaInput({ state, setState }: { state: SettingsState; setState: SetState }): ReactElement {
+  const change = (event: ChangeEvent<HTMLInputElement>): void => setState((current) => ({ ...current, ollamaUrl: event.target.value }));
+  return <label className="arc-field"><span>Adresse Ollama</span><input onChange={change} placeholder="http://127.0.0.1:11434/v1" type="url" value={state.ollamaUrl} /><small>Ollama peut fonctionner sur ce serveur ou sur une machine du réseau.</small></label>;
 }
 
-interface SettingsControlProps {
-  setState: Dispatch<SetStateAction<OpenRouterSettingsState>>;
-  state: OpenRouterSettingsState;
+function ModelSelect({ provider, models, state, setState }: { provider: ProviderConnection; models: string[]; state: SettingsState; setState: SetState }): ReactElement {
+  const value = state.selectedModels[provider.id] ?? "";
+  const change = (event: ChangeEvent<HTMLInputElement>): void => setState((current) => ({ ...current, selectedModels: { ...current.selectedModels, [provider.id]: event.target.value } }));
+  return <label className="arc-field"><span>Modèle à activer</span><input list={`models-${provider.id}`} onChange={change} placeholder={provider.local ? "ex. qwen3:8b" : "Choisir ou saisir un modèle"} value={value} /><datalist id={`models-${provider.id}`}>{models.map((model) => <option key={model} value={model} />)}</datalist></label>;
 }
 
-async function testConnection(apiKey: string, setState: SettingsControlProps["setState"]): Promise<ArcenalOpenRouterProbeResponse | null> {
+async function saveProvider(provider: ProviderConnection, state: SettingsState, setState: SetState, reload: () => Promise<void>): Promise<void> {
   setState((current) => ({ ...current, busy: true, error: "", notice: "" }));
   try {
-    const probe = await api.testArcenalOpenRouter(apiKey || undefined);
-    setState((current) => ({ ...current, busy: false, probe }));
-    return probe;
-  } catch (cause) {
-    setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));
-    return null;
-  }
-}
-
-async function connectOpenRouter(state: OpenRouterSettingsState, setState: SettingsControlProps["setState"], reload: () => Promise<void>): Promise<void> {
-  try {
-    const probe = await testConnection(state.apiKey, setState);
-    if (!probe || probe.connection !== "connected") return;
-    setState((current) => ({ ...current, busy: true }));
-    if (state.apiKey.trim()) await api.setEnvVar("OPENROUTER_API_KEY", state.apiKey.trim());
-    if (!(await assignOpenRouterModel(state.model.trim()))) {
-      setState((current) => ({ ...current, busy: false, error: "Le modèle OpenRouter n’a pas été activé." }));
-      return;
-    }
-    setState((current) => ({ ...current, apiKey: "", notice: "OpenRouter est connecté et devient le fournisseur principal d’ARC." }));
+    const secret = state.secrets[provider.id]?.trim();
+    if (provider.envKey && secret) await api.setEnvVar(provider.envKey, secret);
+    if (provider.id === "ollama") await api.saveConfig({ providers: { ollama: { base_url: state.ollamaUrl.trim() } } });
+    const model = state.selectedModels[provider.id]?.trim();
+    if (model) await activateModel(provider.id, model);
+    setState((current) => ({ ...current, notice: `${provider.label} est disponible pour ARC.`, secrets: { ...current.secrets, [provider.id]: "" } }));
     await reload();
   } catch (cause) {
     setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));
   }
 }
 
-async function assignOpenRouterModel(model: string): Promise<boolean> {
-  const response = await api.setModelAssignment({ scope: "main", provider: "openrouter", model });
-  if (!response.confirm_required) return response.ok;
-  if (!window.confirm(response.confirm_message ?? "Ce modèle peut entraîner un coût élevé. Continuer ?")) return false;
-  const confirmed = await confirmModelAssignment(model);
-  return confirmed.ok;
+async function activateModel(provider: string, model: string): Promise<void> {
+  const response = await api.setModelAssignment({ scope: "main", provider, model });
+  if (!response.confirm_required) return;
+  if (!window.confirm(response.confirm_message ?? "Ce modèle peut entraîner un coût. Continuer ?")) return;
+  await api.setModelAssignment({ scope: "main", provider, model, confirm_expensive_model: true });
 }
 
-function confirmModelAssignment(model: string): Promise<ModelAssignmentResponse> {
-  return api.setModelAssignment({ scope: "main", provider: "openrouter", model, confirm_expensive_model: true });
+function CustomConnection({ state, setState, reload }: ViewProps): ReactElement {
+  const save = (): void => { void saveCustomConnection(state, setState, reload); };
+  return <article className="arc-custom-connection"><div><Plus aria-hidden /><span><strong>Compte ou API personnalisé</strong><small>Ajoutez un jeton utilisable par un outil, un connecteur ou un futur fournisseur.</small></span></div><input aria-label="Nom de la variable" onChange={(event) => setState((current) => ({ ...current, customKey: event.target.value }))} placeholder="NOM_DU_SERVICE_API_KEY" value={state.customKey} /><input aria-label="Secret" autoComplete="new-password" onChange={(event) => setState((current) => ({ ...current, customSecret: event.target.value }))} placeholder="Clé ou jeton" type="password" value={state.customSecret} /><button disabled={state.busy || !state.customKey.trim() || !state.customSecret.trim()} onClick={save} type="button">Ajouter</button></article>;
 }
+
+async function saveCustomConnection(state: SettingsState, setState: SetState, reload: () => Promise<void>): Promise<void> {
+  const key = normalizeCustomEnvKey(state.customKey);
+  if (!key) { setState((current) => ({ ...current, error: "Le nom de cette connexion n’est pas autorisé." })); return; }
+  try {
+    setState((current) => ({ ...current, busy: true, error: "" }));
+    await api.setEnvVar(key, state.customSecret.trim());
+    setState((current) => ({ ...current, customKey: "", customSecret: "", notice: "La connexion personnalisée est enregistrée." }));
+    await reload();
+  } catch (cause) {
+    setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));
+  }
+}
+
+function AutonomySettings({ state, setState }: { state: SettingsState; setState: SetState }): ReactElement {
+  const levels: Array<{ id: AutonomyLevel; title: string; text: string }> = [
+    { id: "manual", title: "Validation systématique", text: "ARC conseille et demande votre accord avant chaque commande sensible." },
+    { id: "smart", title: "Autonomie encadrée", text: "ARC exécute les actions sûres et sollicite l’administrateur en cas de risque." },
+    { id: "off", title: "Autonomie étendue", text: "ARC peut exécuter les actions administratives sans validation préalable." },
+  ];
+  const save = (): void => { void saveAutonomy(state.autonomy, setState); };
+  return <section className="arc-settings-section"><SectionTitle icon={<ShieldCheck />} eyebrow="Sécurité" title="Niveau d’autonomie" description="Ce réglage contrôle les validations demandées avant les commandes d’administration." /><div className="arc-autonomy-grid">{levels.map((level) => <label key={level.id} data-selected={state.autonomy === level.id}><input checked={state.autonomy === level.id} name="autonomy" onChange={() => setState((current) => ({ ...current, autonomy: level.id }))} type="radio" /><span><strong>{level.title}</strong><small>{level.text}</small></span></label>)}</div><button className="arc-primary-button arc-save-autonomy" disabled={state.busy} onClick={save} type="button">Enregistrer le niveau d’autonomie</button></section>;
+}
+
+async function saveAutonomy(level: AutonomyLevel, setState: SetState): Promise<void> {
+  try {
+    setState((current) => ({ ...current, busy: true, error: "", notice: "" }));
+    await api.saveConfig({ approvals: { mode: level } });
+    setState((current) => ({ ...current, busy: false, notice: "Le niveau d’autonomie d’ARC est enregistré." }));
+  } catch (cause) {
+    setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));
+  }
+}
+
+type SetState = Dispatch<SetStateAction<SettingsState>>;
+interface ViewProps { reload: () => Promise<void>; setState: SetState; state: SettingsState }
+interface ProviderProps extends ViewProps { provider: ProviderConnection }
 
 function errorMessage(cause: unknown): string {
-  return cause instanceof Error ? cause.message : "La connexion OpenRouter n’a pas pu être configurée.";
+  return cause instanceof Error ? cause.message : "Les paramètres n’ont pas pu être enregistrés.";
 }
