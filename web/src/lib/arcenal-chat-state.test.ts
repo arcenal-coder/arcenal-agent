@@ -3,6 +3,7 @@ import {
   applyGatewayEvent,
   canSubmitMessage,
   normalizeHistory,
+  synchronizeChat,
   type ArcenalChatState,
 } from "../../../plugins/arcenal-supervisor/dashboard/src/chat-state";
 
@@ -13,6 +14,7 @@ const INITIAL_STATE: ArcenalChatState = {
   messages: [],
   pendingApproval: null,
   sessionId: "session-active",
+  storedSessionId: "stored-active",
   streamingText: "",
 };
 
@@ -66,5 +68,50 @@ describe("état du chat ARC", () => {
     });
 
     expect(next.pendingApproval).toMatchObject({ requestId: "approval-1", description: "Redémarrer Nginx" });
+  });
+
+  it("récupère une réponse terminée si le flux temps réel a été manqué", () => {
+    const next = synchronizeChat(INITIAL_STATE, {
+      messages: [
+        { role: "user", text: "État du serveur ?" },
+        { role: "assistant", text: "Le serveur est opérationnel." },
+      ],
+      running: false,
+    });
+
+    expect(next.busy).toBe(false);
+    expect(next.messages.at(-1)?.text).toBe("Le serveur est opérationnel.");
+  });
+
+  it("affiche la réponse partielle pendant une resynchronisation", () => {
+    const next = synchronizeChat(INITIAL_STATE, {
+      inflight: { assistant: "Je vérifie les services", streaming: true },
+      running: true,
+    });
+
+    expect(next.busy).toBe(true);
+    expect(next.streamingText).toBe("Je vérifie les services");
+    expect(next.activity).toBe("ARC analyse votre demande…");
+  });
+
+  it("remonte clairement une erreur de fournisseur", () => {
+    const next = applyGatewayEvent(INITIAL_STATE, {
+      type: "message.complete",
+      session_id: "session-active",
+      payload: { status: "error", error: "Clé API OpenRouter refusée", text: "Error" },
+    });
+
+    expect(next.busy).toBe(false);
+    expect(next.error).toBe("Clé API OpenRouter refusée");
+  });
+
+  it("ignore une resynchronisation tardive après la réponse finale", () => {
+    const settled = { ...INITIAL_STATE, busy: false, messages: [{ id: "final", role: "assistant" as const, text: "Terminé" }] };
+    const next = synchronizeChat(settled, {
+      inflight: { assistant: "Ancienne réponse partielle", streaming: true },
+      running: true,
+    });
+
+    expect(next).toBe(settled);
   });
 });

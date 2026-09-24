@@ -1,4 +1,4 @@
-import { applyGatewayEvent, canSubmitMessage, normalizeHistory, type ArcenalChatMessage, type ArcenalChatState, type ChatConnectionState, type GatewayEventLike, type PendingApproval } from "./chat-state";
+import { applyGatewayEvent, canSubmitMessage, normalizeHistory, synchronizeChat, type ArcenalChatMessage, type ArcenalChatState, type ChatConnectionState, type GatewayEventLike, type PendingApproval } from "./chat-state";
 
 type UnknownRecord = Record<string, unknown>;
 type GatewayClient = {
@@ -12,7 +12,7 @@ type ReactApi = typeof import("react");
 
 interface SessionSummary { id: string; preview?: string; title?: string }
 interface SessionListResponse { sessions?: SessionSummary[] }
-interface SessionResponse { messages?: unknown[]; session_id: string }
+interface SessionResponse { inflight?: unknown; messages?: unknown[]; running?: boolean; session_id: string; session_key?: string; stored_session_id?: string }
 interface Overview { health?: string; incidents?: unknown[]; platform?: { hostname?: string }; services?: Array<{ healthy?: boolean }> }
 
 const SDK = window.__HERMES_PLUGIN_SDK__!;
@@ -25,8 +25,10 @@ const h = React.createElement;
 const api = <Result>(path: string, options?: RequestInit): Promise<Result> => SDK.fetchJSON(`/api/plugins/arcenal-supervisor${path}`, options);
 
 const INITIAL_CHAT: ArcenalChatState = {
-  activity: "", busy: false, error: "", messages: [], pendingApproval: null, sessionId: "", streamingText: "",
+  activity: "", busy: false, error: "", messages: [], pendingApproval: null, sessionId: "", storedSessionId: "", streamingText: "",
 };
+
+const SESSION_PARAMS = { close_on_disconnect: true, follow_profile_config: true, source: "desktop" } as const;
 
 function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : "Une erreur inattendue empêche ARC de répondre.";
@@ -111,7 +113,7 @@ function useGateway(): { chat: ArcenalChatState; connection: ChatConnectionState
   React.useEffect(() => {
     const gateway = SDK.gateway.createClient() as GatewayClient;
     const offState = gateway.onState(setConnection);
-    const eventNames = ["message.delta", "message.complete", "status.update", "tool.start", "approval.request", "error"];
+    const eventNames = ["message.start", "message.delta", "message.complete", "status.update", "tool.start", "approval.request", "error"];
     const offEvents = eventNames.map((type) => gateway.on(type, (event) => setChat((current) => applyGatewayEvent(current, event))));
     setClient(gateway);
     void gateway.connect().catch((cause) => setChat((current) => ({ ...current, error: errorMessage(cause) })));
@@ -131,23 +133,40 @@ function ArcenalChatPage(): ReturnType<typeof h> {
   }, [client]);
   const createSession = React.useCallback(async (): Promise<void> => {
     if (!client || connection !== "open") return;
-    const response = await client.request<SessionResponse>("session.create");
-    setChat({ ...INITIAL_CHAT, sessionId: response.session_id });
-    await refreshSessions();
+    try {
+      const response = await client.request<SessionResponse>("session.create", SESSION_PARAMS);
+      setChat({ ...INITIAL_CHAT, sessionId: response.session_id, storedSessionId: response.stored_session_id ?? response.session_key ?? response.session_id });
+      await refreshSessions();
+    } catch (cause) {
+      setChat((current) => ({ ...current, error: errorMessage(cause) }));
+    }
   }, [client, connection, refreshSessions, setChat]);
   React.useEffect(() => { if (connection === "open" && !chat.sessionId) void createSession(); }, [chat.sessionId, connection, createSession]);
   React.useEffect(() => { void api<Overview>("/overview").then(setOverview).catch(() => setOverview(null)); }, []);
   const resume = async (storedId: string): Promise<void> => {
     if (!client) return;
-    const response = await client.request<SessionResponse>("session.resume", { session_id: storedId });
-    setChat({ ...INITIAL_CHAT, messages: normalizeHistory(response.messages ?? []), sessionId: response.session_id });
+    try {
+      const response = await client.request<SessionResponse>("session.resume", { session_id: storedId, source: "desktop" });
+      setChat({ ...INITIAL_CHAT, messages: normalizeHistory(response.messages ?? []), sessionId: response.session_id, storedSessionId: response.session_key ?? response.stored_session_id ?? storedId });
+    } catch (cause) {
+      setChat((current) => ({ ...current, error: errorMessage(cause) }));
+    }
   };
   const send = async (text: string): Promise<void> => {
     if (!client || !chat.sessionId) return;
     const message: ArcenalChatMessage = { id: `user-${Date.now()}`, role: "user", text };
-    setChat((current) => ({ ...current, busy: true, error: "", messages: [...current.messages, message] }));
+    setChat((current) => ({ ...current, activity: "ARC analyse votre demande…", busy: true, error: "", messages: [...current.messages, message] }));
     await client.request("prompt.submit", { session_id: chat.sessionId, text }).catch((cause) => setChat((current) => ({ ...current, busy: false, error: errorMessage(cause) })));
   };
+  React.useEffect(() => {
+    if (!client || !chat.busy || !chat.storedSessionId) return;
+    const timer = window.setInterval(() => {
+      void client.request<SessionResponse>("session.resume", { session_id: chat.storedSessionId, source: "desktop" })
+        .then((snapshot) => setChat((current) => synchronizeChat(current, snapshot)))
+        .catch((cause) => setChat((current) => ({ ...current, error: errorMessage(cause) })));
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [chat.busy, chat.storedSessionId, client, setChat]);
   const stop = (): void => { if (client && chat.sessionId) void client.request("session.interrupt", { session_id: chat.sessionId }); };
   const answerApproval = async (choice: string): Promise<void> => {
     if (!client || !chat.pendingApproval) return;

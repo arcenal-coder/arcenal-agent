@@ -21,6 +21,7 @@ export interface ArcenalChatState {
   messages: ArcenalChatMessage[];
   pendingApproval: PendingApproval | null;
   sessionId: string;
+  storedSessionId: string;
   streamingText: string;
 }
 
@@ -51,9 +52,11 @@ function assistantMessage(text: string): ArcenalChatMessage {
 }
 
 function completeMessage(state: ArcenalChatState, payload: unknown): ArcenalChatState {
-  const text = textField(payload, "text") || state.streamingText;
+  const data = record(payload);
+  const text = textField(data, "text") || state.streamingText;
   const messages = text ? [...state.messages, assistantMessage(text)] : state.messages;
-  return { ...state, activity: "", busy: false, messages, streamingText: "" };
+  const error = data.status === "error" ? textField(data, "error") || text : "";
+  return { ...state, activity: "", busy: false, error, messages, streamingText: "" };
 }
 
 function approval(payload: unknown): PendingApproval {
@@ -67,6 +70,7 @@ function approval(payload: unknown): PendingApproval {
 
 export function applyGatewayEvent(state: ArcenalChatState, event: GatewayEventLike): ArcenalChatState {
   if (event.session_id && event.session_id !== state.sessionId) return state;
+  if (event.type === "message.start") return { ...state, activity: "ARC analyse votre demande…", busy: true };
   if (event.type === "message.delta") return { ...state, streamingText: state.streamingText + textField(event.payload, "text") };
   if (event.type === "message.complete") return completeMessage(state, event.payload);
   if (event.type === "status.update") return { ...state, activity: textField(event.payload, "text") };
@@ -74,6 +78,36 @@ export function applyGatewayEvent(state: ArcenalChatState, event: GatewayEventLi
   if (event.type === "approval.request") return { ...state, pendingApproval: approval(event.payload) };
   if (event.type === "error") return { ...state, busy: false, error: textField(event.payload, "message") || "La réponse d’ARC a échoué." };
   return state;
+}
+
+interface SessionSnapshot {
+  inflight?: unknown;
+  messages?: unknown[];
+  running?: boolean;
+}
+
+function settleFromSnapshot(state: ArcenalChatState, snapshot: SessionSnapshot, failure: string): ArcenalChatState {
+  return {
+    ...state,
+    activity: "",
+    busy: false,
+    error: failure || state.error,
+    messages: normalizeHistory(snapshot.messages ?? state.messages),
+    streamingText: "",
+  };
+}
+
+export function synchronizeChat(state: ArcenalChatState, snapshot: SessionSnapshot): ArcenalChatState {
+  if (!state.busy) return state;
+  const inflight = record(snapshot.inflight);
+  const failure = textField(inflight, "error");
+  if (!snapshot.running) return settleFromSnapshot(state, snapshot, failure);
+  return {
+    ...state,
+    activity: "ARC analyse votre demande…",
+    error: failure,
+    streamingText: textField(inflight, "assistant") || state.streamingText,
+  };
 }
 
 export function normalizeHistory(history: unknown[]): ArcenalChatMessage[] {
