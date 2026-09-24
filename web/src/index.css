@@ -258,55 +258,52 @@ html[dir="rtl"] {
 /* ------------------------------------------------------------------ */
 
 .arcenal-shell {
-  --arc-ink: #202229;
-  --arc-text: #25232b;
-  --arc-muted: #727278;
-  --arc-ivory: #f7f5f0;
-  --arc-canvas: #e2e3e1;
+  --arc-ink: #1f2937;
+  --arc-text: #1f2937;
+  --arc-muted: #64748b;
+  --arc-ivory: #fffdf8;
+  --arc-canvas: #fff9ef;
   --arc-white: #ffffff;
-  --arc-wine: #842f47;
-  --arc-prussian: #34495d;
-  --arc-brass: #b28a4b;
-  --arc-emerald: #24685c;
+  --arc-wine: #d45d36;
+  --arc-prussian: #9d3d25;
+  --arc-brass: #e8a629;
+  --arc-emerald: #26705d;
   --arc-violet: #665277;
   --arc-blue: #3157a4;
   --arc-teal: #3d7774;
-  --arc-line: rgba(32, 34, 41, 0.08);
+  --arc-line: #e9e3d7;
   --arc-font-ui: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --arc-font-display: Didot, "Bodoni 72", "Times New Roman", serif;
-  --arc-shadow-rail: 0 20px 50px rgba(28, 31, 35, 0.09), inset 0 1px 0 #fff;
-  --arc-shadow-card: 0 14px 34px rgba(32, 34, 41, 0.065), inset 0 1px 0 #fff;
-  --arc-shadow-hover: 0 19px 42px rgba(32, 34, 41, 0.11);
-  --background-base: #e2e3e1;
-  --midground: #25232b;
-  --midground-base: #25232b;
-  --color-text-primary: #25232b;
-  --color-text-secondary: #626268;
-  --color-text-tertiary: #727278;
-  --color-card: rgba(249, 248, 244, 0.82);
-  --color-card-foreground: #25232b;
-  --color-primary: #202229;
+  --arc-font-display: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --arc-shadow-rail: 0 14px 38px rgba(69, 48, 29, 0.1);
+  --arc-shadow-card: 0 14px 38px rgba(69, 48, 29, 0.1);
+  --arc-shadow-hover: 0 20px 46px rgba(69, 48, 29, 0.16);
+  --background-base: #fff9ef;
+  --midground: #1f2937;
+  --midground-base: #1f2937;
+  --color-text-primary: #1f2937;
+  --color-text-secondary: #64748b;
+  --color-text-tertiary: #64748b;
+  --color-card: rgba(255, 255, 255, 0.88);
+  --color-card-foreground: #1f2937;
+  --color-primary: #d45d36;
   --color-primary-foreground: #fff;
   --color-secondary: rgba(255, 255, 255, 0.48);
-  --color-secondary-foreground: #25232b;
-  --color-muted: rgba(32, 34, 41, 0.055);
-  --color-muted-foreground: #727278;
+  --color-secondary-foreground: #1f2937;
+  --color-muted: #fff7e8;
+  --color-muted-foreground: #64748b;
   --color-accent: rgba(255, 255, 255, 0.56);
-  --color-accent-foreground: #202229;
-  --color-border: rgba(32, 34, 41, 0.1);
-  --color-input: rgba(32, 34, 41, 0.12);
-  --color-ring: #34495d;
-  --color-popover: #f7f5f0;
-  --color-popover-foreground: #25232b;
+  --color-accent-foreground: #1f2937;
+  --color-border: #e9e3d7;
+  --color-input: #d7d1c5;
+  --color-ring: #d45d36;
+  --color-popover: #fffdf8;
+  --color-popover-foreground: #1f2937;
   --theme-font-sans: var(--arc-font-ui);
   --theme-font-display: var(--arc-font-display);
-  --theme-radius: 8px;
+  --theme-radius: 12px;
   color: var(--arc-text);
   font-family: var(--arc-font-ui);
-  background:
-    radial-gradient(circle at 82% 7%, rgba(36, 104, 92, 0.08), transparent 31%),
-    radial-gradient(circle at 9% 88%, rgba(132, 47, 71, 0.06), transparent 26%),
-    linear-gradient(135deg, #e2e3e1 0%, #eeece8 52%, #dde2e0 100%);
+  background: linear-gradient(135deg, #fff9ef, #f3faf4);
 }
 
 .arcenal-shell * { letter-spacing: 0; }
