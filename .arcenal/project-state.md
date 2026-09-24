@@ -13,7 +13,7 @@ principale, tout en conservant Hermes comme moteur amont actualisable.
 ## État observé
 
 - L'ancien tableau de pilotage est remplacé dans la navigation par trois
-  espaces ARC, Agents et RAG & LDA ; le contrôle visuel reste à exécuter.
+  espaces ARC, Agents et RAG & LDA ; le contrôle visuel est validé.
 - Le plugin `arcenal-supervisor` expose l’état système, les rapports et trois
   réparations strictement autorisées.
 - Le paquet natif est maintenu séparément dans `arcenal_ynh`.
@@ -50,7 +50,8 @@ principale, tout en conservant Hermes comme moteur amont actualisable.
   requêtes qui ne portent pas la confirmation administrateur.
 - La livraison applicative `v0.21.0-arcenal11` et le paquet `arcenal_ynh`
   `0.21.0~ynh24` sont publiés sur GitHub. Le catalogue ARCenal direct référence
-  cette version ; le catalogue système l'a validée et promue en `preview`.
+  cette version ; le catalogue système l'a validée et promue en `stable` à la
+  révision `d00ca4636027a57a08c2691da1df5da07008e2a6`.
 - Le coffre Markdown persistant, la recherche plein texte pour ARC, les liens
   entrants, l'historique, la LDA calculée et le wiki en lecture sont
   implémentés dans le plugin `arcenal-supervisor` et l'interface React.
@@ -76,7 +77,6 @@ préexistant.
 
 ## Étape suivante pressentie
 
-Après autorisation distincte de mise en production, promouvoir le catalogue
-système de `preview` vers `stable`, puis installer la mise à jour sur le serveur
-YunoHost de recette et vérifier le fournisseur OpenRouter dans son environnement
-réel.
+Installer la mise à jour stable sur le serveur YunoHost de recette, puis
+valider la connexion OpenRouter et les permissions réelles des espaces
+d'administration et du wiki.
