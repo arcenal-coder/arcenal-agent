@@ -412,6 +412,15 @@ export const api = {
         method: "DELETE",
       },
     ),
+  archiveSession: (id: string, profile = getManagementProfile()) =>
+    fetchJSON<{ ok: boolean; archived: boolean }>(
+      `/api/sessions/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: true, profile: profile || undefined }),
+      },
+    ),
   getEmptySessionsCount: (profile = getManagementProfile()) =>
     fetchJSON<{ count: number }>(
       appendProfileParam("/api/sessions/empty/count", profile),

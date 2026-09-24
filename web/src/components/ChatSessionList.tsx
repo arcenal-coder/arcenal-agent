@@ -12,21 +12,20 @@
  * Best-effort, like ChatSidebar: a failed fetch surfaces a small inline
  * error with a retry affordance and the terminal pane keeps working.
  *
- * This is a navigation surface, NOT a session-management one — delete,
- * rename, export, and bulk actions live on the Sessions page. Keeping this
- * panel read-only (plus select / new) avoids duplicating that machinery and
- * keeps the chat context focused on switching conversations quickly.
+ * ARC permet ici d’archiver ou de supprimer une conversation sans renvoyer
+ * l’administrateur vers les écrans techniques du moteur Hermes.
  */
 
 import { Button } from "@nous-research/ui/ui/components/button";
 import { ListItem } from "@nous-research/ui/ui/components/list-item";
 import { Spinner } from "@nous-research/ui/ui/components/spinner";
-import { AlertCircle, MessageSquarePlus, RefreshCw } from "lucide-react";
+import { AlertCircle, Archive, MessageSquarePlus, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 
 import { useI18n } from "@/i18n";
 import { api, type SessionInfo } from "@/lib/api";
+import { applyChatHistoryAction, type ChatHistoryAction } from "@/lib/arcenal-chat-history";
 import { cn, timeAgo } from "@/lib/utils";
 
 const SESSION_LIMIT = 30;
@@ -149,6 +148,18 @@ export function ChatSessionList({
     );
   }, [onNewChat, onPicked, setSearchParams]);
 
+  const changeHistory = useCallback(async (action: ChatHistoryAction, session: SessionInfo): Promise<void> => {
+    const verb = action === "archive" ? "Archiver" : "Supprimer définitivement";
+    if (!window.confirm(`${verb} cette conversation ?`)) return;
+    try {
+      await applyChatHistoryAction(action, session.id, api);
+      if (session.id === activeSessionId) startNew();
+      reload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "L’historique n’a pas pu être modifié.");
+    }
+  }, [activeSessionId, reload, startNew]);
+
   const content = useMemo(() => {
     if (loading && sessions === null) {
       return (
@@ -182,12 +193,13 @@ export function ChatSessionList({
         {sessions.map((s) => {
           const isActive = s.id === activeSessionId;
           return (
+            <div className="group flex items-center gap-1" key={s.id}>
             <ListItem
               key={s.id}
               onClick={() => pick(s.id)}
               aria-current={isActive ? "true" : undefined}
               className={cn(
-                "flex-col items-start gap-0.5 rounded px-2 py-1.5",
+                "min-w-0 flex-1 flex-col items-start gap-0.5 rounded px-2 py-1.5",
                 "normal-case tracking-normal",
                 isActive
                   ? "bg-primary/10 text-foreground border-l-2 border-primary"
@@ -213,11 +225,14 @@ export function ChatSessionList({
                 )}
               </span>
             </ListItem>
+            <Button ghost size="icon" aria-label="Archiver la conversation" title="Archiver" onClick={() => void changeHistory("archive", s)} className="shrink-0 text-text-tertiary opacity-70 hover:text-foreground"><Archive /></Button>
+            <Button ghost size="icon" aria-label="Supprimer la conversation" title="Supprimer" onClick={() => void changeHistory("delete", s)} className="shrink-0 text-text-tertiary opacity-70 hover:text-destructive"><Trash2 /></Button>
+            </div>
           );
         })}
       </div>
     );
-  }, [activeSessionId, error, loading, pick, reload, sessions, t]);
+  }, [activeSessionId, changeHistory, error, loading, pick, reload, sessions, t]);
 
   return (
     <aside
