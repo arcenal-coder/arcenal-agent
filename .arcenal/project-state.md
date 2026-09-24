@@ -73,6 +73,12 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
 - Le coffre Markdown persistant, la recherche plein texte pour ARC, les liens
   entrants, l'historique, la LDA calculée et le wiki en lecture sont
   implémentés dans le plugin `arcenal-supervisor` et l'interface React.
+- La LDA possède désormais son registre métier dédié avec les vues utilisables
+  et archivées, les champs QSSERP, la recherche, les filtres, l'export CSV, la
+  pagination, l'ouverture des fiches et l'archivage avec confirmation.
+- Le formulaire de création documentaire collecte la dénomination, l'activité,
+  la numérotation, la nature, la date de validation, la révision et le motif,
+  tout en conservant le document source dans le coffre Markdown.
 - Le wiki dispose d'une route séparée `/wiki` qui ne charge pas la façade
   d'administration et n'expose que les versions `Applicable`.
 - Le paquet YunoHost fixe l'administration au groupe `admins`
@@ -97,7 +103,10 @@ Le chat ARC et le build web passent leur vérification TypeScript. Les 22 tests
 Vitest ciblés, les quatre tests du paquet et les 9 tests du catalogue réussissent.
 Les avertissements ESLint restants proviennent du socle Hermes préexistant. Les
 tests Python du plugin n'ont pas été relancés localement faute de `pytest` dans
-l'environnement disponible ; leur code serveur n'a pas été modifié dans ce lot.
+l'environnement disponible pour le lot précédent.
+Le registre LDA passe ESLint sans nouvelle erreur, la vérification TypeScript,
+13 tests Vitest ciblés, la compilation Python et le build Vite de production.
+Son affichage et son formulaire de création ont été contrôlés dans le navigateur.
 
 ## Étape suivante pressentie
 
