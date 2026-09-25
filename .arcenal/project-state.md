@@ -57,10 +57,11 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
   une confirmation visible et transmet uniquement des identifiants bornés.
 - L’API rejette les opérations inconnues, les services hors liste et les
   requêtes qui ne portent pas la confirmation administrateur.
-- La livraison applicative `v0.21.0-arcenal17` et le paquet `arcenal_ynh`
-  `0.21.0~ynh31` sont publiés sur GitHub. Le catalogue ARCenal direct et le
-  catalogue système stable référencent la révision de paquet
-  `c4c0dd83025b849e7f11e3d61875cacae1ada876`.
+- La livraison applicative `v0.21.0-arcenal18` et le paquet `arcenal_ynh`
+  `0.21.0~ynh32` sont publiés sur GitHub. Le catalogue ARCenal direct et les
+  canaux développement, prévisualisation et stable du catalogue système
+  référencent la révision de paquet
+  `2143610644afc8f5f72fa65c03723f95d18cbbd6`.
 - Le paquet reconstruit proprement le code et les dépendances pendant
   l'upgrade, réinstalle `uv` si nécessaire et accepte la restauration
   `BACKUP_CORE_ONLY` sans masquer l'erreur initiale.
@@ -136,9 +137,13 @@ la compilation du module ARC, 11 tests Vitest ciblés et le build Vite de
 production. Le bandeau sans barre latérale a été contrôlé dans le navigateur ;
 le chat complet nécessite la passerelle du serveur YunoHost pour son contrôle
 visuel final.
+Le paquet ynh32 passe la validation Bash, le chargement TOML et ses six tests
+shell. Le catalogue système passe la compilation Python, ses 9 tests unitaires,
+la régénération exacte des trois canaux et les promotions GitHub jusqu’au canal
+stable. Les flux publics direct et stable annoncent bien ynh32.
 
 ## Étape suivante pressentie
 
-Actualiser le catalogue sur le serveur YunoHost de recette, installer ynh31,
+Actualiser le catalogue sur le serveur YunoHost de recette, installer ynh32,
 puis valider le dépôt LDA, le coffre d’accès, l’historique du chat, le pont
 YunoHost et les permissions réelles des espaces privés.
