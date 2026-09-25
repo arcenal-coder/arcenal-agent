@@ -1,6 +1,6 @@
 # État du projet ARCenal Agent
 
-Dernière mise à jour : 2026-09-24
+Dernière mise à jour : 2026-09-25
 
 Branche : `arcenal`
 
@@ -89,6 +89,13 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
   formats PDF, DOCX, ODT, TXT et Markdown sont acceptés jusqu’à 20 Mio.
 - L’historique visible depuis le chat permet maintenant d’archiver ou de
   supprimer une conversation après confirmation.
+- La façade ARC ne rend plus la barre latérale technique Hermes. Le bandeau
+  principal récupère le logo et le nom de l’organisation depuis la
+  personnalisation publique YunoHost, avec le logo ARCenal en secours.
+- Le volet ARC permet d’archiver la conversation active après confirmation et
+  ouvre immédiatement une nouvelle conversation ; la mention « Moteur Hermes »
+  a disparu de la carte de supervision, tandis que « by Hermes » reste discret
+  dans le bandeau principal.
 - Le wiki dispose d'une route séparée `/wiki` qui ne charge pas la façade
   d'administration et n'expose que les versions `Applicable`.
 - Le paquet YunoHost fixe l'administration au groupe `admins`
@@ -124,6 +131,11 @@ Le lot suivant passe ESLint sans erreur nouvelle, TypeScript, 27 tests Vitest,
 la compilation Python, le test shell du pont YunoHost et le build Vite. Les
 thèmes clair et système ainsi que le coffre d’accès ont été contrôlés dans le
 navigateur. La suite Python n’a pas démarré sur le Mac faute de module `pytest`.
+Le lot d’épuration de l’interface passe ESLint sans erreur nouvelle, TypeScript,
+la compilation du module ARC, 11 tests Vitest ciblés et le build Vite de
+production. Le bandeau sans barre latérale a été contrôlé dans le navigateur ;
+le chat complet nécessite la passerelle du serveur YunoHost pour son contrôle
+visuel final.
 
 ## Étape suivante pressentie
 
