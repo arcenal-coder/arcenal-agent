@@ -1,4 +1,5 @@
 import { applyGatewayEvent, canSubmitMessage, normalizeHistory, synchronizeChat, type ArcenalChatMessage, type ArcenalChatState, type ChatConnectionState, type GatewayEventLike, type PendingApproval } from "./chat-state";
+import { archiveConversation } from "./session-actions";
 
 type UnknownRecord = Record<string, unknown>;
 type GatewayClient = {
@@ -89,10 +90,11 @@ function Composer({ busy, connection, onSend, onStop }: { busy: boolean; connect
   );
 }
 
-function SessionPanel({ active, onNew, onResume, sessions }: { active: string; onNew: () => void; onResume: (id: string) => void; sessions: SessionSummary[] }): ReturnType<typeof h> {
+function SessionPanel({ active, canArchive, onArchive, onNew, onResume, sessions }: { active: string; canArchive: boolean; onArchive: () => void; onNew: () => void; onResume: (id: string) => void; sessions: SessionSummary[] }): ReturnType<typeof h> {
   return h("aside", { className: "arc-chat-sessions" },
     h("button", { className: "arc-chat-new", onClick: onNew, type: "button" }, "+ Nouvelle conversation"), h("h2", null, "Historique"),
     h("nav", null, sessions.map((session) => h("button", { className: session.id === active ? "is-active" : "", key: session.id, onClick: () => onResume(session.id), type: "button" }, conversationTitle(session)))),
+    h("button", { className: "arc-chat-archive", disabled: !canArchive, onClick: onArchive, type: "button" }, "Archiver cette conversation"),
   );
 }
 
@@ -102,8 +104,7 @@ function SystemSummary({ overview }: { overview: Overview | null }): ReturnType<
   return h("aside", { className: "arc-chat-system" }, h("small", null, "SUPERVISION"),
     h("strong", null, overview?.platform?.hostname || "ARCenal Système"),
     h("span", { className: overview?.health === "healthy" ? "is-healthy" : "is-warning" }, overview?.health === "healthy" ? "Système opérationnel" : "Attention requise"),
-    h("dl", null, h("div", null, h("dt", null, "Services"), h("dd", null, `${serviceCount}/${total}`)), h("div", null, h("dt", null, "Incidents"), h("dd", null, String(overview?.incidents?.length ?? 0)))),
-    h("small", { className: "arc-chat-engine" }, "Moteur Hermes"));
+    h("dl", null, h("div", null, h("dt", null, "Services"), h("dd", null, `${serviceCount}/${total}`)), h("div", null, h("dt", null, "Incidents"), h("dd", null, String(overview?.incidents?.length ?? 0)))));
 }
 
 function useGateway(): { chat: ArcenalChatState; connection: ChatConnectionState; client: GatewayClient | null; setChat: React.Dispatch<React.SetStateAction<ArcenalChatState>> } {
@@ -173,10 +174,20 @@ function ArcenalChatPage(): ReturnType<typeof h> {
     await client.request("approval.respond", { choice, request_id: chat.pendingApproval.requestId, session_id: chat.sessionId });
     setChat((current) => ({ ...current, pendingApproval: null }));
   };
+  const archiveActive = async (): Promise<void> => {
+    if (!chat.storedSessionId || chat.busy) return;
+    if (!window.confirm("Archiver cette conversation et en démarrer une nouvelle ?")) return;
+    try {
+      await archiveConversation((url, init) => SDK.fetchJSON(url, init), chat.storedSessionId);
+      await createSession();
+    } catch (cause) {
+      setChat((current) => ({ ...current, error: errorMessage(cause) }));
+    }
+  };
   return h("main", { className: "arc-chat-page" },
     h("header", { className: "arc-chat-heading" }, h("div", null, h("small", null, "ARC · ARCHITECTE D’ARCENAL SYSTÈME"), h("h1", null, "Centre de commande")), h(ConnectionBadge, { state: connection })),
     chat.error && h("p", { className: "arc-chat-error", role: "alert" }, chat.error),
-    h("div", { className: "arc-chat-layout" }, h(SessionPanel, { active: chat.sessionId, onNew: () => void createSession(), onResume: (id) => void resume(id), sessions }), h("section", { className: "arc-chat-main" }, h(Transcript, { chat, onPrompt: send }), chat.pendingApproval && h(ApprovalCard, { approval: chat.pendingApproval, onAnswer: (choice) => void answerApproval(choice) }), h(Composer, { busy: chat.busy, connection, onSend: (text) => void send(text), onStop: stop })), h(SystemSummary, { overview })),
+    h("div", { className: "arc-chat-layout" }, h(SessionPanel, { active: chat.storedSessionId, canArchive: Boolean(chat.storedSessionId) && !chat.busy, onArchive: () => void archiveActive(), onNew: () => void createSession(), onResume: (id) => void resume(id), sessions }), h("section", { className: "arc-chat-main" }, h(Transcript, { chat, onPrompt: send }), chat.pendingApproval && h(ApprovalCard, { approval: chat.pendingApproval, onAnswer: (choice) => void answerApproval(choice) }), h(Composer, { busy: chat.busy, connection, onSend: (text) => void send(text), onStop: stop })), h(SystemSummary, { overview })),
   );
 }
 
