@@ -196,6 +196,7 @@ const BUILTIN_NAV_REST: NavItem[] = [
 ];
 
 const SHOW_TECHNICAL_SIDEBAR = false;
+const SHOW_APP_SIDEBAR = false;
 
 const ICON_MAP: Record<string, ComponentType<{ className?: string }>> = {
   Activity,
@@ -507,7 +508,7 @@ function ArcenalAdminApp(): ReactElement {
         <PluginSlot name="backdrop" />
       </div>
 
-      <header
+      {SHOW_APP_SIDEBAR && <header
         className={cn(
           "lg:hidden fixed top-0 left-0 right-0 z-40 min-h-14",
           "flex items-center gap-2 px-4 py-2",
@@ -536,9 +537,9 @@ function ArcenalAdminApp(): ReactElement {
           <span aria-hidden>A</span>
           <strong>ARCENAL</strong>
         </div>
-      </header>
+      </header>}
 
-      {mobileOpen && (
+      {SHOW_APP_SIDEBAR && mobileOpen && (
         <Button
           ghost
           aria-label={t.app.closeNavigation}
@@ -554,14 +555,14 @@ function ArcenalAdminApp(): ReactElement {
           fixed lg:hidden header is h-14/z-40; previously each banner carried
           its own mt-14 AND the content kept pt-14, so two visible banners
           stacked three offsets (NS-656 review P3). One spacer, applied once. */}
-      <div aria-hidden className="h-14 shrink-0 lg:hidden" />
+      {SHOW_APP_SIDEBAR && <div aria-hidden className="h-14 shrink-0 lg:hidden" />}
       <PluginSlot name="header-banner" />
       <ProfileScopeBanner />
       <MemoryPressureBanner status={sidebarStatus} />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex min-h-0 min-w-0 flex-1">
-          <aside
+          {SHOW_APP_SIDEBAR && <aside
             id="app-sidebar"
             aria-label={t.app.navigation}
             className={cn(
@@ -734,7 +735,7 @@ function ArcenalAdminApp(): ReactElement {
               <AuthWidget />
               <SidebarFooter status={sidebarStatus} />
             </div>
-          </aside>
+          </aside>}
 
           <PageHeaderProvider pluginTabs={pluginTabMeta}>
             <div
