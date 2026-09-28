@@ -1,7 +1,7 @@
 # Architecture du RAG, de la LDA et du wiki documentaire
 
-Statut : **socle fonctionnel réalisé, index sémantique à compléter**
-Date : 23 septembre 2026
+Statut : **cycle documentaire opérationnel, index sémantique à compléter**
+Date : 28 septembre 2026
 
 ## 1. Objectif
 
@@ -87,6 +87,12 @@ Version 5 → En révision
 
 Après approbation, la version 5 devient applicable, la version 4 est archivée
 et la LDA est actualisée automatiquement.
+
+Les transitions sont contrôlées côté serveur. Le passage à `Applicable`
+enregistre l’administrateur YunoHost comme approbateur et les dates de
+validation et d’application. Une édition Markdown ordinaire ne peut pas
+contourner ce circuit. Les versions antérieures sont consultables et leur
+restauration exige une confirmation explicite.
 
 ## 5. Amélioration continue
 

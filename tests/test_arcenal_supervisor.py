@@ -427,3 +427,64 @@ def test_knowledge_attachment_rejects_path_escape(monkeypatch, tmp_path) -> None
         assert error.status_code == 422
     else:
         raise AssertionError("La sortie du répertoire des pièces jointes devait être refusée.")
+
+
+def test_knowledge_workflow_approves_with_authenticated_actor(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    content = _applicable_document().replace("statut: Applicable", "statut: À approuver")
+    supervisor.knowledge.write_document(
+        supervisor.knowledge.DocumentWrite(path="procedure.md", content=content)
+    )
+
+    result = supervisor.knowledge.transition_document(
+        "procedure.md", "Applicable", "admin", "Validation annuelle"
+    )
+
+    assert result["document"]["status"] == "Applicable"
+    assert result["document"]["approved_by"] == "admin"
+    assert result["document"]["reason"] == "Validation annuelle"
+
+
+def test_knowledge_workflow_rejects_invalid_transition(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    content = _applicable_document().replace("statut: Applicable", "statut: Brouillon")
+    supervisor.knowledge.write_document(
+        supervisor.knowledge.DocumentWrite(path="procedure.md", content=content)
+    )
+
+    try:
+        supervisor.knowledge.transition_document("procedure.md", "Applicable", "admin")
+    except supervisor.HTTPException as error:
+        assert error.status_code == 409
+    else:
+        raise AssertionError("La publication directe d’un brouillon devait être refusée.")
+
+
+def test_knowledge_direct_edit_cannot_change_status(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    draft = _applicable_document().replace("statut: Applicable", "statut: Brouillon")
+    target = supervisor.knowledge.DocumentWrite(path="procedure.md", content=draft)
+    supervisor.knowledge.write_document(target)
+
+    try:
+        supervisor.knowledge.write_document(
+            supervisor.knowledge.DocumentWrite(path="procedure.md", content=_applicable_document()),
+            allow_status_change=False,
+        )
+    except supervisor.HTTPException as error:
+        assert error.status_code == 409
+    else:
+        raise AssertionError("L’édition libre du statut devait être refusée.")
+
+
+def test_knowledge_restores_an_archived_version(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    first = supervisor.knowledge.DocumentWrite(path="note.md", content="# Première")
+    second = supervisor.knowledge.DocumentWrite(path="note.md", content="# Deuxième")
+    supervisor.knowledge.write_document(first)
+    supervisor.knowledge.write_document(second)
+    version = supervisor.knowledge.list_history("note.md")[0]
+
+    supervisor.knowledge.restore_history("note.md", version["id"])
+
+    assert supervisor.knowledge.read_document("note.md")["content"] == "# Première"

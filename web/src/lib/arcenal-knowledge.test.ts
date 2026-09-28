@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { ArcenalDocumentSummary } from "@/lib/api";
-import { createDocumentTemplate, filterDocuments, ldaToCsv, slugifyDocumentTitle, statusTone, validateLdaAttachment, withDocumentStatus } from "@/lib/arcenal-knowledge";
+import { createDocumentTemplate, filterDocuments, ldaToCsv, nextDocumentStatuses, slugifyDocumentTitle, statusTone, validateLdaAttachment, withDocumentStatus } from "@/lib/arcenal-knowledge";
 
 const DOCUMENT: ArcenalDocumentSummary = {
+  approved_by: "Direction générale",
   activity: "Qualité",
   application_date: "2026-09-22",
   attachment_name: "procedure.pdf",
@@ -63,6 +64,15 @@ describe("modèle documentaire ARCenal", () => {
   it("associe un ton stable à chaque statut autorisé", () => {
     expect(statusTone("Applicable")).toBe("applicable");
     expect(statusTone("À approuver")).toBe("approval");
+  });
+
+  it("réserve la publication au passage depuis À approuver", () => {
+    expect(nextDocumentStatuses("Brouillon")).not.toContain("Applicable");
+    expect(nextDocumentStatuses("À approuver")).toContain("Applicable");
+  });
+
+  it("permet de rouvrir une version archivée en révision", () => {
+    expect(nextDocumentStatuses("Archivé")).toEqual(["En révision"]);
   });
 
   it("exporte la LDA en CSV français sans casser les guillemets", () => {

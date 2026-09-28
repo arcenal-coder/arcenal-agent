@@ -613,6 +613,20 @@ export const api = {
         body: JSON.stringify({ path, content }),
       },
     ),
+  transitionArcenalDocument: (path: string, status: ArcenalDocumentStatus, reason = "") =>
+    fetchJSON<ArcenalDocumentWriteResponse>(
+      `/api/plugins/arcenal-supervisor/knowledge/document/workflow?path=${encodeURIComponent(path)}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, reason }) },
+    ),
+  getArcenalDocumentHistory: (path: string) =>
+    fetchJSON<ArcenalDocumentHistoryResponse>(
+      `/api/plugins/arcenal-supervisor/knowledge/document/history?path=${encodeURIComponent(path)}`,
+    ),
+  restoreArcenalDocumentHistory: (path: string, versionId: string) =>
+    fetchJSON<ArcenalDocumentWriteResponse>(
+      `/api/plugins/arcenal-supervisor/knowledge/document/history/${encodeURIComponent(versionId)}/restore?path=${encodeURIComponent(path)}&confirmed=true`,
+      { method: "POST" },
+    ),
   createArcenalDocument: (path: string, content: string) =>
     fetchJSON<ArcenalDocumentWriteResponse>(
       "/api/plugins/arcenal-supervisor/knowledge/document",
@@ -2260,6 +2274,7 @@ export type ArcenalDocumentStatus =
   | "Archivé";
 
 export interface ArcenalDocumentSummary {
+  approved_by: string;
   activity: string;
   application_date: string;
   attachment_name: string;
@@ -2310,6 +2325,17 @@ export interface ArcenalDocumentResponse {
 export interface ArcenalDocumentWriteResponse {
   document: ArcenalDocumentSummary;
   ok: boolean;
+}
+
+export interface ArcenalDocumentHistoryVersion {
+  id: string;
+  status: ArcenalDocumentStatus;
+  title: string;
+  version: string;
+}
+
+export interface ArcenalDocumentHistoryResponse {
+  versions: ArcenalDocumentHistoryVersion[];
 }
 
 export interface ArcenalKnowledgeSearchResponse {

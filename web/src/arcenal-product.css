@@ -504,6 +504,22 @@
 .arc-memory-empty svg { width: 24px; }
 .arc-memory-empty p { margin: 0; font-size: 9px; }
 .arc-memory-history { grid-column: 1 / -1; }
+.arc-document-workflow { display: grid; gap: 10px; }
+.arc-document-workflow > span { display: flex; align-items: center; gap: 6px; }
+.arc-document-workflow > span svg { width: 13px; color: var(--arc-wine); }
+.arc-workflow-actions { display: grid; gap: 6px; }
+.arc-workflow-actions button { min-height: 32px; padding: 0 9px; border: 1px solid var(--arc-line); border-radius: 7px; color: var(--arc-prussian); background: var(--arc-white); font-size: 8px; font-weight: 750; cursor: pointer; }
+.arc-document-workflow > header { display: flex; align-items: center; gap: 6px; padding-top: 8px; border-top: 1px solid var(--arc-line); }
+.arc-document-workflow > header svg { width: 13px; color: var(--arc-brass); }
+.arc-document-workflow > header strong { font-size: 8px; }
+.arc-document-workflow > header small { margin-left: auto; color: var(--arc-muted); font-size: 7px; }
+.arc-document-workflow ul { display: grid; max-height: 150px; gap: 5px; overflow: auto; margin: 0; padding: 0; list-style: none; }
+.arc-document-workflow li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px; border: 1px solid var(--arc-line); border-radius: 7px; }
+.arc-document-workflow li span { display: flex; flex-direction: column; }
+.arc-document-workflow li strong { font-size: 7px; }
+.arc-document-workflow li small, .arc-document-workflow > p { color: var(--arc-muted); font-size: 7px; }
+.arc-document-workflow li button { display: flex; align-items: center; gap: 4px; border: 0; color: var(--arc-link); background: transparent; font-size: 7px; cursor: pointer; }
+.arc-document-workflow li button svg { width: 11px; }
 
 @media (min-width: 1024px) {
   .arcenal-shell #app-sidebar { width: 188px; }

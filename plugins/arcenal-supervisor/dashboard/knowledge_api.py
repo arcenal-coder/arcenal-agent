@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -30,6 +30,14 @@ ALLOWED_ATTACHMENT_SUFFIXES = {".docx", ".md", ".odt", ".pdf", ".txt"}
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*(?:\n|\Z)", re.DOTALL)
 LINK_RE = re.compile(r"\[\[([^\]|#]+)(?:[#|][^\]]*)?\]\]")
 WORD_RE = re.compile(r"[\wÀ-ÿ-]{2,}", re.UNICODE)
+HISTORY_ID_RE = re.compile(r"^\d{8}T\d{12}Z$")
+STATUS_TRANSITIONS = {
+    "Brouillon": {"En révision", "Archivé"},
+    "En révision": {"À approuver", "Archivé"},
+    "À approuver": {"En révision", "Applicable", "Archivé"},
+    "Applicable": {"Archivé"},
+    "Archivé": {"En révision"},
+}
 
 
 class DocumentWrite(BaseModel):
@@ -44,6 +52,13 @@ class SearchRequest(BaseModel):
 
     query: str = Field(min_length=2, max_length=300)
     limit: int = Field(default=8, ge=1, le=30)
+
+
+class WorkflowRequest(BaseModel):
+    """Transition documentaire contrôlée et motivée."""
+
+    status: str = Field(max_length=30)
+    reason: str = Field(default="", max_length=500)
 
 
 def knowledge_root() -> Path:
@@ -152,6 +167,7 @@ def _document_summary(path: Path) -> dict[str, Any]:
         "attachment_size": _integer(metadata.get("piece_jointe_taille", "0")),
         "status": _status(metadata),
         "owner": metadata.get("proprietaire", ""),
+        "approved_by": metadata.get("approbateur", ""),
         "application_date": metadata.get("date_application", ""),
         "review_date": metadata.get("prochaine_revue", ""),
         "scope": metadata.get("perimetre", ""),
@@ -319,9 +335,11 @@ def read_document(relative_path: str) -> dict[str, Any]:
     return {"document": _document_summary(target), "content": content}
 
 
-def write_document(payload: DocumentWrite) -> dict[str, Any]:
+def write_document(payload: DocumentWrite, allow_status_change: bool = True) -> dict[str, Any]:
     _validate_content(payload.content)
     target = _safe_path(payload.path)
+    if target.is_file() and not allow_status_change:
+        _reject_direct_status_change(target, payload.content)
     _archive_existing(target)
     _atomic_write(target, payload.content)
     return {"ok": True, "document": _document_summary(target)}
@@ -332,6 +350,103 @@ def create_document(payload: DocumentWrite) -> dict[str, Any]:
     if target.exists():
         raise HTTPException(status_code=409, detail="Un document existe déjà à cet emplacement.")
     return write_document(payload)
+
+
+def _reject_initial_publication(content: str) -> None:
+    status = _status(_frontmatter(content)[0])
+    if status in {"Applicable", "Archivé"}:
+        raise HTTPException(status_code=409, detail="Un document doit suivre le circuit de validation.")
+
+
+def _reject_direct_status_change(target: Path, content: str) -> None:
+    current = _status(_frontmatter(target.read_text(encoding="utf-8"))[0])
+    requested = _status(_frontmatter(content)[0])
+    if current != requested:
+        raise HTTPException(status_code=409, detail="Utilisez le circuit de validation pour changer le statut.")
+
+
+def _replace_metadata(content: str, updates: dict[str, str]) -> str:
+    metadata, body = _frontmatter(content)
+    merged = {**metadata, **updates}
+    frontmatter = "\n".join(f"{key}: {value}" for key, value in merged.items())
+    return f"---\n{frontmatter}\n---\n{body.rstrip()}\n"
+
+
+def transition_document(path: str, status: str, actor: str, reason: str = "") -> dict[str, Any]:
+    if status not in ALLOWED_STATUSES:
+        raise HTTPException(status_code=422, detail="Statut documentaire invalide.")
+    current = read_document(path)
+    previous = str(current["document"]["status"])
+    if status not in STATUS_TRANSITIONS.get(previous, set()):
+        raise HTTPException(status_code=409, detail=f"Transition {previous} vers {status} interdite.")
+    updates = _workflow_metadata(status, actor, reason)
+    if status == "Applicable":
+        _archive_previous_applicable(current["document"])
+    payload = DocumentWrite(path=path, content=_replace_metadata(str(current["content"]), updates))
+    return write_document(payload)
+
+
+def _workflow_metadata(status: str, actor: str, reason: str) -> dict[str, str]:
+    updates = {"statut": status, "derniere_action_par": actor}
+    if reason.strip():
+        updates["motif"] = reason.strip()
+    if status == "Applicable":
+        today = datetime.now(timezone.utc).date().isoformat()
+        updates.update({"approbateur": actor, "date_validation": today, "date_application": today})
+    return updates
+
+
+def _archive_previous_applicable(document: dict[str, Any]) -> None:
+    reference = str(document["reference"])
+    if not reference:
+        return
+    for sibling in list_documents():
+        if sibling["path"] == document["path"] or sibling["reference"] != reference:
+            continue
+        if sibling["status"] == "Applicable":
+            _set_sibling_archived(str(sibling["path"]))
+
+
+def _set_sibling_archived(path: str) -> None:
+    sibling = read_document(path)
+    content = _replace_metadata(str(sibling["content"]), {"statut": "Archivé"})
+    write_document(DocumentWrite(path=path, content=content))
+
+
+def list_history(path: str) -> list[dict[str, str]]:
+    target = _safe_path(path)
+    history = _history_directory(target)
+    if not history.is_dir():
+        return []
+    return [_history_summary(version) for version in sorted(history.glob("*.md"), reverse=True)]
+
+
+def _history_summary(path: Path) -> dict[str, str]:
+    metadata, body = _frontmatter(path.read_text(encoding="utf-8"))
+    return {
+        "id": path.stem,
+        "status": _status(metadata),
+        "title": _title(metadata, body, path),
+        "version": metadata.get("version", metadata.get("revision", "1")),
+    }
+
+
+def restore_history(path: str, version_id: str) -> dict[str, Any]:
+    if not HISTORY_ID_RE.fullmatch(version_id):
+        raise HTTPException(status_code=422, detail="Version historique invalide.")
+    target = _safe_path(path)
+    version = _history_directory(target) / f"{version_id}.md"
+    if not version.is_file():
+        raise HTTPException(status_code=404, detail="Version historique introuvable.")
+    content = version.read_text(encoding="utf-8")
+    return write_document(DocumentWrite(path=path, content=content))
+
+
+def _authenticated_actor(request: Request) -> str:
+    actor = request.headers.get("remote-user") or request.headers.get("x-remote-user")
+    if not actor or not re.fullmatch(r"[A-Za-z0-9_.@-]{1,128}", actor):
+        raise HTTPException(status_code=401, detail="Administrateur YunoHost non identifié.")
+    return actor
 
 
 def create_document_with_attachment(
@@ -443,11 +558,12 @@ def document(path: str = Query(min_length=1, max_length=240)) -> dict[str, Any]:
 
 @router.put("/document")
 def save_document(payload: DocumentWrite) -> dict[str, Any]:
-    return write_document(payload)
+    return write_document(payload, allow_status_change=False)
 
 
 @router.post("/document", status_code=201)
 def new_document(payload: DocumentWrite) -> dict[str, Any]:
+    _reject_initial_publication(payload.content)
     return create_document(payload)
 
 
@@ -458,6 +574,7 @@ async def upload_document(
     file: UploadFile = File(...),
 ) -> dict[str, Any]:
     try:
+        _reject_initial_publication(content)
         data = await _read_upload(file)
         return create_document_with_attachment(
             DocumentWrite(path=path, content=content), file.filename or "", file.content_type or "", data
@@ -488,3 +605,21 @@ def published_document(path: str = Query(min_length=1, max_length=240)) -> dict[
 @router.post("/search")
 def search(payload: SearchRequest) -> dict[str, Any]:
     return {"query": payload.query, "results": search_documents(payload.query, payload.limit)}
+
+
+@router.post("/document/workflow")
+def document_workflow(path: str, payload: WorkflowRequest, request: Request) -> dict[str, Any]:
+    return transition_document(path, payload.status, _authenticated_actor(request), payload.reason)
+
+
+@router.get("/document/history")
+def document_history(path: str = Query(min_length=1, max_length=240)) -> dict[str, Any]:
+    return {"versions": list_history(path)}
+
+
+@router.post("/document/history/{version_id}/restore")
+def restore_document_version(request: Request, version_id: str, path: str = Query(min_length=1, max_length=240)) -> dict[str, Any]:
+    _authenticated_actor(request)
+    if request.query_params.get("confirmed") != "true":
+        raise HTTPException(status_code=409, detail="La restauration doit être confirmée.")
+    return restore_history(path, version_id)

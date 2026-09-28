@@ -147,6 +147,32 @@ describe("api.saveArcenalAgentMemory", () => {
   });
 });
 
+describe("api.transitionArcenalDocument", () => {
+  it("utilise le circuit documentaire avec un motif", async () => {
+    const fetchMock = jsonFetchMock({ document: {}, ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.transitionArcenalDocument("QSSERP/note.md", "Applicable", "Validation");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/knowledge/document/workflow?path=QSSERP%2Fnote.md",
+      expect.objectContaining({ body: JSON.stringify({ status: "Applicable", reason: "Validation" }), method: "POST" }),
+    );
+  });
+
+  it("encode la version restaurée et le chemin", async () => {
+    const fetchMock = jsonFetchMock({ document: {}, ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.restoreArcenalDocumentHistory("QSSERP/note.md", "20260928T120000000000Z");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/knowledge/document/history/20260928T120000000000Z/restore?path=QSSERP%2Fnote.md&confirmed=true",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+});
+
 describe("api.testArcenalOpenRouter", () => {
   it("envoie la clé uniquement au test ARCenal demandé", async () => {
     const fetchMock = jsonFetchMock({ configured: true, connection: "connected" });

@@ -78,10 +78,10 @@ doit être unifié avec l'API de contrôle.
 | Agents spécialisés | EXISTANT | Création et administration intégrées d’un profil isolé avec identité, mission, modèles principal et secondaire, compétences, outils et mémoire dédiée. |
 | Connecteurs AACP/1 | PARTIEL | Contrat documenté, aucun connecteur actif conformément au périmètre ; la carte de feuille de route n'apporte pas de fonction. |
 | Coffre Markdown | EXISTANT | Création, lecture, édition, recherche, liens, historique et pièces jointes présents. |
-| Cycle documentaire | PARTIEL | Statuts et filtrage présents ; approbation nominative, transitions contrôlées et restauration UI manquent. |
+| Cycle documentaire | EXISTANT | Transitions bornées, motif, approbation nominative YunoHost, archivage de la version applicable précédente, historique et restauration confirmée. |
 | LDA | EXISTANT | Registre, filtres, archive, pagination et CSV présents. |
 | Wiki | EXISTANT | Route séparée en lecture limitée aux documents applicables. |
-| RAG traçable | PARTIEL | Outils de recherche et lecture présents ; preuve bout en bout de citation par le chat absente. |
+| RAG traçable | EXISTANT | Recherche et lecture exposent chemin, référence, version, statut et extrait ; les directives ARC imposent leur citation et les tests vérifient les sources retournées. |
 | Paramètres Général | PARTIEL | Écran ARC, identité, langue, fuseau, adresse de notification et versions détectées ; l'envoi de notification reste à raccorder. |
 | Paramètres Apparence | PARTIEL | Clair, sombre, système, couleurs, logo, favicon, nom et prévisualisation ; l'import de fichier local reste à ajouter. |
 | Paramètres Contexte | EXISTANT | Éditeur Markdown, aperçu, auteur, date, historique, restauration confirmée et récupération ciblée de `CONTEXT.md`. |

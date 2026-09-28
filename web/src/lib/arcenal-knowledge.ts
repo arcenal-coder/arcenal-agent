@@ -91,6 +91,17 @@ export function statusTone(status: ArcenalDocumentStatus): string {
   return tones[status];
 }
 
+export function nextDocumentStatuses(status: ArcenalDocumentStatus): ArcenalDocumentStatus[] {
+  const transitions: Record<ArcenalDocumentStatus, ArcenalDocumentStatus[]> = {
+    "Brouillon": ["En révision", "Archivé"],
+    "En révision": ["À approuver", "Archivé"],
+    "À approuver": ["En révision", "Applicable", "Archivé"],
+    "Applicable": ["Archivé"],
+    "Archivé": ["En révision"],
+  };
+  return transitions[status];
+}
+
 export function ldaToCsv(documents: readonly ArcenalDocumentSummary[]): string {
   const header = ["Dénomination", "Activité", "Numérotation", "Titre", "Création ou révision", "Date de validation", "Révision N°", "Motif", "Statut"];
   const rows = documents.map((document) => [document.type, document.activity, document.number, document.title, document.change_type, document.validation_date, document.revision, document.reason, document.status]);
