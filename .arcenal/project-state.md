@@ -77,9 +77,9 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
 - L’API rejette les opérations inconnues, les services hors liste et les
   requêtes qui ne portent pas la confirmation administrateur.
 - La livraison applicative `v0.21.0-arcenal19` et le paquet `arcenal_ynh`
-  `0.21.0~ynh33` sont publiés sur GitHub. Le canal développement référence la
-  révision `7c67c14cac5612a057f69cc8fd1b16571d883ebd`. Les canaux prévisualisation
-  et stable restent volontairement sur `0.21.0~ynh32` jusqu'à la recette.
+  `0.21.0~ynh33` sont publiés sur GitHub. Les canaux développement,
+  prévisualisation et stable référencent la révision
+  `7c67c14cac5612a057f69cc8fd1b16571d883ebd`.
 - Le paquet reconstruit proprement le code et les dépendances pendant
   l'upgrade, réinstalle `uv` si nécessaire et accepte la restauration
   `BACKUP_CORE_ONLY` sans masquer l'erreur initiale.
@@ -166,10 +166,13 @@ Le paquet ynh32 passe la validation Bash, le chargement TOML et ses six tests
 shell. Le catalogue système passe la compilation Python, ses 9 tests unitaires,
 la régénération exacte des trois canaux et les promotions GitHub jusqu’au canal
 stable. Les flux publics direct et stable annoncent bien ynh32.
+Le paquet ynh33 passe les contrôles locaux du broker et du paquet. Les
+promotions development, preview et stable réussissent sur GitHub ; les neuf
+tests du catalogue et sa publication Pages réussissent. Les flux stable brut
+et Pages annoncent bien ynh33.
 
 ## Étape suivante pressentie
 
-Actualiser le catalogue de développement sur le serveur YunoHost de recette,
-mettre à jour vers ynh33, puis valider les trois services, les groupes, les
-sockets, SSOwat, la sauvegarde, la restauration et le retour arrière avant
-toute promotion vers prévisualisation puis stable.
+Actualiser le catalogue ARCenal sur `onyx-ingenierie.com`, mettre à jour vers
+ynh33 depuis l'administration YunoHost, puis valider les trois services, les
+groupes, les sockets, SSOwat, la sauvegarde et la restauration.
