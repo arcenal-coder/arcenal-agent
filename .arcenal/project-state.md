@@ -77,9 +77,9 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
 - L’API rejette les opérations inconnues, les services hors liste et les
   requêtes qui ne portent pas la confirmation administrateur.
 - La livraison applicative `v0.21.0-arcenal19` et le paquet `arcenal_ynh`
-  `0.21.0~ynh33` sont publiés sur GitHub. Les canaux développement,
+  `0.21.0~ynh34` sont publiés sur GitHub. Les canaux développement,
   prévisualisation et stable référencent la révision
-  `7c67c14cac5612a057f69cc8fd1b16571d883ebd`.
+  `d0e23cf8c70c53d65a3c2222f29c9115fdd513f2`.
 - Le paquet reconstruit proprement le code et les dépendances pendant
   l'upgrade, réinstalle `uv` si nécessaire et accepte la restauration
   `BACKUP_CORE_ONLY` sans masquer l'erreur initiale.
@@ -170,9 +170,17 @@ Le paquet ynh33 passe les contrôles locaux du broker et du paquet. Les
 promotions development, preview et stable réussissent sur GitHub ; les neuf
 tests du catalogue et sa publication Pages réussissent. Les flux stable brut
 et Pages annoncent bien ynh33.
+Le paquet ynh34 supprime la course au démarrage du socket de contrôle : le
+service crée désormais directement le socket avec le groupe attendu par Nginx,
+sans commande différée fragile. La sauvegarde cœur inclut aussi les unités
+systemd et la configuration Nginx afin qu'une restauration après échec dispose
+toujours de fichiers restaurables. Les neuf tests du broker, les six tests shell
+du paquet et les treize tests du catalogue réussissent. Les promotions ciblées
+development, preview et stable, puis la publication Pages réussissent ; les
+flux publics brut et Pages annoncent bien ynh34.
 
 ## Étape suivante pressentie
 
 Actualiser le catalogue ARCenal sur `onyx-ingenierie.com`, mettre à jour vers
-ynh33 depuis l'administration YunoHost, puis valider les trois services, les
+ynh34 depuis l'administration YunoHost, puis valider les trois services, les
 groupes, les sockets, SSOwat, la sauvegarde et la restauration.
