@@ -76,11 +76,10 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
   une confirmation visible et transmet uniquement des identifiants bornés.
 - L’API rejette les opérations inconnues, les services hors liste et les
   requêtes qui ne portent pas la confirmation administrateur.
-- La livraison applicative `v0.21.0-arcenal18` et le paquet `arcenal_ynh`
-  `0.21.0~ynh32` sont publiés sur GitHub. Le catalogue ARCenal direct et les
-  canaux développement, prévisualisation et stable du catalogue système
-  référencent la révision de paquet
-  `2143610644afc8f5f72fa65c03723f95d18cbbd6`.
+- La livraison applicative `v0.21.0-arcenal19` et le paquet `arcenal_ynh`
+  `0.21.0~ynh33` sont publiés sur GitHub. Le canal développement référence la
+  révision `7c67c14cac5612a057f69cc8fd1b16571d883ebd`. Les canaux prévisualisation
+  et stable restent volontairement sur `0.21.0~ynh32` jusqu'à la recette.
 - Le paquet reconstruit proprement le code et les dépendances pendant
   l'upgrade, réinstalle `uv` si nécessaire et accepte la restauration
   `BACKUP_CORE_ONLY` sans masquer l'erreur initiale.
@@ -170,6 +169,7 @@ stable. Les flux publics direct et stable annoncent bien ynh32.
 
 ## Étape suivante pressentie
 
-Actualiser le catalogue sur le serveur YunoHost de recette, installer ynh32,
-puis valider le dépôt LDA, le coffre d’accès, l’historique du chat, le pont
-YunoHost et les permissions réelles des espaces privés.
+Actualiser le catalogue de développement sur le serveur YunoHost de recette,
+mettre à jour vers ynh33, puis valider les trois services, les groupes, les
+sockets, SSOwat, la sauvegarde, la restauration et le retour arrière avant
+toute promotion vers prévisualisation puis stable.
