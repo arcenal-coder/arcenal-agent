@@ -274,6 +274,13 @@
 .arc-appearance-preview strong { color: var(--arc-text); font-size: 12px; }
 .arc-appearance-preview a { color: var(--arc-link); font-size: 9px; }
 .arc-appearance-preview button { min-height: 36px; padding: 0 13px; border: 0; border-radius: 9px; color: #fff; background: var(--arc-action); font-size: 9px; font-weight: 750; }
+.arc-brand-imports { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; align-items: stretch; gap: 10px; margin: 14px 0; }
+.arc-file-import { display: flex; min-height: 58px; align-items: center; gap: 10px; padding: 10px 12px; border: 1px dashed var(--arc-line); border-radius: 10px; color: var(--arc-text); background: rgba(255,255,255,.5); cursor: pointer; }
+.arc-file-import > svg { width: 17px; color: var(--arc-wine); }
+.arc-file-import span { display: flex; flex-direction: column; gap: 3px; font-size: 8px; font-weight: 750; }
+.arc-file-import small { color: var(--arc-muted); font-size: 7px; font-weight: 400; }
+.arc-file-import input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.arc-brand-imports .arc-secondary-button { justify-content: center; }
 .arc-managed-layout { display: grid; grid-template-columns: minmax(210px, .55fr) minmax(0, 1.6fr); gap: 14px; }
 .arc-managed-navigation { display: flex; flex-direction: column; gap: 7px; }
 .arc-managed-navigation button { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; padding: 12px; border: 1px solid var(--arc-line); border-radius: 12px; color: var(--arc-text); background: rgba(255,255,255,.55); text-align: left; cursor: pointer; }
@@ -691,6 +698,7 @@ html[data-arc-color-mode="dark"] .arc-custom-connection input { color: var(--arc
 html[data-arc-color-mode="dark"] .arc-system-identity,
 html[data-arc-color-mode="dark"] .arc-color-field,
 html[data-arc-color-mode="dark"] .arc-appearance-preview,
+html[data-arc-color-mode="dark"] .arc-file-import,
 html[data-arc-color-mode="dark"] .arc-managed-navigation button,
 html[data-arc-color-mode="dark"] .arc-managed-editor,
 html[data-arc-color-mode="dark"] .arc-memory-search,
@@ -744,6 +752,7 @@ html[data-arc-color-mode="dark"] .arc-onboarding-checks article { background: #1
   .arc-system-identity { grid-template-columns: auto 1fr; }
   .arc-appearance-preview { grid-template-columns: auto 1fr; }
   .arc-appearance-preview > button { grid-column: 1 / -1; }
+  .arc-brand-imports { grid-template-columns: 1fr; }
   .arc-card-action { grid-column: 1 / -1; text-align: center; }
   .arc-form-row, .arc-connectors ul { grid-template-columns: 1fr; }
   .arc-agent-editor, .arc-agent-capability-grid { grid-template-columns: 1fr; }

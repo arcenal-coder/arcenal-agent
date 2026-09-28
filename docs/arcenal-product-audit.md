@@ -83,7 +83,7 @@ doit être unifié avec l'API de contrôle.
 | Wiki | EXISTANT | Route séparée en lecture limitée aux documents applicables. |
 | RAG traçable | EXISTANT | Recherche et lecture exposent chemin, référence, version, statut et extrait ; les directives ARC imposent leur citation et les tests vérifient les sources retournées. |
 | Paramètres Général | EXISTANT | Identité, langue, fuseau, destinataire, adresse d’ARC dérivée du domaine, versions détectées et test réel via la messagerie YunoHost. |
-| Paramètres Apparence | PARTIEL | Clair, sombre, système, couleurs, logo, favicon, nom et prévisualisation ; l'import de fichier local reste à ajouter. |
+| Paramètres Apparence | EXISTANT | Clair, sombre, système, couleurs, prévisualisation, import PNG/JPEG borné du logo et du favicon, et reprise de la personnalisation YunoHost. |
 | Paramètres Contexte | EXISTANT | Éditeur Markdown, aperçu, auteur, date, historique, restauration confirmée et récupération ciblée de `CONTEXT.md`. |
 | Paramètres Mémoire | EXISTANT | `MEMORY.md` dispose d’un parcours ARC de consultation, recherche, ajout, modification, suppression confirmée, historique et restauration. |
 | Paramètres Directives | EXISTANT | Inventaire borné, édition, aperçu, historique et restauration de `AGENTS.md`, `RULES.md`, `SECURITY.md` et `TOOLS.md`, injectés dans les nouvelles sessions. |

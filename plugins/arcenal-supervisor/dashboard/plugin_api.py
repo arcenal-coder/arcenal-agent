@@ -110,6 +110,18 @@ def _load_system_api() -> ModuleType:
     return module
 
 
+def _load_branding_api() -> ModuleType:
+    """Charge les ressources visuelles persistantes d’ARCenal."""
+    source = Path(__file__).with_name("branding_api.py")
+    spec = importlib.util.spec_from_file_location("arcenal_branding_api", source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Le module d’apparence ARCenal est introuvable.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 knowledge = _load_knowledge_api()
 router.include_router(knowledge.router)
 managed_files = _load_managed_files_api()
@@ -124,6 +136,8 @@ agents = _load_agents_api()
 router.include_router(agents.router)
 system = _load_system_api()
 router.include_router(system.router)
+branding = _load_branding_api()
+router.include_router(branding.router)
 
 SERVICES = (
     ("arcenal", "ARCenal Agent"),

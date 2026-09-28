@@ -36,6 +36,11 @@ describe("paramètres produit ARCenal", () => {
     expect(isValidNotificationEmail("arc@example.test")).toBe(true);
   });
 
+  it("accepte uniquement les ressources graphiques internes bornées", () => {
+    expect(isValidBrandUrl("/arcenal/api/plugins/arcenal-supervisor/branding/assets/logo?v=12")).toBe(true);
+    expect(isValidBrandUrl("/arcenal/api/plugins/arcenal-supervisor/branding/assets/../../secret")).toBe(false);
+  });
+
   it("refuse une réponse système incomplète provenant d’une ancienne API", () => {
     expect(isArcenalSystemOverview({})).toBe(false);
     expect(isArcenalSystemOverview({ platform: { hostname: "arc", domain: "arc.test", versions: { arc: "1", hermes: "1", yunohost: "12", debian: "12" } } })).toBe(true);

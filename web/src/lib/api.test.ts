@@ -307,6 +307,20 @@ describe("api du centre de sécurité ARCenal", () => {
   });
 });
 
+describe("api d’apparence ARCenal", () => {
+  it("transmet le logo sous forme multipart sans imposer de frontière", async () => {
+    const fetchMock = jsonFetchMock({ filename: "logo.png", kind: "logo", size: 8, url: "/api/logo" });
+    vi.stubGlobal("fetch", fetchMock);
+    const file = new File(["image"], "logo.png", { type: "image/png" });
+
+    await api.uploadArcenalBrandAsset("logo", file);
+
+    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(options.body).toBeInstanceOf(FormData);
+    expect(new Headers(options.headers).has("Content-Type")).toBe(false);
+  });
+});
+
 describe("api fournisseurs ARCenal", () => {
   it("teste un fournisseur sans persister son secret", async () => {
     const fetchMock = jsonFetchMock({ provider: "mistral", connection: "connected", models: [] });

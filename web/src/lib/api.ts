@@ -524,6 +524,15 @@ export const api = {
     fetchJSON<ArcenalSystemInventory>(
       "/api/plugins/arcenal-supervisor/system/inventory",
     ),
+  uploadArcenalBrandAsset: (assetType: "favicon" | "logo", file: File) => {
+    const form = new FormData();
+    form.append("asset_type", assetType);
+    form.append("file", file, file.name);
+    return fetchJSON<ArcenalBrandAssetResponse>(
+      "/api/plugins/arcenal-supervisor/branding/assets",
+      { method: "POST", body: form },
+    );
+  },
   getArcenalSecurityOverview: () =>
     fetchJSON<ArcenalSecurityOverview>("/api/arcenal-control/security/overview"),
   prepareArcenalAction: (actionId: string, target: string | null, humanConfirmed = false) =>
@@ -2408,6 +2417,13 @@ export interface ArcenalSystemInventory {
   errors: string[];
   updates: ArcenalSystemCollection;
   users: ArcenalSystemCollection;
+}
+
+export interface ArcenalBrandAssetResponse {
+  filename: string;
+  kind: "favicon" | "logo";
+  size: number;
+  url: string;
 }
 
 export interface ArcenalSecurityAction {

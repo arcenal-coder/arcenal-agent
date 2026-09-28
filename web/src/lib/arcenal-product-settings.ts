@@ -87,6 +87,7 @@ export function appearanceSettingsConfig(settings: ArcenalAppearanceSettings): R
 
 export function isValidBrandUrl(value: string): boolean {
   if (!value.trim()) return true;
+  if (/^\/(?:[A-Za-z0-9._~-]+\/)*api\/plugins\/arcenal-supervisor\/branding\/assets\/(?:logo|favicon)(?:\?v=\d+)?$/.test(value)) return true;
   try {
     const protocol = new URL(value).protocol;
     return protocol === "https:" || protocol === "http:";
