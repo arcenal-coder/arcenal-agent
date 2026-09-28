@@ -6,11 +6,10 @@ Branche : `arcenal`
 
 ## Objectif courant
 
-Livrer ARCenal Agent comme produit YunoHost autonome à trois volets — ARC,
-Agents et RAG & LDA — sans exposer le tableau de bord Hermes comme interface
-principale, tout en conservant Hermes comme moteur amont actualisable. Un accès
-secondaire Paramètres permet à l'administrateur de connecter plusieurs moteurs
-IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
+Mettre la version installée en conformité avec le CDC détaillé 2.0. La façade à
+trois volets et le socle YunoHost sont conservés, mais le centre Paramètres, le
+volet Agents, l'administration système et les parcours de sécurité doivent être
+achevés sans réintroduire le tableau de bord Hermes comme interface principale.
 
 ## État observé
 
@@ -120,6 +119,10 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
 - Le paquet YunoHost fixe l'administration au groupe `admins`
   et réserve au groupe `all_users` la route du wiki et ses API de lecture.
 - Le CDC approuvé est formalisé dans `docs/arcenal-product-cdc.md`.
+- Le CDC détaillé retrouvé dans la demande utilisateur est maintenant conservé
+  dans `docs/arcenal-product-cdc-v2.md`. L'audit
+  `docs/arcenal-product-audit.md` classe chaque domaine en existant, partiel,
+  absent ou à refactoriser et remplace les affirmations générales de conformité.
 
 ## Validation prévue
 
@@ -181,6 +184,6 @@ flux publics brut et Pages annoncent bien ynh34.
 
 ## Étape suivante pressentie
 
-Actualiser le catalogue ARCenal sur `onyx-ingenierie.com`, mettre à jour vers
-ynh34 depuis l'administration YunoHost, puis valider les trois services, les
-groupes, les sockets, SSOwat, la sauvegarde et la restauration.
+Après validation de l'architecture auditée, unifier le flux de confirmation de
+maintenance sur l'API de contrôle, puis construire le conteneur fonctionnel des
+onze sections Paramètres avant de livrer Général et Apparence complète.

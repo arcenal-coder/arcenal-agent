@@ -4,6 +4,11 @@ Version : **1.1 approuvée**
 
 Date : 24 septembre 2026
 
+> Cette version résume le périmètre initial. Le
+> [CDC détaillé 2.0](arcenal-product-cdc-v2.md) est désormais la référence
+> complète de réalisation et l'[audit de conformité](arcenal-product-audit.md)
+> identifie les fonctions manquantes de la version installée.
+
 ## Positionnement
 
 ARCenal Agent est l'application native d'administration intelligente

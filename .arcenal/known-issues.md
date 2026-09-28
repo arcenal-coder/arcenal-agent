@@ -1,5 +1,17 @@
 # Points ouverts
 
+## CDC-GAP-001 — Conformité fonctionnelle incomplète
+
+- État : audit terminé, réalisation en attente de validation architecturale.
+- Impact : la version ynh34 sécurise l'installation et fournit les trois volets,
+  mais plusieurs domaines du CDC détaillé sont absents ou partiels, notamment
+  huit sections Paramètres, la gouvernance complète des agents, le système, la
+  sécurité visible, les sauvegardes et le premier démarrage.
+- Preuve : `docs/arcenal-product-audit.md` et
+  `docs/arcenal-product-cdc-v2.md`.
+- Prochaine étape : valider l'architecture cible, puis exécuter les lots dans
+  l'ordre défini par l'audit avec critères `AC-*` et recette installée.
+
 ## SEC-YH-001 — Recette YunoHost réelle requise
 
 - État : ouvert.
