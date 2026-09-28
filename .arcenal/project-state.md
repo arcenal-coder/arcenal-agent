@@ -139,6 +139,14 @@ achevés sans réintroduire le tableau de bord Hermes comme interface principale
   restauration. ARC dispose d’un outil de recherche dédié et reçoit un extrait
   borné de la mémoire au début de chaque nouvelle session. Le format interdit
   l’injection de faux titres d’entrée.
+- Le lot Connexions complète les fournisseurs IA et le coffre d’accès. Chaque
+  fournisseur peut être activé, testé, associé à un modèle principal et à un
+  modèle secondaire ; les API compatibles OpenAI acceptent une adresse privée
+  contrôlée. Les résultats expurgés sont horodatés et persistés sans secret.
+- Les accès métier déclarent désormais leurs permissions, leur autonomie et
+  leur état. Ils peuvent être testés, activés ou désactivés ; seuls les accès
+  actifs sont présentés aux outils d’ARC, sans valeur de mot de passe ou de
+  jeton.
 
 ## Validation prévue
 
@@ -211,8 +219,12 @@ nominales ; sa hiérarchie, ses cartes, son formulaire et son historique sont
 lisibles dans la façade ARC sans réintroduire l’interface Hermes.
 Le lot passe ESLint sans erreur nouvelle, TypeScript, les 360 tests Vitest, la
 compilation Python et le build Vite de production.
+Le lot Connexions passe ESLint sans erreur nouvelle, TypeScript, les 368 tests
+Vitest, la compilation Python et le build Vite de production. Les panneaux
+Fournisseurs IA et Accès ont été contrôlés visuellement en thème sombre. Les
+tests Python ciblés sont présents mais restent non exécutables sur ce Mac faute
+de FastAPI, Pydantic et pytest installés ; aucune dépendance n’a été ajoutée.
 
 ## Étape suivante pressentie
 
-Achever Fournisseurs IA et Accès avec tests de connexion et états, puis livrer
-Outils et capacités avec permissions et audit d’utilisation.
+Livrer Outils et capacités avec permissions et audit d’utilisation.

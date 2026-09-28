@@ -177,6 +177,27 @@ def test_access_catalog_accepts_an_empty_configuration() -> None:
     assert tools._access_records({}, {}) == []
 
 
+def test_access_catalog_filters_disabled_access_and_exposes_permissions() -> None:
+    plugin = _load_plugin()
+    tools = sys.modules[plugin.access_catalog.__module__]
+    active = {
+        "autonomy": "manual",
+        "enabled": True,
+        "id": "wiki",
+        "kind": "api",
+        "label": "Wiki",
+        "permissions": ["lecture", "publication"],
+        "secretEnv": "ARCENAL_ACCESS_WIKI_API_KEY",
+        "serviceUrl": "https://wiki.test/",
+    }
+    disabled = {**active, "enabled": False, "id": "archive", "secretEnv": "ARCENAL_ACCESS_ARCHIVE_API_KEY"}
+
+    records = tools._access_records({"arcenal": {"access_credentials": [active, disabled]}}, {})
+
+    assert [record["id"] for record in records] == ["wiki"]
+    assert records[0]["permissions"] == ["lecture", "publication"]
+
+
 def _applicable_document() -> str:
     return """---
 reference: PR-QSSE-001

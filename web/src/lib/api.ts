@@ -561,6 +561,24 @@ export const api = {
       `/api/plugins/arcenal-supervisor/managed-files/memory/entries/${encodeURIComponent(entryId)}/delete`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: true }) },
     ),
+  getArcenalProviderStatuses: () =>
+    fetchJSON<ArcenalProviderStatusesResponse>(
+      "/api/plugins/arcenal-supervisor/providers/status",
+    ),
+  testArcenalProvider: (provider: string, apiKey?: string, baseUrl?: string) =>
+    fetchJSON<ArcenalProviderProbe>(
+      "/api/plugins/arcenal-supervisor/providers/test",
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider, api_key: apiKey?.trim() || null, base_url: baseUrl?.trim() || null }) },
+    ),
+  getArcenalAccessStatuses: () =>
+    fetchJSON<ArcenalAccessStatusesResponse>(
+      "/api/plugins/arcenal-supervisor/access/status",
+    ),
+  testArcenalAccess: (accessId: string) =>
+    fetchJSON<ArcenalAccessProbe>(
+      `/api/plugins/arcenal-supervisor/access/${encodeURIComponent(accessId)}/test`,
+      { method: "POST" },
+    ),
   getArcenalWiki: () =>
     fetchJSON<ArcenalKnowledgeOverview>(
       "/api/plugins/arcenal-supervisor/knowledge/wiki/overview",
@@ -2357,6 +2375,30 @@ export interface ArcenalMemoryEntriesResponse {
 
 export interface ArcenalMemoryEntryResponse {
   entry: ArcenalMemoryEntry;
+}
+
+export interface ArcenalProviderProbe {
+  configured: boolean;
+  connection: "connected" | "invalid" | "missing" | "unreachable";
+  message: string;
+  models: string[];
+  provider: string;
+  tested_at: string;
+}
+
+export interface ArcenalProviderStatusesResponse {
+  providers: Record<string, ArcenalProviderProbe>;
+}
+
+export interface ArcenalAccessProbe {
+  access_id: string;
+  connection: "connected" | "disabled" | "invalid" | "missing" | "unreachable";
+  message: string;
+  tested_at: string;
+}
+
+export interface ArcenalAccessStatusesResponse {
+  accesses: Record<string, ArcenalAccessProbe>;
 }
 
 export interface AnalyticsDailyEntry {

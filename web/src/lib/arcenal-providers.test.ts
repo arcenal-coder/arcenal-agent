@@ -17,6 +17,12 @@ describe("connexions LLM ARC", () => {
     expect(connections.find((item) => item.id === "ollama")).toMatchObject({ configured: true, keyRequired: false });
   });
 
+  it("expose Mistral et les fournisseurs compatibles désactivables", () => {
+    const connections = buildProviderConnections({}, { internal: { base_url: "https://llm.internal/v1", enabled: false } });
+    expect(connections.find((item) => item.id === "mistral")?.envKey).toBe("MISTRAL_API_KEY");
+    expect(connections.find((item) => item.id === "internal")).toMatchObject({ configurableUrl: true, enabled: false });
+  });
+
   it("valide le nom d’une clé personnalisée", () => {
     expect(normalizeCustomEnvKey(" ma-cle api ")).toBe("MA_CLE_API");
     expect(normalizeCustomEnvKey("PATH")).toBe("");

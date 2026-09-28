@@ -23,10 +23,12 @@ class AccessRecord(TypedDict):
     """Description non secrète d’un accès confié à ARC."""
 
     autonomy: str
+    enabled: bool
     id: str
     kind: str
     label: str
     login: str | None
+    permissions: list[str]
     secretAvailable: bool
     secretEnv: str
     serviceUrl: str
@@ -137,7 +139,8 @@ def _access_records(config: Mapping[str, object], environment: Mapping[str, str]
     credentials = arcenal.get("access_credentials")
     if not isinstance(credentials, list):
         return []
-    return [record for item in credentials if (record := _safe_access_record(item, environment))]
+    active = [item for item in credentials if not isinstance(item, Mapping) or item.get("enabled") is not False]
+    return [record for item in active if (record := _safe_access_record(item, environment))]
 
 
 def _safe_access_record(item: object, environment: Mapping[str, str]) -> AccessRecord | None:
@@ -150,7 +153,9 @@ def _safe_access_record(item: object, environment: Mapping[str, str]) -> AccessR
     if not ACCESS_ENV_PATTERN.fullmatch(values["secretEnv"]):
         return None
     login = item.get("login")
-    return AccessRecord(**values, login=login if isinstance(login, str) else None, secretAvailable=bool(environment.get(values["secretEnv"])))
+    permissions = item.get("permissions")
+    allowed = [str(value) for value in permissions if isinstance(value, str)][:20] if isinstance(permissions, list) else []
+    return AccessRecord(**values, enabled=True, login=login if isinstance(login, str) else None, permissions=allowed, secretAvailable=bool(environment.get(values["secretEnv"])))
 
 
 def repair(args: dict[str, Any], **_: Any) -> str:

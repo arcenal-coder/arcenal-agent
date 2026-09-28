@@ -50,10 +50,38 @@ def _load_managed_files_api() -> ModuleType:
     return module
 
 
+def _load_provider_connections_api() -> ModuleType:
+    """Charge les tests de fournisseurs sans les intégrer au cœur Hermes."""
+    source = Path(__file__).with_name("provider_connections_api.py")
+    spec = importlib.util.spec_from_file_location("arcenal_provider_connections_api", source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Le module des fournisseurs ARCenal est introuvable.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_access_connections_api() -> ModuleType:
+    """Charge les tests d’accès métier depuis la surcouche ARCenal."""
+    source = Path(__file__).with_name("access_connections_api.py")
+    spec = importlib.util.spec_from_file_location("arcenal_access_connections_api", source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Le module des accès ARCenal est introuvable.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 knowledge = _load_knowledge_api()
 router.include_router(knowledge.router)
 managed_files = _load_managed_files_api()
 router.include_router(managed_files.router)
+provider_connections = _load_provider_connections_api()
+router.include_router(provider_connections.router)
+access_connections = _load_access_connections_api()
+router.include_router(access_connections.router)
 
 SERVICES = (
     ("arcenal", "ARCenal Agent"),

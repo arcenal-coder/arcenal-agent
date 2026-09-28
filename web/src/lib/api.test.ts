@@ -214,6 +214,38 @@ describe("api mémoire ARCenal", () => {
   });
 });
 
+describe("api fournisseurs ARCenal", () => {
+  it("teste un fournisseur sans persister son secret", async () => {
+    const fetchMock = jsonFetchMock({ provider: "mistral", connection: "connected", models: [] });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.testArcenalProvider("mistral", " key-test ");
+    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(options.body).toBe(JSON.stringify({ provider: "mistral", api_key: "key-test", base_url: null }));
+    expect(options.method).toBe("POST");
+  });
+
+  it("transmet l’adresse d’un moteur compatible", async () => {
+    const fetchMock = jsonFetchMock({ provider: "internal", connection: "connected", models: [] });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.testArcenalProvider("internal", undefined, " https://llm.internal/v1 ");
+    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(options.body).toContain('"base_url":"https://llm.internal/v1"');
+    expect(options.body).not.toContain("undefined");
+  });
+});
+
+describe("api accès métier ARCenal", () => {
+  it("teste uniquement l’identifiant borné de l’accès", async () => {
+    const fetchMock = jsonFetchMock({ access_id: "crm", connection: "connected" });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.testArcenalAccess("crm/interne");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/access/crm%2Finterne/test",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+});
+
 describe("api OAuth helpers", () => {
   it("starts OAuth login in gated mode without requiring an injected session token", async () => {
     vi.stubGlobal("window", { __HERMES_AUTH_REQUIRED__: true });

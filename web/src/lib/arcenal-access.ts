@@ -1,13 +1,16 @@
 import type { AutonomyLevel } from "./arcenal-providers";
+import type { ArcenalAccessStatusesResponse } from "./api";
 
 export type AccessCredentialKind = "account" | "api";
 
 export interface AccessCredential {
   autonomy: AutonomyLevel;
+  enabled: boolean;
   id: string;
   kind: AccessCredentialKind;
   label: string;
   login?: string;
+  permissions: string[];
   secretEnv: string;
   serviceUrl: string;
 }
@@ -17,11 +20,13 @@ export interface AccessCredentialDraft {
   kind: AccessCredentialKind;
   label: string;
   login: string;
+  permissions: string;
   secret: string;
   serviceUrl: string;
 }
 
 const VALID_AUTONOMY = new Set<AutonomyLevel>(["manual", "smart", "off"]);
+const ACCESS_CONNECTION_STATES = new Set(["connected", "disabled", "invalid", "missing", "unreachable"]);
 
 export class AccessCredentialError extends Error {
   constructor(message: string, options?: ErrorOptions) {
@@ -43,7 +48,20 @@ export function createAccessCredential(draft: AccessCredentialDraft, existing: A
   if (!label || !draft.secret.trim()) throw new AccessCredentialError("Le nom et le secret sont obligatoires.");
   if (draft.kind === "account" && !draft.login.trim()) throw new AccessCredentialError("Le login est obligatoire pour un compte.");
   const id = uniqueCredentialId(label, existing);
-  return { autonomy: draft.autonomy, id, kind: draft.kind, label, login: draft.kind === "account" ? draft.login.trim() : undefined, secretEnv: secretEnvName(id, draft.kind), serviceUrl };
+  return { autonomy: draft.autonomy, enabled: true, id, kind: draft.kind, label, login: draft.kind === "account" ? draft.login.trim() : undefined, permissions: normalizePermissions(draft.permissions), secretEnv: secretEnvName(id, draft.kind), serviceUrl };
+}
+
+export function isAccessStatusesResponse(value: unknown): value is ArcenalAccessStatusesResponse {
+  const root = recordValue(value);
+  const accesses = recordValue(root?.accesses);
+  if (!accesses) return false;
+  return Object.values(accesses).every(isAccessStatus);
+}
+
+function isAccessStatus(value: unknown): boolean {
+  const status = recordValue(value);
+  if (!status || !ACCESS_CONNECTION_STATES.has(String(status.connection))) return false;
+  return [status.access_id, status.message, status.tested_at].every((field) => typeof field === "string");
 }
 
 export function secretEnvName(id: string, kind: AccessCredentialKind): string {
@@ -55,7 +73,13 @@ function parseCredential(value: unknown): AccessCredential | null {
   if (!item || !isKind(item.kind) || !isText(item.id) || !isText(item.label) || !isSecretEnv(item.secretEnv) || !isText(item.serviceUrl)) return null;
   const autonomy = VALID_AUTONOMY.has(item.autonomy as AutonomyLevel) ? item.autonomy as AutonomyLevel : "manual";
   const login = isText(item.login) ? item.login : undefined;
-  return { autonomy, id: item.id, kind: item.kind, label: item.label, login, secretEnv: item.secretEnv, serviceUrl: item.serviceUrl };
+  const permissions = Array.isArray(item.permissions) ? item.permissions.filter(isText).slice(0, 20) : [];
+  return { autonomy, enabled: item.enabled !== false, id: item.id, kind: item.kind, label: item.label, login, permissions, secretEnv: item.secretEnv, serviceUrl: item.serviceUrl };
+}
+
+function normalizePermissions(value: string): string[] {
+  const permissions = value.split(",").map((item) => item.trim()).filter(Boolean);
+  return [...new Set(permissions)].slice(0, 20);
 }
 
 function uniqueCredentialId(label: string, existing: AccessCredential[]): string {

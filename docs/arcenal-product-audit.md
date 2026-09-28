@@ -87,8 +87,8 @@ doit être unifié avec l'API de contrôle.
 | Paramètres Contexte | EXISTANT | Éditeur Markdown, aperçu, auteur, date, historique, restauration confirmée et récupération ciblée de `CONTEXT.md`. |
 | Paramètres Mémoire | EXISTANT | `MEMORY.md` dispose d’un parcours ARC de consultation, recherche, ajout, modification, suppression confirmée, historique et restauration. |
 | Paramètres Directives | EXISTANT | Inventaire borné, édition, aperçu, historique et restauration de `AGENTS.md`, `RULES.md`, `SECURITY.md` et `TOOLS.md`, injectés dans les nouvelles sessions. |
-| Fournisseurs IA | PARTIEL | Plusieurs connexions et modèle principal ; tests génériques, activation, secondaire et paramètres d'adaptateur manquent. |
-| Accès métier | PARTIEL | Compte/API et autonomie ; permissions, état réel, test, dernier succès et désactivation manquent. |
+| Fournisseurs IA | EXISTANT | OpenRouter, OpenAI, Anthropic, Mistral, Gemini, Ollama et API compatibles disposent d'une adresse contrôlée, d'un modèle principal et secondaire, d'une activation, d'un test réel et d'un état persistant expurgé. |
+| Accès métier | EXISTANT | Comptes et API associent périmètre, permissions et autonomie ; ARC ne voit que les accès actifs, tandis que le test réel, l'état, la date et la désactivation restent gouvernés depuis Paramètres. |
 | Outils et capacités | ABSENT | Les outils existent côté Hermes/ARC, mais aucun inventaire ARC gouverné ne répond au CDC. |
 | Vue Système | PARTIEL | Ressources et cinq services ; applications, mises à jour, domaines, certificats, sauvegardes et journaux manquent. |
 | Moteur de permissions | EXISTANT | Quatre niveaux, rôles, cibles et refus par défaut testés. |

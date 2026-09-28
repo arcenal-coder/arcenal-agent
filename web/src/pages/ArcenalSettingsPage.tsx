@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type Dispatch, type ReactElement, type SetStateAction } from "react";
 import { Bot, CheckCircle2, KeyRound, LoaderCircle, Network, Plus, ShieldCheck } from "lucide-react";
-import { api, type EnvVarInfo, type ModelOptionsResponse } from "@/lib/api";
+import { api, type ArcenalProviderProbe, type EnvVarInfo, type ModelOptionsResponse } from "@/lib/api";
 import { autonomyFromConfig, buildProviderConnections, normalizeCustomEnvKey, type AutonomyLevel, type ProviderConnection } from "@/lib/arcenal-providers";
 import { ArcenalAccessManager } from "@/components/ArcenalAccessManager";
 import { ArcenalAppearanceSettingsPanel } from "@/components/ArcenalAppearanceSettings";
 import { ArcenalGeneralSettingsPanel } from "@/components/ArcenalGeneralSettings";
 import { ArcenalManagedFilesSettingsPanel } from "@/components/ArcenalManagedFilesSettings";
 import { ArcenalMemorySettingsPanel } from "@/components/ArcenalMemorySettings";
+import { isProviderStatusesResponse } from "@/lib/arcenal-provider-status";
 import { ARCENAL_SETTINGS_TABS, type ArcenalSettingsTab } from "@/lib/arcenal-settings-tabs";
 
 interface SettingsState {
@@ -19,20 +20,24 @@ interface SettingsState {
   error: string;
   models: ModelOptionsResponse;
   notice: string;
-  ollamaUrl: string;
+  enabledProviders: Record<string, boolean>;
+  providerStatuses: Record<string, ArcenalProviderProbe>;
+  providerUrls: Record<string, string>;
   secrets: Record<string, string>;
   selectedModels: Record<string, string>;
+  selectedSecondaryModels: Record<string, string>;
 }
 
 const EMPTY_OPTIONS: ModelOptionsResponse = { providers: [] };
-const INITIAL_STATE: SettingsState = { autonomy: "manual", busy: true, config: {}, customKey: "", customSecret: "", env: {}, error: "", models: EMPTY_OPTIONS, notice: "", ollamaUrl: "http://127.0.0.1:11434/v1", secrets: {}, selectedModels: {} };
+const INITIAL_STATE: SettingsState = { autonomy: "manual", busy: true, config: {}, customKey: "", customSecret: "", enabledProviders: {}, env: {}, error: "", models: EMPTY_OPTIONS, notice: "", providerStatuses: {}, providerUrls: {}, secrets: {}, selectedModels: {}, selectedSecondaryModels: {} };
 
 export default function ArcenalSettingsPage(): ReactElement {
   const [state, setState] = useState<SettingsState>(INITIAL_STATE);
   const load = useCallback(async (): Promise<void> => {
     try {
-      const [env, config, models] = await Promise.all([api.getEnvVars(), api.getConfig(), api.getModelOptions()]);
-      setState((current) => loadedState(current, env, config, models));
+      const [env, config, models, statuses] = await Promise.all([api.getEnvVars(), api.getConfig(), api.getModelOptions(), api.getArcenalProviderStatuses().catch(() => ({ providers: {} }))]);
+      const providerStatuses = isProviderStatusesResponse(statuses) ? statuses.providers : {};
+      setState((current) => loadedState(current, env, config, models, providerStatuses));
     } catch (cause) {
       setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));
     }
@@ -41,9 +46,10 @@ export default function ArcenalSettingsPage(): ReactElement {
   return <SettingsView state={state} setState={setState} reload={load} />;
 }
 
-function loadedState(current: SettingsState, env: Record<string, EnvVarInfo>, config: Record<string, unknown>, models: ModelOptionsResponse): SettingsState {
-  const providers = config.providers as Record<string, { base_url?: string }> | undefined;
-  return { ...current, autonomy: autonomyFromConfig(config), busy: false, config, env, models, ollamaUrl: providers?.ollama?.base_url || current.ollamaUrl, selectedModels: modelDefaults(models) };
+function loadedState(current: SettingsState, env: Record<string, EnvVarInfo>, config: Record<string, unknown>, models: ModelOptionsResponse, providerStatuses: Record<string, ArcenalProviderProbe>): SettingsState {
+  const providers = config.providers as Record<string, { base_url?: string; enabled?: boolean }> | undefined;
+  const connections = buildProviderConnections(env, providers);
+  return { ...current, autonomy: autonomyFromConfig(config), busy: false, config, enabledProviders: Object.fromEntries(connections.map((item) => [item.id, item.enabled])), env, models, providerStatuses, providerUrls: Object.fromEntries(connections.map((item) => [item.id, providers?.[item.id]?.base_url || item.defaultBaseUrl])), selectedModels: modelDefaults(models) };
 }
 
 function modelDefaults(options: ModelOptionsResponse): Record<string, string> {
@@ -78,14 +84,22 @@ function SectionTitle({ icon, eyebrow, title, description }: { icon: ReactElemen
 }
 
 function ProviderCard({ provider, state, setState, reload }: ProviderProps): ReactElement {
-  const models = state.models.providers?.find((item) => item.slug === provider.id)?.models ?? [];
+  const discovered = state.providerStatuses[provider.id]?.models ?? [];
+  const configured = state.models.providers?.find((item) => item.slug === provider.id)?.models ?? [];
+  const models = [...new Set([...configured, ...discovered])];
   const secret = state.secrets[provider.id] ?? "";
   const save = (): void => { void saveProvider(provider, state, setState, reload); };
+  const test = (): void => { void testProvider(provider, state, setState); };
+  const status = state.providerStatuses[provider.id];
   return <article className="arc-provider-card" data-configured={provider.configured}>
-    <header><span><Bot aria-hidden /></span><div><h3>{provider.label}</h3><small>{provider.local ? "Moteur local" : "Service externe"}</small></div><em>{provider.configured ? <><CheckCircle2 /> Configuré</> : "À connecter"}</em></header>
-    {provider.keyRequired ? <SecretInput provider={provider} value={secret} setState={setState} /> : <OllamaInput state={state} setState={setState} />}
-    <ModelSelect provider={provider} models={models} state={state} setState={setState} />
-    <button className="arc-primary-button" disabled={state.busy || (provider.keyRequired && !provider.configured && !secret.trim())} onClick={save} type="button">{state.busy ? <LoaderCircle className="arc-spin" /> : <KeyRound />} {provider.configured ? "Mettre à jour" : "Connecter"}</button>
+    <header><span><Bot aria-hidden /></span><div><h3>{provider.label}</h3><small>{provider.local ? "Moteur local ou privé" : "Service externe"}</small></div><em data-state={status?.connection}>{provider.configured ? <><CheckCircle2 /> Configuré</> : "À connecter"}</em></header>
+    {provider.configurableUrl && <ProviderUrlInput provider={provider} state={state} setState={setState} />}
+    {provider.keyRequired && <SecretInput provider={provider} value={secret} setState={setState} />}
+    <ModelSelect label="Modèle principal" provider={provider} models={models} state={state} setState={setState} />
+    <ModelSelect label="Modèle secondaire" provider={provider} models={models} secondary state={state} setState={setState} />
+    <label className="arc-provider-toggle"><input checked={state.enabledProviders[provider.id] !== false} onChange={(event) => setState((current) => ({ ...current, enabledProviders: { ...current.enabledProviders, [provider.id]: event.target.checked } }))} type="checkbox" /><span>Connexion active</span></label>
+    {status && <p className="arc-provider-status" data-state={status.connection}>{status.message}<small>Dernier test : {formatTestDate(status.tested_at)}</small></p>}
+    <div className="arc-provider-actions"><button disabled={state.busy} onClick={test} type="button">Tester la connexion</button><button className="arc-primary-button" disabled={state.busy || (provider.keyRequired && !provider.configured && !secret.trim())} onClick={save} type="button">{state.busy ? <LoaderCircle className="arc-spin" /> : <KeyRound />} {provider.configured ? "Mettre à jour" : "Connecter"}</button></div>
   </article>;
 }
 
@@ -94,15 +108,16 @@ function SecretInput({ provider, value, setState }: { provider: ProviderConnecti
   return <label className="arc-field"><span>Clé API</span><input autoComplete="new-password" onChange={change} placeholder={provider.configured ? "Clé enregistrée — saisir pour remplacer" : "Coller la clé API"} type="password" value={value} /></label>;
 }
 
-function OllamaInput({ state, setState }: { state: SettingsState; setState: SetState }): ReactElement {
-  const change = (event: ChangeEvent<HTMLInputElement>): void => setState((current) => ({ ...current, ollamaUrl: event.target.value }));
-  return <label className="arc-field"><span>Adresse Ollama</span><input onChange={change} placeholder="http://127.0.0.1:11434/v1" type="url" value={state.ollamaUrl} /><small>Ollama peut fonctionner sur ce serveur ou sur une machine du réseau.</small></label>;
+function ProviderUrlInput({ provider, state, setState }: { provider: ProviderConnection; state: SettingsState; setState: SetState }): ReactElement {
+  const change = (event: ChangeEvent<HTMLInputElement>): void => setState((current) => ({ ...current, providerUrls: { ...current.providerUrls, [provider.id]: event.target.value } }));
+  return <label className="arc-field"><span>Adresse du service</span><input onChange={change} placeholder={provider.defaultBaseUrl || "https://llm.interne/v1"} type="url" value={state.providerUrls[provider.id] ?? ""} /><small>Indiquez la racine compatible OpenAI, sans identifiants dans l’URL.</small></label>;
 }
 
-function ModelSelect({ provider, models, state, setState }: { provider: ProviderConnection; models: string[]; state: SettingsState; setState: SetState }): ReactElement {
-  const value = state.selectedModels[provider.id] ?? "";
-  const change = (event: ChangeEvent<HTMLInputElement>): void => setState((current) => ({ ...current, selectedModels: { ...current.selectedModels, [provider.id]: event.target.value } }));
-  return <label className="arc-field"><span>Modèle à activer</span><input list={`models-${provider.id}`} onChange={change} placeholder={provider.local ? "ex. qwen3:8b" : "Choisir ou saisir un modèle"} value={value} /><datalist id={`models-${provider.id}`}>{models.map((model) => <option key={model} value={model} />)}</datalist></label>;
+function ModelSelect({ label, provider, models, secondary = false, state, setState }: { label: string; provider: ProviderConnection; models: string[]; secondary?: boolean; state: SettingsState; setState: SetState }): ReactElement {
+  const collection = secondary ? state.selectedSecondaryModels : state.selectedModels;
+  const value = collection[provider.id] ?? "";
+  const change = (event: ChangeEvent<HTMLInputElement>): void => patchSelectedModel(provider.id, event.target.value, secondary, setState);
+  return <label className="arc-field"><span>{label}</span><input list={`models-${provider.id}`} onChange={change} placeholder={provider.local ? "ex. qwen3:8b" : "Choisir ou saisir un modèle"} value={value} /><datalist id={`models-${provider.id}`}>{models.map((model) => <option key={model} value={model} />)}</datalist></label>;
 }
 
 async function saveProvider(provider: ProviderConnection, state: SettingsState, setState: SetState, reload: () => Promise<void>): Promise<void> {
@@ -110,9 +125,13 @@ async function saveProvider(provider: ProviderConnection, state: SettingsState, 
   try {
     const secret = state.secrets[provider.id]?.trim();
     if (provider.envKey && secret) await api.setEnvVar(provider.envKey, secret);
-    if (provider.id === "ollama") await api.saveConfig({ providers: { ollama: { base_url: state.ollamaUrl.trim() } } });
+    const baseUrl = state.providerUrls[provider.id]?.trim();
+    await api.saveConfig({ providers: { [provider.id]: { base_url: baseUrl || undefined, enabled: state.enabledProviders[provider.id] !== false } } });
+    const runtimeProvider = provider.id === "compatible" || provider.id === "internal" ? "custom" : provider.id;
     const model = state.selectedModels[provider.id]?.trim();
-    if (model) await activateModel(provider.id, model);
+    if (model) await activateModel("main", runtimeProvider, model, baseUrl);
+    const secondary = state.selectedSecondaryModels[provider.id]?.trim();
+    if (secondary) await activateModel("auxiliary", runtimeProvider, secondary, baseUrl);
     setState((current) => ({ ...current, notice: `${provider.label} est disponible pour ARC.`, secrets: { ...current.secrets, [provider.id]: "" } }));
     await reload();
   } catch (cause) {
@@ -120,11 +139,36 @@ async function saveProvider(provider: ProviderConnection, state: SettingsState, 
   }
 }
 
-async function activateModel(provider: string, model: string): Promise<void> {
-  const response = await api.setModelAssignment({ scope: "main", provider, model });
+async function activateModel(scope: "main" | "auxiliary", provider: string, model: string, baseUrl = ""): Promise<void> {
+  const request = { scope, provider, model, base_url: baseUrl || undefined, task: scope === "auxiliary" ? "" : undefined } as const;
+  const response = await api.setModelAssignment(request);
   if (!response.confirm_required) return;
   if (!window.confirm(response.confirm_message ?? "Ce modèle peut entraîner un coût. Continuer ?")) return;
-  await api.setModelAssignment({ scope: "main", provider, model, confirm_expensive_model: true });
+  await api.setModelAssignment({ ...request, confirm_expensive_model: true });
+}
+
+async function testProvider(provider: ProviderConnection, state: SettingsState, setState: SetState): Promise<void> {
+  setState((current) => ({ ...current, busy: true, error: "", notice: "" }));
+  try {
+    const status = await api.testArcenalProvider(provider.id, state.secrets[provider.id], state.providerUrls[provider.id]);
+    if (!isProviderStatusesResponse({ providers: { [provider.id]: status } })) throw new Error("La réponse du fournisseur est incomplète.");
+    setState((current) => ({ ...current, busy: false, providerStatuses: { ...current.providerStatuses, [provider.id]: status } }));
+  } catch (cause) {
+    setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));
+  }
+}
+
+function patchSelectedModel(providerId: string, value: string, secondary: boolean, setState: SetState): void {
+  if (secondary) {
+    setState((current) => ({ ...current, selectedSecondaryModels: { ...current.selectedSecondaryModels, [providerId]: value } }));
+    return;
+  }
+  setState((current) => ({ ...current, selectedModels: { ...current.selectedModels, [providerId]: value } }));
+}
+
+function formatTestDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "date inconnue" : date.toLocaleString("fr-FR");
 }
 
 function CustomConnection({ state, setState, reload }: ViewProps): ReactElement {
