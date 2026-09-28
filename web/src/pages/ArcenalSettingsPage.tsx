@@ -4,6 +4,7 @@ import { api, type EnvVarInfo, type ModelOptionsResponse } from "@/lib/api";
 import { autonomyFromConfig, buildProviderConnections, normalizeCustomEnvKey, type AutonomyLevel, type ProviderConnection } from "@/lib/arcenal-providers";
 import { ArcenalAccessManager } from "@/components/ArcenalAccessManager";
 import { useArcColorMode, type ArcColorMode } from "@/lib/arcenal-color-mode";
+import { ARCENAL_SETTINGS_TABS, type ArcenalSettingsTab } from "@/lib/arcenal-settings-tabs";
 
 interface SettingsState {
   autonomy: AutonomyLevel;
@@ -47,19 +48,21 @@ function modelDefaults(options: ModelOptionsResponse): Record<string, string> {
 }
 
 function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
+  const [activeTab, setActiveTab] = useState<ArcenalSettingsTab>("providers");
   const providers = state.config.providers as Record<string, { base_url?: unknown }> | undefined;
   const connections = buildProviderConnections(state.env, providers);
   return <main className="arc-workspace arc-settings" aria-labelledby="settings-title">
     <header className="arc-workspace-heading"><p>Paramètres · Intelligence et sécurité</p><h1 id="settings-title">Connexions et autonomie d’ARC</h1><span>Ajoutez plusieurs moteurs IA, choisissez leurs usages et gardez la maîtrise des actions d’administration.</span></header>
     {state.error && <p className="arc-alert arc-alert-error" role="alert">{state.error}</p>}
     {state.notice && <p className="arc-alert arc-alert-success" role="status">{state.notice}</p>}
-    <AppearanceSettings />
-    <section className="arc-settings-section"><SectionTitle icon={<Network />} eyebrow="Moteurs IA" title="Connexions et API" description="Les connexions restent disponibles simultanément. Une clé enregistrée n’est jamais réaffichée." />
+    <nav aria-label="Sections des paramètres" className="arc-settings-tabs">{ARCENAL_SETTINGS_TABS.map((tab) => <button aria-pressed={activeTab === tab.id} key={tab.id} onClick={() => setActiveTab(tab.id)} type="button">{tab.label}</button>)}</nav>
+    {activeTab === "appearance" && <AppearanceSettings />}
+    {activeTab === "providers" && <section className="arc-settings-section"><SectionTitle icon={<Network />} eyebrow="Moteurs IA" title="Connexions et API" description="Les connexions restent disponibles simultanément. Une clé enregistrée n’est jamais réaffichée." />
       <div className="arc-provider-grid">{connections.map((provider) => <ProviderCard key={provider.id} provider={provider} state={state} setState={setState} reload={reload} />)}</div>
       <CustomConnection state={state} setState={setState} reload={reload} />
-    </section>
-    <ArcenalAccessManager config={state.config} env={state.env} reload={reload} />
-    <AutonomySettings state={state} setState={setState} />
+    </section>}
+    {activeTab === "access" && <ArcenalAccessManager config={state.config} env={state.env} reload={reload} />}
+    {activeTab === "security" && <AutonomySettings state={state} setState={setState} />}
   </main>;
 }
 
@@ -145,7 +148,7 @@ function AutonomySettings({ state, setState }: { state: SettingsState; setState:
   const levels: Array<{ id: AutonomyLevel; title: string; text: string }> = [
     { id: "manual", title: "Validation systématique", text: "ARC conseille et demande votre accord avant chaque commande sensible." },
     { id: "smart", title: "Autonomie encadrée", text: "ARC exécute les actions sûres et sollicite l’administrateur en cas de risque." },
-    { id: "off", title: "Autonomie étendue", text: "ARC peut exécuter les actions administratives sans validation préalable." },
+    { id: "off", title: "Administration contrôlée", text: "ARC applique les politiques définies. Les actions critiques exigent toujours votre confirmation." },
   ];
   const save = (): void => { void saveAutonomy(state.autonomy, setState); };
   return <section className="arc-settings-section"><SectionTitle icon={<ShieldCheck />} eyebrow="Sécurité" title="Niveau d’autonomie" description="Ce réglage contrôle les validations demandées avant les commandes d’administration." /><div className="arc-autonomy-grid">{levels.map((level) => <label key={level.id} data-selected={state.autonomy === level.id}><input checked={state.autonomy === level.id} name="autonomy" onChange={() => setState((current) => ({ ...current, autonomy: level.id }))} type="radio" /><span><strong>{level.title}</strong><small>{level.text}</small></span></label>)}</div><button className="arc-primary-button arc-save-autonomy" disabled={state.busy} onClick={save} type="button">Enregistrer le niveau d’autonomie</button></section>;
