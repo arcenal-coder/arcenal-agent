@@ -173,6 +173,20 @@ describe("api.transitionArcenalDocument", () => {
   });
 });
 
+describe("api.getArcenalSystemInventory", () => {
+  it("interroge uniquement l’inventaire ARC en lecture", async () => {
+    const fetchMock = jsonFetchMock({});
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.getArcenalSystemInventory();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/system/inventory",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+});
+
 describe("api.testArcenalOpenRouter", () => {
   it("envoie la clé uniquement au test ARCenal demandé", async () => {
     const fetchMock = jsonFetchMock({ configured: true, connection: "connected" });

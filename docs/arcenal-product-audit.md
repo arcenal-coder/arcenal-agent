@@ -90,7 +90,7 @@ doit être unifié avec l'API de contrôle.
 | Fournisseurs IA | EXISTANT | OpenRouter, OpenAI, Anthropic, Mistral, Gemini, Ollama et API compatibles disposent d'une adresse contrôlée, d'un modèle principal et secondaire, d'une activation, d'un test réel et d'un état persistant expurgé. |
 | Accès métier | EXISTANT | Comptes et API associent périmètre, permissions et autonomie ; ARC ne voit que les accès actifs, tandis que le test réel, l'état, la date et la désactivation restent gouvernés depuis Paramètres. |
 | Outils et capacités | EXISTANT | L’inventaire distingue ARCenal et Hermes, expose état, permission, risque, confirmation et dernière utilisation ; les capacités Hermes configurables sont activables, les outils ARC critiques restent protégés. |
-| Vue Système | PARTIEL | Ressources et cinq services ; applications, mises à jour, domaines, certificats, sauvegardes et journaux manquent. |
+| Vue Système | EXISTANT | Santé, versions, CPU, mémoire, stockage, charge, services, applications, mises à jour, domaines, certificats, sauvegardes, diagnostics et erreurs sont lus via le broker YunoHost fermé. |
 | Moteur de permissions | EXISTANT | Quatre niveaux, rôles, cibles et refus par défaut testés. |
 | Passerelle privilégiée | PARTIEL | Séparée et fermée, mais seulement six actions et trois mutations. |
 | Confirmation renforcée | PARTIEL | Jeton à usage unique présent ; présentation complète et unification de tous les chemins manquent. |

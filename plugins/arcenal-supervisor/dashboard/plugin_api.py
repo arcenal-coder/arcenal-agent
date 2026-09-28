@@ -98,6 +98,18 @@ def _load_agents_api() -> ModuleType:
     return module
 
 
+def _load_system_api() -> ModuleType:
+    """Charge l’inventaire YunoHost étendu en lecture seule."""
+    source = Path(__file__).with_name("system_api.py")
+    spec = importlib.util.spec_from_file_location("arcenal_system_api", source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Le module système ARCenal est introuvable.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 knowledge = _load_knowledge_api()
 router.include_router(knowledge.router)
 managed_files = _load_managed_files_api()
@@ -110,6 +122,8 @@ capabilities = _load_capabilities_api()
 router.include_router(capabilities.router)
 agents = _load_agents_api()
 router.include_router(agents.router)
+system = _load_system_api()
+router.include_router(system.router)
 
 SERVICES = (
     ("arcenal", "ARCenal Agent"),
@@ -246,6 +260,11 @@ def _memory() -> dict[str, float]:
     }
 
 
+def _cpu(load: tuple[float, float, float]) -> dict[str, float | int]:
+    cores = os.cpu_count() or 1
+    return {"cores": cores, "load_percent": round(min(load[0] / cores * 100, 100), 1)}
+
+
 def _installed_version() -> str:
     try:
         return version("hermes-agent")
@@ -322,6 +341,7 @@ def collect_overview() -> dict[str, Any]:
             "versions": _platform_versions(),
         },
         "resources": {
+            "cpu": _cpu(load),
             "disk": {"total": disk.total, "used": disk.used, "percent": disk_percent},
             "memory": _memory(),
             "load": [round(value, 2) for value in load],

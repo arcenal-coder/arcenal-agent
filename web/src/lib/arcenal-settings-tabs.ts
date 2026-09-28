@@ -7,7 +7,9 @@ export const ARCENAL_SETTINGS_TABS = [
   { id: "providers", label: "Fournisseurs IA" },
   { id: "access", label: "Accès" },
   { id: "tools", label: "Outils" },
+  { id: "system", label: "Système" },
   { id: "security", label: "Sécurité" },
+  { id: "backups", label: "Sauvegardes" },
 ] as const;
 
 export type ArcenalSettingsTab = (typeof ARCENAL_SETTINGS_TABS)[number]["id"];

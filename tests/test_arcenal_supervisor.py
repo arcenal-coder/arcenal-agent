@@ -57,7 +57,7 @@ def test_overview_shape(monkeypatch):
     overview = supervisor.collect_overview()
     assert overview["health"] == "healthy"
     assert len(overview["services"]) == len(supervisor.SERVICES)
-    assert set(overview["resources"]) == {"disk", "memory", "load"}
+    assert set(overview["resources"]) == {"cpu", "disk", "memory", "load"}
 
 
 def test_degraded_when_service_is_inactive(monkeypatch):

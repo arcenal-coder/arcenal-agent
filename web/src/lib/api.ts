@@ -520,6 +520,10 @@ export const api = {
     fetchJSON<ArcenalSystemOverview>(
       "/api/plugins/arcenal-supervisor/overview",
     ),
+  getArcenalSystemInventory: () =>
+    fetchJSON<ArcenalSystemInventory>(
+      "/api/plugins/arcenal-supervisor/system/inventory",
+    ),
   getArcenalManagedFiles: (category: ArcenalManagedFileCategory) =>
     fetchJSON<ArcenalManagedFilesResponse>(
       `/api/plugins/arcenal-supervisor/managed-files?category=${encodeURIComponent(category)}`,
@@ -2362,11 +2366,34 @@ export interface ArcenalSystemOverview {
     yunohost: boolean;
   };
   resources: {
+    cpu: { cores: number; load_percent: number };
     disk: { percent: number; total: number; used: number };
     load: number[];
     memory: { percent: number; total: number; used: number };
   };
   services: Array<{ healthy: boolean; id: string; label: string; state: string }>;
+}
+
+export interface ArcenalSystemCollection {
+  error: string;
+  items: Array<Record<string, unknown>>;
+}
+
+export interface ArcenalCertificateStatus {
+  details: unknown;
+  domain: string;
+  error: string;
+}
+
+export interface ArcenalSystemInventory {
+  applications: ArcenalSystemCollection;
+  backups: ArcenalSystemCollection;
+  certificates: ArcenalCertificateStatus[];
+  diagnostics: ArcenalSystemCollection;
+  domains: ArcenalSystemCollection;
+  errors: string[];
+  updates: ArcenalSystemCollection;
+  users: ArcenalSystemCollection;
 }
 
 export type ArcenalManagedFileCategory = "context" | "directive" | "memory";
