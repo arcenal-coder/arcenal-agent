@@ -80,7 +80,7 @@ def test_maintenance_catalog_requires_approval():
 
 
 def test_maintenance_rejects_missing_confirmation() -> None:
-    request = supervisor.MaintenanceRequest(operation="refresh-diagnostics")
+    request = supervisor.MaintenanceRequest(operation="yunohost.diagnosis.refresh")
 
     try:
         supervisor._validate_maintenance(request)
@@ -92,7 +92,7 @@ def test_maintenance_rejects_missing_confirmation() -> None:
 
 def test_maintenance_rejects_unknown_service() -> None:
     request = supervisor.MaintenanceRequest(
-        operation="restart-service", service="ssh", confirmed=True
+        operation="service.restart", service="ssh", confirmed=True
     )
 
     try:
@@ -114,34 +114,18 @@ def test_maintenance_rejects_unknown_operation() -> None:
         raise AssertionError("L’opération hors catalogue devait être refusée.")
 
 
-def test_maintenance_builds_a_fixed_command(monkeypatch, tmp_path) -> None:
-    helper = tmp_path / "helper"
-    captured = []
-    monkeypatch.setattr(supervisor, "_maintenance_helper", lambda: helper)
-    monkeypatch.setattr(supervisor, "_run", lambda command, timeout: captured.append((command, timeout)) or (0, "ok"))
+def test_maintenance_uses_the_authenticated_control_channel() -> None:
     request = supervisor.MaintenanceRequest(
-        operation="restart-service", service="nginx", confirmed=True
+        operation="service.restart", service="nginx", confirmed=True
     )
 
-    assert supervisor._execute_maintenance(request) == (0, "ok")
-    assert captured == [(["sudo", "-n", str(helper), "restart-service", "nginx"], 120)]
-
-
-def test_maintenance_executes_allowlisted_action(monkeypatch, tmp_path) -> None:
-    helper = tmp_path / "helper"
-    helper.touch()
-    monkeypatch.setattr(supervisor, "_maintenance_helper", lambda: helper)
-    monkeypatch.setattr(supervisor, "_execute_maintenance", lambda _request: (0, "ok"))
-    monkeypatch.setattr(supervisor, "collect_overview", lambda: {"health": "healthy"})
-    request = supervisor.MaintenanceRequest(
-        operation="restart-service", service="nginx", confirmed=True
-    )
-
-    result = supervisor.execute_maintenance(request)
-
-    assert result["status"] == "completed"
-    assert result["service"] == "nginx"
-    assert result["details"] == "ok"
+    try:
+        supervisor.execute_maintenance(request)
+    except supervisor.HTTPException as error:
+        assert error.status_code == 410
+        assert "authentifié" in error.detail
+    else:
+        raise AssertionError("L’ancien canal privilégié devait être fermé.")
 
 
 def test_plugin_specializes_the_agent_as_arc() -> None:
@@ -154,7 +138,7 @@ def test_plugin_specializes_the_agent_as_arc() -> None:
     assert section["id"] == "arcenal.identity"
     assert section["position"] == "after_memory"
     assert "Tu es ARC" in section["content"]
-    assert "confirmation explicite" in section["content"]
+    assert "panneau ARC authentifié" in section["content"]
     assert "AACP/1" in section["content"]
     assert {tool["name"] for tool in context.tools} == {
         "arcenal_system_status",

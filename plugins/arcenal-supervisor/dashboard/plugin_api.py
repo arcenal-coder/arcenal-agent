@@ -52,21 +52,21 @@ RESTARTABLE_SERVICES = tuple(service for service, _label in SERVICES)
 
 MAINTENANCE_CATALOG = (
     {
-        "id": "refresh-diagnostics",
+        "id": "yunohost.diagnosis.refresh",
         "label": "Actualiser les diagnostics YunoHost",
         "risk": "low",
         "approval_required": True,
         "description": "Relance les contrôles officiels sans modifier les applications.",
     },
     {
-        "id": "reload-nginx",
+        "id": "nginx.reload",
         "label": "Vérifier et recharger Nginx",
         "risk": "medium",
         "approval_required": True,
         "description": "Valide la configuration avant tout rechargement du serveur web.",
     },
     {
-        "id": "restart-service",
+        "id": "service.restart",
         "label": "Redémarrer un service autorisé",
         "risk": "medium",
         "approval_required": True,
@@ -224,28 +224,17 @@ def _reports_dir() -> Path:
     return target
 
 
-def _maintenance_helper() -> Path:
-    return Path("/usr/local/sbin/arcenal-supervisor-helper")
-
-
 def _validate_maintenance(request: MaintenanceRequest) -> dict[str, Any]:
     action = MAINTENANCE_BY_ID.get(request.operation)
     if action is None:
         raise HTTPException(status_code=422, detail="Opération de maintenance non autorisée.")
-    if request.operation == "restart-service" and request.service not in RESTARTABLE_SERVICES:
+    if request.operation == "service.restart" and request.service not in RESTARTABLE_SERVICES:
         raise HTTPException(status_code=422, detail="Service non autorisé.")
-    if request.operation != "restart-service" and request.service is not None:
+    if request.operation != "service.restart" and request.service is not None:
         raise HTTPException(status_code=422, detail="Cette opération n’accepte aucun service.")
     if not request.confirmed:
         raise HTTPException(status_code=409, detail="Une confirmation administrateur est requise.")
     return action
-
-
-def _execute_maintenance(request: MaintenanceRequest) -> tuple[int, str]:
-    command = ["sudo", "-n", str(_maintenance_helper()), request.operation]
-    if request.service:
-        command.append(request.service)
-    return _run(command, timeout=120)
 
 
 @router.get("/overview")
@@ -268,25 +257,20 @@ async def test_openrouter(request: OpenRouterProbeRequest) -> OpenRouterProbeRes
 
 @router.get("/maintenance")
 def maintenance_catalog() -> dict[str, Any]:
-    helper = _maintenance_helper()
-    return {"actions": MAINTENANCE_CATALOG, "execution_enabled": helper.is_file()}
+    return {
+        "actions": MAINTENANCE_CATALOG,
+        "execution_enabled": True,
+        "execution_endpoint": "/api/arcenal-control/actions/execute",
+    }
 
 
 @router.post("/maintenance/execute")
 def execute_maintenance(request: MaintenanceRequest) -> dict[str, Any]:
-    action = _validate_maintenance(request)
-    if not _maintenance_helper().is_file():
-        raise HTTPException(status_code=503, detail="Le canal de maintenance ARCenal est indisponible.")
-    code, output = _execute_maintenance(request)
-    if code != 0:
-        raise HTTPException(status_code=500, detail=output or "La maintenance a échoué.")
-    return {
-        "status": "completed",
-        "action": action,
-        "service": request.service,
-        "details": output,
-        "overview": collect_overview(),
-    }
+    _validate_maintenance(request)
+    raise HTTPException(
+        status_code=410,
+        detail="Utilisez le canal ARC authentifié pour exécuter cette action.",
+    )
 
 
 @router.get("/reports")

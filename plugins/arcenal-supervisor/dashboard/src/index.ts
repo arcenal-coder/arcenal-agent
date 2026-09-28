@@ -1,4 +1,4 @@
-import { applyGatewayEvent, canSubmitMessage, normalizeHistory, synchronizeChat, type ArcenalChatMessage, type ArcenalChatState, type ChatConnectionState, type GatewayEventLike, type PendingApproval } from "./chat-state";
+import { applyGatewayEvent, canSubmitMessage, completeMaintenance, normalizeHistory, synchronizeChat, type ArcenalChatMessage, type ArcenalChatState, type ChatConnectionState, type GatewayEventLike, type PendingApproval, type PendingMaintenance } from "./chat-state";
 import { archiveConversation } from "./session-actions";
 
 type UnknownRecord = Record<string, unknown>;
@@ -15,6 +15,8 @@ interface SessionSummary { id: string; preview?: string; title?: string }
 interface SessionListResponse { sessions?: SessionSummary[] }
 interface SessionResponse { inflight?: unknown; messages?: unknown[]; running?: boolean; session_id: string; session_key?: string; stored_session_id?: string }
 interface Overview { health?: string; incidents?: unknown[]; platform?: { hostname?: string }; services?: Array<{ healthy?: boolean }> }
+interface ControlAction { consequence: string; description: string; rollback: string }
+interface PrepareResponse { action: ControlAction; approval_id?: string; status: "confirmation_required" | "ready" }
 
 const SDK = window.__HERMES_PLUGIN_SDK__!;
 const REGISTRY = window.__HERMES_PLUGINS__!;
@@ -24,9 +26,10 @@ if (!SDK || !REGISTRY) throw new Error("Le SDK du tableau de bord est indisponib
 const React = SDK.React as ReactApi;
 const h = React.createElement;
 const api = <Result>(path: string, options?: RequestInit): Promise<Result> => SDK.fetchJSON(`/api/plugins/arcenal-supervisor${path}`, options);
+const controlApi = <Result>(path: string, options?: RequestInit): Promise<Result> => SDK.fetchJSON(`/api/arcenal-control${path}`, options);
 
 const INITIAL_CHAT: ArcenalChatState = {
-  activity: "", busy: false, error: "", messages: [], pendingApproval: null, sessionId: "", storedSessionId: "", streamingText: "",
+  activity: "", busy: false, error: "", messages: [], pendingApproval: null, pendingMaintenance: null, sessionId: "", storedSessionId: "", streamingText: "",
 };
 
 const SESSION_PARAMS = { close_on_disconnect: true, follow_profile_config: true, source: "desktop" } as const;
@@ -79,6 +82,33 @@ function ApprovalCard({ approval, onAnswer }: { approval: PendingApproval; onAns
   );
 }
 
+function MaintenanceCard({ busy, maintenance, onExecute }: { busy: boolean; maintenance: PendingMaintenance; onExecute: () => void }): ReturnType<typeof h> {
+  return h("section", { className: "arc-chat-maintenance", role: "alertdialog" },
+    h("div", null, h("strong", null, "Action proposée par ARC"), h("span", null, `Risque ${maintenance.risk}`)),
+    h("p", null, maintenance.description),
+    maintenance.service && h("p", null, `Service concerné : ${maintenance.service}`),
+    h("button", { disabled: busy, onClick: onExecute, type: "button" }, busy ? "Validation…" : "Vérifier et exécuter"),
+  );
+}
+
+function requestOptions(body: object): RequestInit {
+  return { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+}
+
+function confirmAction(action: ControlAction): boolean {
+  const message = `${action.description}\n\nConséquence : ${action.consequence}\nRetour arrière : ${action.rollback}`;
+  return window.confirm(`${message}\n\nConfirmer cette action administrative ?`);
+}
+
+async function executeMaintenance(maintenance: PendingMaintenance): Promise<boolean> {
+  const body = { action_id: maintenance.operation, target: maintenance.service };
+  const proposal = await controlApi<PrepareResponse>("/actions/prepare", requestOptions(body));
+  if (proposal.status === "confirmation_required" && !confirmAction(proposal.action)) return false;
+  const prepared = proposal.status === "ready" ? proposal : await controlApi<PrepareResponse>("/actions/prepare", requestOptions({ ...body, human_confirmed: true }));
+  await controlApi("/actions/execute", requestOptions({ ...body, approval_id: prepared.approval_id }));
+  return true;
+}
+
 function Composer({ busy, connection, onSend, onStop }: { busy: boolean; connection: ChatConnectionState; onSend: (text: string) => void; onStop: () => void }): ReturnType<typeof h> {
   const [text, setText] = React.useState("");
   const submit = (): void => { if (!canSubmitMessage(text, connection, busy)) return; onSend(text.trim()); setText(""); };
@@ -114,7 +144,7 @@ function useGateway(): { chat: ArcenalChatState; connection: ChatConnectionState
   React.useEffect(() => {
     const gateway = SDK.gateway.createClient() as GatewayClient;
     const offState = gateway.onState(setConnection);
-    const eventNames = ["message.start", "message.delta", "message.complete", "status.update", "tool.start", "approval.request", "error"];
+    const eventNames = ["message.start", "message.delta", "message.complete", "status.update", "tool.start", "tool.complete", "approval.request", "error"];
     const offEvents = eventNames.map((type) => gateway.on(type, (event) => setChat((current) => applyGatewayEvent(current, event))));
     setClient(gateway);
     void gateway.connect().catch((cause) => setChat((current) => ({ ...current, error: errorMessage(cause) })));
@@ -127,6 +157,7 @@ function ArcenalChatPage(): ReturnType<typeof h> {
   const { chat, connection, client, setChat } = useGateway();
   const [sessions, setSessions] = React.useState<SessionSummary[]>([]);
   const [overview, setOverview] = React.useState<Overview | null>(null);
+  const [maintenanceBusy, setMaintenanceBusy] = React.useState(false);
   const refreshSessions = React.useCallback(async (): Promise<void> => {
     if (!client) return;
     const response = await client.request<SessionListResponse>("session.list", { limit: 20 });
@@ -184,10 +215,23 @@ function ArcenalChatPage(): ReturnType<typeof h> {
       setChat((current) => ({ ...current, error: errorMessage(cause) }));
     }
   };
+  const runMaintenance = async (): Promise<void> => {
+    if (!chat.pendingMaintenance || maintenanceBusy) return;
+    setMaintenanceBusy(true);
+    try {
+      const maintenance = chat.pendingMaintenance;
+      const completed = await executeMaintenance(maintenance);
+      if (completed) setChat((current) => completeMaintenance(current, maintenance.operation));
+    } catch (cause) {
+      setChat((current) => ({ ...current, error: errorMessage(cause) }));
+    } finally {
+      setMaintenanceBusy(false);
+    }
+  };
   return h("main", { className: "arc-chat-page" },
     h("header", { className: "arc-chat-heading" }, h("div", null, h("small", null, "ARC · ARCHITECTE D’ARCENAL SYSTÈME"), h("h1", null, "Centre de commande")), h(ConnectionBadge, { state: connection })),
     chat.error && h("p", { className: "arc-chat-error", role: "alert" }, chat.error),
-    h("div", { className: "arc-chat-layout" }, h(SessionPanel, { active: chat.storedSessionId, canArchive: Boolean(chat.storedSessionId) && !chat.busy, onArchive: () => void archiveActive(), onNew: () => void createSession(), onResume: (id) => void resume(id), sessions }), h("section", { className: "arc-chat-main" }, h(Transcript, { chat, onPrompt: send }), chat.pendingApproval && h(ApprovalCard, { approval: chat.pendingApproval, onAnswer: (choice) => void answerApproval(choice) }), h(Composer, { busy: chat.busy, connection, onSend: (text) => void send(text), onStop: stop })), h(SystemSummary, { overview })),
+    h("div", { className: "arc-chat-layout" }, h(SessionPanel, { active: chat.storedSessionId, canArchive: Boolean(chat.storedSessionId) && !chat.busy, onArchive: () => void archiveActive(), onNew: () => void createSession(), onResume: (id) => void resume(id), sessions }), h("section", { className: "arc-chat-main" }, h(Transcript, { chat, onPrompt: send }), chat.pendingMaintenance && h(MaintenanceCard, { busy: maintenanceBusy, maintenance: chat.pendingMaintenance, onExecute: () => void runMaintenance() }), chat.pendingApproval && h(ApprovalCard, { approval: chat.pendingApproval, onAnswer: (choice) => void answerApproval(choice) }), h(Composer, { busy: chat.busy, connection, onSend: (text) => void send(text), onStop: stop })), h(SystemSummary, { overview })),
   );
 }
 

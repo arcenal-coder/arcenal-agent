@@ -14,12 +14,20 @@ export interface PendingApproval {
   requestId: string;
 }
 
+export interface PendingMaintenance {
+  description: string;
+  operation: string;
+  risk: string;
+  service: string | null;
+}
+
 export interface ArcenalChatState {
   activity: string;
   busy: boolean;
   error: string;
   messages: ArcenalChatMessage[];
   pendingApproval: PendingApproval | null;
+  pendingMaintenance: PendingMaintenance | null;
   sessionId: string;
   storedSessionId: string;
   streamingText: string;
@@ -68,6 +76,23 @@ function approval(payload: unknown): PendingApproval {
   };
 }
 
+function maintenance(payload: unknown): PendingMaintenance | null {
+  const data = record(payload);
+  if (textField(data, "name") !== "arcenal_repair") return null;
+  const result = record(data.result);
+  if (textField(result, "status") !== "control_panel_required") return null;
+  const proposal = record(result.proposal);
+  const operation = textField(proposal, "operation");
+  const description = textField(proposal, "description");
+  if (!operation || !description) return null;
+  return {
+    description,
+    operation,
+    risk: textField(proposal, "risk") || "critical",
+    service: textField(proposal, "service") || null,
+  };
+}
+
 export function applyGatewayEvent(state: ArcenalChatState, event: GatewayEventLike): ArcenalChatState {
   if (event.session_id && event.session_id !== state.sessionId) return state;
   if (event.type === "message.start") return { ...state, activity: "ARC analyse votre demande…", busy: true };
@@ -75,6 +100,7 @@ export function applyGatewayEvent(state: ArcenalChatState, event: GatewayEventLi
   if (event.type === "message.complete") return completeMessage(state, event.payload);
   if (event.type === "status.update") return { ...state, activity: textField(event.payload, "text") };
   if (event.type === "tool.start") return { ...state, activity: `Action : ${textField(event.payload, "name")}` };
+  if (event.type === "tool.complete") return { ...state, pendingMaintenance: maintenance(event.payload) ?? state.pendingMaintenance };
   if (event.type === "approval.request") return { ...state, pendingApproval: approval(event.payload) };
   if (event.type === "error") return { ...state, busy: false, error: textField(event.payload, "message") || "La réponse d’ARC a échoué." };
   return state;
@@ -122,4 +148,9 @@ export function normalizeHistory(history: unknown[]): ArcenalChatMessage[] {
 
 export function canSubmitMessage(text: string, connection: ChatConnectionState, busy: boolean): boolean {
   return text.trim().length > 0 && connection === "open" && !busy;
+}
+
+export function completeMaintenance(state: ArcenalChatState, operation: string): ArcenalChatState {
+  const message = assistantMessage(`L’action administrative « ${operation} » a été exécutée et journalisée.`);
+  return { ...state, error: "", messages: [...state.messages, message], pendingMaintenance: null };
 }

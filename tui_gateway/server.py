@@ -6210,7 +6210,7 @@ def _tool_lifecycle_required_for_ui(name: str) -> bool:
     # wires request_id from clarify.request. If tool progress is off, suppressing
     # clarify's lifecycle events leaves only the sidebar attention dot visible.
     # setup_mcp is the same shape: its consent card mounts on the tool part.
-    return name in ("clarify", "setup_mcp")
+    return name in ("arcenal_repair", "clarify", "setup_mcp")
 
 
 def _restart_slash_worker(sid: str, session: dict):

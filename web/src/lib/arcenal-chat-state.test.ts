@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyGatewayEvent,
   canSubmitMessage,
+  completeMaintenance,
   normalizeHistory,
   synchronizeChat,
   type ArcenalChatState,
@@ -13,6 +14,7 @@ const INITIAL_STATE: ArcenalChatState = {
   error: "",
   messages: [],
   pendingApproval: null,
+  pendingMaintenance: null,
   sessionId: "session-active",
   storedSessionId: "stored-active",
   streamingText: "",
@@ -68,6 +70,39 @@ describe("état du chat ARC", () => {
     });
 
     expect(next.pendingApproval).toMatchObject({ requestId: "approval-1", description: "Redémarrer Nginx" });
+  });
+
+  it("transforme une proposition de réparation en validation administrateur", () => {
+    const next = applyGatewayEvent(INITIAL_STATE, {
+      type: "tool.complete",
+      session_id: "session-active",
+      payload: {
+        name: "arcenal_repair",
+        result: {
+          status: "control_panel_required",
+          proposal: { description: "Recharger Nginx", operation: "nginx.reload", risk: "critical", service: null },
+        },
+      },
+    });
+
+    expect(next.pendingMaintenance).toEqual({ description: "Recharger Nginx", operation: "nginx.reload", risk: "critical", service: null });
+  });
+
+  it("ignore un résultat de réparation incomplet", () => {
+    const next = applyGatewayEvent(INITIAL_STATE, {
+      type: "tool.complete", session_id: "session-active", payload: { name: "arcenal_repair", result: {} },
+    });
+
+    expect(next.pendingMaintenance).toBeNull();
+  });
+
+  it("confirme dans le chat une maintenance exécutée", () => {
+    const state = { ...INITIAL_STATE, pendingMaintenance: { description: "Recharger", operation: "nginx.reload", risk: "medium", service: null } };
+
+    const next = completeMaintenance(state, "nginx.reload");
+
+    expect(next.pendingMaintenance).toBeNull();
+    expect(next.messages.at(-1)?.text).toContain("exécutée et journalisée");
   });
 
   it("récupère une réponse terminée si le flux temps réel a été manqué", () => {

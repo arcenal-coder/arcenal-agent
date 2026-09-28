@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib.util
 import re
-import subprocess
 from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
@@ -13,6 +12,8 @@ from typing import Any, TypedDict
 
 from hermes_cli.config import load_config_readonly, load_env
 from tools.registry import tool_error, tool_result
+
+from .security.broker_client import BrokerUnavailableError, execute_readonly
 
 
 ACCESS_ENV_PATTERN = re.compile(r"^ARCENAL_ACCESS_[A-Z0-9_]+_(?:API_KEY|PASSWORD)$")
@@ -95,15 +96,14 @@ def yunohost_query(args: dict[str, Any], **_: Any) -> str:
     resource = str(args.get("resource") or "").strip()
     if resource not in {"apps", "services", "version"}:
         return tool_error("Ressource YunoHost non autorisée.")
-    command = ["sudo", "-n", "/usr/local/sbin/arcenal-supervisor-helper", "yunohost-query", resource]
+    action_id = f"yunohost.{resource}.read"
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=60, check=False)
-    except (OSError, subprocess.TimeoutExpired) as exc:
+        result = execute_readonly({"action_id": action_id, "target": None})
+    except BrokerUnavailableError as exc:
         return tool_error(f"API locale YunoHost indisponible : {exc}")
-    output = (result.stdout or result.stderr).strip()[:20000]
-    if result.returncode != 0:
-        return tool_error("L’API locale YunoHost a refusé la requête.", resource=resource, details=output)
-    return tool_result(resource=resource, details=output)
+    if not result["ok"]:
+        return tool_error("L’API locale YunoHost a refusé la requête.", resource=resource)
+    return tool_result(resource=resource, details=result.get("output", ""))
 
 
 def _access_records(config: Mapping[str, object], environment: Mapping[str, str]) -> list[AccessRecord]:
@@ -133,11 +133,10 @@ def repair(args: dict[str, Any], **_: Any) -> str:
     """Prépare ou exécute une réparation appartenant à la liste autorisée."""
     operation = str(args.get("operation") or "").strip()
     service = str(args.get("service") or "").strip()
-    confirmed = args.get("confirmed") is True
     catalog = {item["id"]: item for item in _supervisor_module().MAINTENANCE_CATALOG}
     if operation not in catalog:
         return tool_error("Opération de maintenance non autorisée.")
-    if operation == "restart-service" and service not in _supervisor_module().RESTARTABLE_SERVICES:
+    if operation == "service.restart" and service not in _supervisor_module().RESTARTABLE_SERVICES:
         return tool_error("Ce service ne peut pas être redémarré par ARCenal Agent.")
 
     proposal = {
@@ -146,28 +145,10 @@ def repair(args: dict[str, Any], **_: Any) -> str:
         "risk": catalog[operation]["risk"],
         "description": catalog[operation]["description"],
     }
-    if not confirmed:
-        return tool_result(
-            status="confirmation_required",
-            message="Demandez l’accord explicite de l’utilisateur avant d’exécuter cette réparation.",
-            proposal=proposal,
-        )
-
-    command = ["sudo", "-n", "/usr/local/sbin/arcenal-supervisor-helper", operation]
-    if service:
-        command.append(service)
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=120, check=False)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return tool_error(f"La réparation n’a pas pu être lancée : {exc}")
-    output = (result.stdout or result.stderr).strip()[:8000]
-    if result.returncode != 0:
-        return tool_error("La réparation a échoué.", operation=operation, details=output)
     return tool_result(
-        status="completed",
-        operation=operation,
-        details=output,
-        overview=_supervisor_module().collect_overview(),
+        status="control_panel_required",
+        message="Présentez cette proposition dans le panneau ARC pour obtenir une confirmation authentifiée.",
+        proposal=proposal,
     )
 
 
@@ -185,15 +166,14 @@ CREATE_REPORT_SCHEMA = {
 
 REPAIR_SCHEMA = {
     "name": "arcenal_repair",
-    "description": "Prépare ou exécute une réparation ARCenal autorisée. Ne jamais mettre confirmed=true sans accord explicite de l’utilisateur dans la conversation en cours.",
+    "description": "Prépare une réparation ARCenal autorisée. L’exécution reste réservée au panneau authentifié et n’est jamais déclenchée par le modèle.",
     "parameters": {
         "type": "object",
         "properties": {
-            "operation": {"type": "string", "enum": ["refresh-diagnostics", "reload-nginx", "restart-service"]},
+            "operation": {"type": "string", "enum": ["yunohost.diagnosis.refresh", "nginx.reload", "service.restart"]},
             "service": {"type": "string", "enum": ["arcenal", "nginx", "yunohost-api", "yunohost-portal-api", "slapd"]},
-            "confirmed": {"type": "boolean", "description": "Vrai uniquement après confirmation explicite de l’utilisateur."},
         },
-        "required": ["operation", "confirmed"],
+        "required": ["operation"],
     },
 }
 

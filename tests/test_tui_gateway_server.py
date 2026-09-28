@@ -1654,6 +1654,25 @@ def test_tui_clarify_lifecycle_events_emit_when_tool_progress_off(monkeypatch):
     assert events[1][2]["result"]["user_response"] == "A"
 
 
+def test_arcenal_repair_lifecycle_events_emit_when_tool_progress_off(monkeypatch):
+    events: list[tuple[str, str, dict]] = []
+    monkeypatch.setattr(
+        server, "_emit", lambda event_type, sid, payload: events.append((event_type, sid, payload))
+    )
+    monkeypatch.setitem(
+        server._sessions,
+        "arcenal-repair-off-test",
+        {"tool_progress_mode": "off", "tool_started_at": {}},
+    )
+
+    result = '{"status":"control_panel_required","proposal":{"operation":"nginx.reload"}}'
+    server._on_tool_start("arcenal-repair-off-test", "tool-repair", "arcenal_repair", {})
+    server._on_tool_complete("arcenal-repair-off-test", "tool-repair", "arcenal_repair", {}, result)
+
+    assert [event[0] for event in events] == ["tool.start", "tool.complete"]
+    assert events[1][2]["result"]["proposal"]["operation"] == "nginx.reload"
+
+
 def test_tui_non_interactive_tool_lifecycle_stays_hidden_when_tool_progress_off(monkeypatch):
     events: list[tuple[str, str, dict]] = []
     monkeypatch.setattr(

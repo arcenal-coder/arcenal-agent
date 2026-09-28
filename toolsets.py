@@ -476,6 +476,18 @@ TOOLSETS = {
         ],
         "includes": []
     },
+
+    "arcenal-admin": {
+        "description": "ARCenal administration without local shell, process or arbitrary file access",
+        "tools": [
+            "arcenal_access_catalog", "arcenal_yunohost_query",
+            "arcenal_system_status", "arcenal_create_report", "arcenal_repair",
+            "arcenal_knowledge_search", "arcenal_knowledge_document",
+            "web_search", "web_extract", "vision_analyze",
+            "todo", "memory", "session_search",
+        ],
+        "includes": []
+    },
     
     "hermes-cli": {
         "description": "Full interactive CLI toolset - all default tools plus cronjob management",
