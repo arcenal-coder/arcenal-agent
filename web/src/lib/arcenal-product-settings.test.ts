@@ -6,6 +6,7 @@ import {
   generalSettingsConfig,
   generalSettingsFromConfig,
   isCssHexColor,
+  isArcenalSystemOverview,
   isValidBrandUrl,
   isValidNotificationEmail,
   productBranding,
@@ -33,6 +34,11 @@ describe("paramètres produit ARCenal", () => {
   it("accepte une adresse de notification vide ou correctement formée", () => {
     expect(isValidNotificationEmail(" ")).toBe(true);
     expect(isValidNotificationEmail("arc@example.test")).toBe(true);
+  });
+
+  it("refuse une réponse système incomplète provenant d’une ancienne API", () => {
+    expect(isArcenalSystemOverview({})).toBe(false);
+    expect(isArcenalSystemOverview({ platform: { hostname: "arc", domain: "arc.test", versions: { arc: "1", hermes: "1", yunohost: "12", debian: "12" } } })).toBe(true);
   });
 
   it("prépare des fragments de configuration sans conserver les espaces parasites", () => {

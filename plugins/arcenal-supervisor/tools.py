@@ -83,6 +83,18 @@ def knowledge_document(args: dict[str, Any], **_: Any) -> str:
         return tool_error(f"Lecture documentaire impossible : {exc}")
 
 
+def context_search(args: dict[str, Any], **_: Any) -> str:
+    """Restitue uniquement les sections du contexte liées à la requête."""
+    query = str(args.get("query") or "").strip()
+    if len(query) < 2:
+        return tool_error("La recherche de contexte doit contenir au moins deux caractères.")
+    try:
+        passages = _supervisor_module().managed_files.search_context(query)
+        return tool_result(query=query, passages=passages)
+    except Exception as exc:
+        return tool_error(f"Recherche dans le contexte impossible : {exc}")
+
+
 def access_catalog(args: dict[str, Any], **_: Any) -> str:
     """Liste les accès autorisés sans jamais exposer leurs secrets."""
     try:
@@ -194,6 +206,16 @@ KNOWLEDGE_DOCUMENT_SCHEMA = {
         "type": "object",
         "properties": {"path": {"type": "string", "pattern": "^[^/].*\\.md$"}},
         "required": ["path"],
+    },
+}
+
+CONTEXT_SEARCH_SCHEMA = {
+    "name": "arcenal_context_search",
+    "description": "Recherche les seules sections pertinentes du contexte organisationnel administré.",
+    "parameters": {
+        "type": "object",
+        "properties": {"query": {"type": "string", "minLength": 2}},
+        "required": ["query"],
     },
 }
 

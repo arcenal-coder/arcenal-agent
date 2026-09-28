@@ -128,6 +128,12 @@ achevés sans réintroduire le tableau de bord Hermes comme interface principale
   adresse de notification, versions serveur, couleurs, logo, favicon et aperçu.
   Le bandeau reprend immédiatement ces réglages tout en conservant la
   personnalisation publique YunoHost comme valeur de secours.
+- Le lot Contexte et Directives ajoute un stockage Markdown à liste blanche,
+  l'auteur et la date de modification, un aperçu, un historique atomique et la
+  restauration confirmée. `CONTEXT.md` est interrogeable par ARC avec des
+  extraits bornés et les quatre directives sont figées dans chaque nouvelle
+  session afin qu'une modification ne change pas silencieusement un échange en
+  cours.
 
 ## Validation prévue
 
@@ -190,8 +196,13 @@ Le lot Général et Apparence passe ESLint sans erreur nouvelle, TypeScript, les
 349 tests Vitest et le build Vite de production. Les quatre scénarios backend
 ajoutés passent avec le Python Hermes ; le lanceur canonique reste indisponible
 localement faute de `pytest`, sans installation implicite de dépendance.
+Le lot Contexte et Directives passe ESLint sans erreur nouvelle, TypeScript,
+les 354 tests Vitest, la compilation Python et le build Vite de production. La
+suite Python ciblée ne peut pas être chargée sur ce Mac, car FastAPI et pytest
+ne sont présents dans aucun environnement existant ; aucune dépendance n'a été
+installée implicitement.
 
 ## Étape suivante pressentie
 
-Livrer Contexte et Directives avec historique et restauration, puis poursuivre
-la matrice fonctionnelle dans l'ordre défini par l'audit.
+Livrer Mémoire avec recherche, édition et gouvernance, puis poursuivre la
+matrice fonctionnelle dans l'ordre défini par l'audit.

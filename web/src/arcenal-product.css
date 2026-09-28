@@ -163,6 +163,43 @@
 .arc-appearance-preview strong { color: var(--arc-text); font-size: 12px; }
 .arc-appearance-preview a { color: var(--arc-link); font-size: 9px; }
 .arc-appearance-preview button { min-height: 36px; padding: 0 13px; border: 0; border-radius: 9px; color: #fff; background: var(--arc-action); font-size: 9px; font-weight: 750; }
+.arc-managed-layout { display: grid; grid-template-columns: minmax(210px, .55fr) minmax(0, 1.6fr); gap: 14px; }
+.arc-managed-navigation { display: flex; flex-direction: column; gap: 7px; }
+.arc-managed-navigation button { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; padding: 12px; border: 1px solid var(--arc-line); border-radius: 12px; color: var(--arc-text); background: rgba(255,255,255,.55); text-align: left; cursor: pointer; }
+.arc-managed-navigation button[aria-pressed="true"] { border-color: var(--arc-wine); background: color-mix(in srgb, var(--arc-wine) 9%, transparent); }
+.arc-managed-navigation svg { width: 17px; color: var(--arc-wine); }
+.arc-managed-navigation span { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.arc-managed-navigation strong { font-size: 9px; }
+.arc-managed-navigation small { overflow: hidden; color: var(--arc-muted); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.arc-managed-navigation em { color: var(--arc-muted); font-size: 7px; font-style: normal; }
+.arc-managed-editor { min-width: 0; overflow: hidden; border: 1px solid var(--arc-line); border-radius: 14px; background: rgba(255,255,255,.52); }
+.arc-managed-editor > .arc-alert { margin: 12px; }
+.arc-managed-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border-bottom: 1px solid var(--arc-line); }
+.arc-managed-toolbar > div:first-child { display: flex; flex-direction: column; gap: 2px; }
+.arc-managed-toolbar span { color: var(--arc-wine); font-size: 7px; font-weight: 800; text-transform: uppercase; }
+.arc-managed-toolbar h3 { margin: 0; font-family: var(--arc-font-display); font-size: 20px; font-weight: 400; }
+.arc-managed-toolbar small { color: var(--arc-muted); font-size: 7px; }
+.arc-managed-toolbar > div:last-child { display: flex; align-items: center; gap: 6px; }
+.arc-managed-toolbar > div:last-child > button:not(.arc-primary-button) { min-height: 34px; padding: 0 10px; border: 1px solid var(--arc-line); border-radius: 8px; color: var(--arc-text); background: transparent; font-size: 8px; cursor: pointer; }
+.arc-managed-toolbar > div:last-child > button[aria-pressed="true"] { border-color: var(--arc-wine); color: var(--arc-wine); }
+.arc-managed-textarea { display: block; width: 100%; min-height: 370px; resize: vertical; padding: 18px; border: 0; outline: 0; color: var(--arc-text); background: transparent; font: 10px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.arc-managed-preview { min-height: 370px; padding: 20px; }
+.arc-managed-history { border-top: 1px solid var(--arc-line); }
+.arc-managed-history > header { display: flex; align-items: center; gap: 7px; padding: 11px 14px; }
+.arc-managed-history > header svg { width: 14px; color: var(--arc-wine); }
+.arc-managed-history > header strong { font-size: 9px; }
+.arc-managed-history > header span { margin-left: auto; color: var(--arc-muted); font-size: 7px; }
+.arc-managed-history ul { max-height: 180px; overflow: auto; margin: 0; padding: 0 14px 14px; list-style: none; }
+.arc-managed-history li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--arc-line); }
+.arc-managed-history li span { display: flex; flex-direction: column; }
+.arc-managed-history li strong { font-size: 8px; }
+.arc-managed-history li small, .arc-managed-history > p { color: var(--arc-muted); font-size: 7px; }
+.arc-managed-history li button { display: inline-flex; align-items: center; gap: 5px; border: 0; color: var(--arc-link); background: transparent; font-size: 8px; cursor: pointer; }
+.arc-managed-history li button svg { width: 12px; }
+.arc-managed-history > p { margin: 0; padding: 0 14px 14px; }
+.arc-managed-empty { display: grid; min-height: 420px; place-items: center; align-content: center; color: var(--arc-muted); }
+.arc-managed-empty svg { width: 28px; }
+.arc-managed-empty p { font-size: 9px; }
 .arc-provider-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .arc-provider-card { padding: 17px; border: 1px solid var(--arc-line); border-radius: 14px; background: rgba(255, 253, 248, 0.72); }
 .arc-provider-card[data-configured="true"] { border-color: rgba(36, 104, 92, 0.34); }
@@ -460,7 +497,9 @@ html[data-arc-color-mode="dark"] .arc-access-form select,
 html[data-arc-color-mode="dark"] .arc-custom-connection input { color: var(--arc-text); background: #17191e; }
 html[data-arc-color-mode="dark"] .arc-system-identity,
 html[data-arc-color-mode="dark"] .arc-color-field,
-html[data-arc-color-mode="dark"] .arc-appearance-preview { background: #1d2026; }
+html[data-arc-color-mode="dark"] .arc-appearance-preview,
+html[data-arc-color-mode="dark"] .arc-managed-navigation button,
+html[data-arc-color-mode="dark"] .arc-managed-editor { background: #1d2026; }
 html[data-arc-color-mode="dark"] .arc-appearance,
 html[data-arc-color-mode="dark"] .arc-lda-register,
 html[data-arc-color-mode="dark"] .arc-lda-toolbar,
@@ -484,6 +523,10 @@ html[data-arc-color-mode="dark"] .arc-access-card button { color: var(--arc-text
   .arc-agent-card { grid-template-columns: 42px 1fr; }
   .arc-general-grid,
   .arc-appearance-form { grid-template-columns: 1fr; }
+  .arc-managed-layout { grid-template-columns: 1fr; }
+  .arc-managed-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .arc-managed-toolbar { align-items: flex-start; flex-direction: column; }
+  .arc-managed-toolbar > div:last-child { width: 100%; flex-wrap: wrap; }
   .arc-system-identity { grid-template-columns: auto 1fr; }
   .arc-appearance-preview { grid-template-columns: auto 1fr; }
   .arc-appearance-preview > button { grid-column: 1 / -1; }

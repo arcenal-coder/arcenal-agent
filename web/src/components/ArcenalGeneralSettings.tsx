@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from "react";
 import { Building2, Save, Server } from "lucide-react";
 import { api, type ArcenalSystemOverview } from "@/lib/api";
-import { generalSettingsConfig, generalSettingsFromConfig, isValidNotificationEmail, type ArcenalGeneralSettings } from "@/lib/arcenal-product-settings";
+import { generalSettingsConfig, generalSettingsFromConfig, isArcenalSystemOverview, isValidNotificationEmail, type ArcenalGeneralSettings } from "@/lib/arcenal-product-settings";
 
 interface ArcenalGeneralSettingsProps {
   config: Record<string, unknown>;
@@ -43,7 +43,9 @@ function Identity({ label, value }: { label: string; value: string }): ReactElem
 
 async function loadOverview(setOverview: (value: ArcenalSystemOverview) => void, setStatus: (value: string) => void): Promise<void> {
   try {
-    setOverview(await api.getArcenalSystemOverview());
+    const response: unknown = await api.getArcenalSystemOverview();
+    if (!isArcenalSystemOverview(response)) throw new Error("La réponse système d’ARC est incomplète.");
+    setOverview(response);
   } catch (cause) {
     setStatus(errorMessage(cause, "Les informations du serveur sont indisponibles."));
   }

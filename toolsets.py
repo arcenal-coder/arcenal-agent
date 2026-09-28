@@ -482,7 +482,7 @@ TOOLSETS = {
         "tools": [
             "arcenal_access_catalog", "arcenal_yunohost_query",
             "arcenal_system_status", "arcenal_create_report", "arcenal_repair",
-            "arcenal_knowledge_search", "arcenal_knowledge_document",
+            "arcenal_knowledge_search", "arcenal_knowledge_document", "arcenal_context_search",
             "web_search", "web_extract", "vision_analyze",
             "todo", "memory", "session_search",
         ],

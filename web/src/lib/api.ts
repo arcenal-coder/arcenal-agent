@@ -520,6 +520,28 @@ export const api = {
     fetchJSON<ArcenalSystemOverview>(
       "/api/plugins/arcenal-supervisor/overview",
     ),
+  getArcenalManagedFiles: (category: ArcenalManagedFileCategory) =>
+    fetchJSON<ArcenalManagedFilesResponse>(
+      `/api/plugins/arcenal-supervisor/managed-files?category=${encodeURIComponent(category)}`,
+    ),
+  getArcenalManagedFile: (fileId: string) =>
+    fetchJSON<ArcenalManagedFileDetail>(
+      `/api/plugins/arcenal-supervisor/managed-files/${encodeURIComponent(fileId)}`,
+    ),
+  saveArcenalManagedFile: (fileId: string, content: string) =>
+    fetchJSON<ArcenalManagedFileDetail>(
+      `/api/plugins/arcenal-supervisor/managed-files/${encodeURIComponent(fileId)}`,
+      { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) },
+    ),
+  getArcenalManagedFileHistory: (fileId: string) =>
+    fetchJSON<ArcenalManagedFileHistoryResponse>(
+      `/api/plugins/arcenal-supervisor/managed-files/${encodeURIComponent(fileId)}/history`,
+    ),
+  restoreArcenalManagedFile: (fileId: string, versionId: string) =>
+    fetchJSON<ArcenalManagedFileDetail>(
+      `/api/plugins/arcenal-supervisor/managed-files/${encodeURIComponent(fileId)}/restore/${encodeURIComponent(versionId)}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: true }) },
+    ),
   getArcenalWiki: () =>
     fetchJSON<ArcenalKnowledgeOverview>(
       "/api/plugins/arcenal-supervisor/knowledge/wiki/overview",
@@ -2269,6 +2291,39 @@ export interface ArcenalSystemOverview {
     memory: { percent: number; total: number; used: number };
   };
   services: Array<{ healthy: boolean; id: string; label: string; state: string }>;
+}
+
+export type ArcenalManagedFileCategory = "context" | "directive";
+
+export interface ArcenalManagedFileSummary {
+  author: string;
+  category: ArcenalManagedFileCategory;
+  filename: string;
+  history_count: number;
+  id: string;
+  label: string;
+  role: string;
+  status: "actif" | "à créer";
+  updated_at: string;
+}
+
+export interface ArcenalManagedFileDetail {
+  content: string;
+  file: ArcenalManagedFileSummary;
+}
+
+export interface ArcenalManagedFileVersion {
+  author: string;
+  updated_at: string;
+  version_id: string;
+}
+
+export interface ArcenalManagedFilesResponse {
+  files: ArcenalManagedFileSummary[];
+}
+
+export interface ArcenalManagedFileHistoryResponse {
+  versions: ArcenalManagedFileVersion[];
 }
 
 export interface AnalyticsDailyEntry {

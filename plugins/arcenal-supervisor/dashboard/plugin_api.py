@@ -38,8 +38,22 @@ def _load_knowledge_api() -> ModuleType:
     return module
 
 
+def _load_managed_files_api() -> ModuleType:
+    """Charge les fichiers administrés depuis la surcouche ARCenal."""
+    source = Path(__file__).with_name("managed_files_api.py")
+    spec = importlib.util.spec_from_file_location("arcenal_managed_files_api", source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Le module des fichiers administrés est introuvable.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 knowledge = _load_knowledge_api()
 router.include_router(knowledge.router)
+managed_files = _load_managed_files_api()
+router.include_router(managed_files.router)
 
 SERVICES = (
     ("arcenal", "ARCenal Agent"),

@@ -5,7 +5,7 @@
 - État : audit terminé, architecture validée et réalisation engagée.
 - Impact : la version ynh34 sécurise l'installation et fournit les trois volets,
   mais plusieurs domaines du CDC détaillé sont absents ou partiels, notamment
-  six sections Paramètres, la gouvernance complète des agents, le système, la
+  quatre sections Paramètres, la gouvernance complète des agents, le système, la
   sécurité visible, les sauvegardes et le premier démarrage.
 - Preuve : `docs/arcenal-product-audit.md` et
   `docs/arcenal-product-cdc-v2.md`.
@@ -47,7 +47,6 @@
 ## UI-SETTINGS-001 — Onglets métier restants
 
 - État : ouvert.
-- Impact : la structure d'onglets est livrée pour les cinq panneaux déjà
-  fonctionnels. Contexte, Directives, Mémoire, Outils, Système et Sauvegardes
-  restent à développer sans écran factice ; le centre de sécurité doit encore
-  être approfondi.
+- Impact : Général, Apparence, Contexte et Directives disposent maintenant de
+  parcours réels. Mémoire, Outils, Système et Sauvegardes restent à développer
+  sans écran factice ; le centre de sécurité doit encore être approfondi.

@@ -1,3 +1,5 @@
+import type { ArcenalSystemOverview } from "./api";
+
 export interface ArcenalGeneralSettings {
   agentName: string;
   language: string;
@@ -100,6 +102,14 @@ export function isCssHexColor(value: string): boolean {
 export function isValidNotificationEmail(value: string): boolean {
   if (!value.trim()) return true;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+export function isArcenalSystemOverview(value: unknown): value is ArcenalSystemOverview {
+  const root = recordValue(value);
+  const platform = recordValue(root.platform);
+  const versions = recordValue(platform.versions);
+  return [platform.hostname, platform.domain, versions.arc, versions.hermes, versions.yunohost, versions.debian]
+    .every((entry) => typeof entry === "string" && Boolean(entry));
 }
 
 export function applyAppearance(settings: ArcenalAppearanceSettings, root: AppearanceRoot): void {

@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
 from .tools import (
     ACCESS_CATALOG_SCHEMA,
+    CONTEXT_SEARCH_SCHEMA,
     CREATE_REPORT_SCHEMA,
     KNOWLEDGE_DOCUMENT_SCHEMA,
     KNOWLEDGE_SEARCH_SCHEMA,
@@ -11,6 +15,7 @@ from .tools import (
     SYSTEM_STATUS_SCHEMA,
     YUNOHOST_QUERY_SCHEMA,
     access_catalog,
+    context_search,
     create_report,
     knowledge_document,
     knowledge_search,
@@ -56,6 +61,19 @@ mais tu conduis d’abord vers un diagnostic, une décision et un résultat clai
 """
 
 
+def _directives_prompt(_session_info: Mapping[str, Any]) -> str:
+    """Fige les directives administrées dans chaque nouvelle conversation."""
+    from .tools import _supervisor_module
+
+    sections: list[str] = []
+    for file_id in ("agents", "rules", "security", "tools"):
+        detail = _supervisor_module().managed_files.read_managed_file(file_id)
+        content = str(detail["content"]).strip()
+        if content:
+            sections.append(f"## {detail['file']['filename']}\n{content[:1400]}")
+    return "# Directives ARCenal administrées\n" + "\n\n".join(sections) if sections else ""
+
+
 def register(ctx) -> None:
     """Enregistre les outils sans modifier le cœur commun Hermes."""
     ctx.register_system_prompt_section(
@@ -63,6 +81,12 @@ def register(ctx) -> None:
         content=ARC_SYSTEM_PROMPT,
         position="after_memory",
         max_chars=4000,
+    )
+    ctx.register_system_prompt_section(
+        id="arcenal.directives",
+        content=_directives_prompt,
+        position="after_memory",
+        max_chars=6000,
     )
     for name, schema, handler, emoji in (
         ("arcenal_access_catalog", ACCESS_CATALOG_SCHEMA, access_catalog, "🔐"),
@@ -72,6 +96,7 @@ def register(ctx) -> None:
         ("arcenal_repair", REPAIR_SCHEMA, repair, "🛠️"),
         ("arcenal_knowledge_search", KNOWLEDGE_SEARCH_SCHEMA, knowledge_search, "🔎"),
         ("arcenal_knowledge_document", KNOWLEDGE_DOCUMENT_SCHEMA, knowledge_document, "📚"),
+        ("arcenal_context_search", CONTEXT_SEARCH_SCHEMA, context_search, "🧭"),
     ):
         ctx.register_tool(
             name=name,

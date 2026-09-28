@@ -146,6 +146,43 @@ describe("api.testArcenalOpenRouter", () => {
   });
 });
 
+describe("api fichiers administrés ARCenal", () => {
+  it("filtre le catalogue selon la catégorie demandée", async () => {
+    const fetchMock = jsonFetchMock({ files: [] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.getArcenalManagedFiles("directive");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/managed-files?category=directive",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("enregistre uniquement le contenu du fichier sélectionné", async () => {
+    const fetchMock = jsonFetchMock({ content: "# Contexte", file: {} });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.saveArcenalManagedFile("context", "# Contexte");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/managed-files/context",
+      expect.objectContaining({ body: JSON.stringify({ content: "# Contexte" }), method: "PUT" }),
+    );
+  });
+
+  it("confirme explicitement la restauration d’une version", async () => {
+    const fetchMock = jsonFetchMock({ content: "", file: {} });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.restoreArcenalManagedFile("security", "20260928T120000000000Z");
+
+    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(options.body).toBe(JSON.stringify({ confirmed: true }));
+    expect(options.method).toBe("POST");
+  });
+});
+
 describe("api OAuth helpers", () => {
   it("starts OAuth login in gated mode without requiring an injected session token", async () => {
     vi.stubGlobal("window", { __HERMES_AUTH_REQUIRED__: true });

@@ -84,9 +84,9 @@ doit être unifié avec l'API de contrôle.
 | RAG traçable | PARTIEL | Outils de recherche et lecture présents ; preuve bout en bout de citation par le chat absente. |
 | Paramètres Général | PARTIEL | Écran ARC, identité, langue, fuseau, adresse de notification et versions détectées ; l'envoi de notification reste à raccorder. |
 | Paramètres Apparence | PARTIEL | Clair, sombre, système, couleurs, logo, favicon, nom et prévisualisation ; l'import de fichier local reste à ajouter. |
-| Paramètres Contexte | ABSENT | Aucun éditeur, historique ou récupération ciblée de `CONTEXT.md`. |
+| Paramètres Contexte | EXISTANT | Éditeur Markdown, aperçu, auteur, date, historique, restauration confirmée et récupération ciblée de `CONTEXT.md`. |
 | Paramètres Mémoire | PARTIEL | Moteur Hermes existant ; aucun parcours ARC de consultation, édition, historique et restauration. |
-| Paramètres Directives | ABSENT | Aucun inventaire ou éditeur sécurisé des fichiers de directives. |
+| Paramètres Directives | EXISTANT | Inventaire borné, édition, aperçu, historique et restauration de `AGENTS.md`, `RULES.md`, `SECURITY.md` et `TOOLS.md`, injectés dans les nouvelles sessions. |
 | Fournisseurs IA | PARTIEL | Plusieurs connexions et modèle principal ; tests génériques, activation, secondaire et paramètres d'adaptateur manquent. |
 | Accès métier | PARTIEL | Compte/API et autonomie ; permissions, état réel, test, dernier succès et désactivation manquent. |
 | Outils et capacités | ABSENT | Les outils existent côté Hermes/ARC, mais aucun inventaire ARC gouverné ne répond au CDC. |
