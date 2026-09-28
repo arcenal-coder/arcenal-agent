@@ -1,6 +1,6 @@
 # État du projet ARCenal Agent
 
-Dernière mise à jour : 2026-09-25
+Dernière mise à jour : 2026-09-28
 
 Branche : `arcenal`
 
@@ -48,6 +48,25 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
   que le service, le login, le périmètre et le nom de variable à utiliser.
 
 ## Travail en cours
+
+- L'architecture de sécurité a été validée par l'utilisateur le 2026-09-28 :
+  YunoHost reste l'unique autorité d'identité et ARC ne crée pas de second mot
+  de passe ; les actions privilégiées passent par un broker séparé.
+- La fondation des lots 0 à 6 est implémentée. Le catalogue de risques et
+  les niveaux d'autorisation 0 à 3 refusent par défaut toute action inconnue.
+- Un jeu d'outils `arcenal-admin` retire terminal, processus, fichiers
+  arbitraires, exécution de code, délégation et cron du superviseur installé
+  sur YunoHost.
+- Le paquet remplace le helper `sudoers` par trois frontières : un socket de
+  lecture pour le moteur, une API de contrôle identifiée par SSOwat et un
+  socket privilégié accessible uniquement à l'utilisateur de contrôle.
+- Les actions de niveau 3 utilisent une confirmation à usage unique, liée à
+  l'administrateur, l'action et la cible, avec une expiration de cinq minutes.
+- Le journal d'audit est expurgé, synchronisé et chaîné par empreinte. Il est
+  conservé dans `/var/lib/arcenal-control` pour être sauvegardé séparément.
+- Le menu Paramètres adopte une navigation interne Apparence, Fournisseurs IA,
+  Accès et Sécurité. Les libellés n'annoncent plus d'administration complète
+  sans confirmation.
 
 - L’identité et les règles opérationnelles d’ARC sont injectées dans le prompt
   système par le plugin `arcenal-supervisor`, après la mémoire de session.
@@ -109,6 +128,13 @@ IA et de régler l'autonomie d'ARC sans créer un quatrième volet métier.
 2. Vérification des types applicable.
 3. Tests unitaires ciblés du superviseur ARCenal.
 4. Relecture du diff et contrôle de compatibilité avec le moteur amont.
+
+Résultats intermédiaires du 2026-09-28 : ESLint réussit sans erreur avec les
+29 avertissements déjà présents dans le socle ; TypeScript réussit. Les
+19 tests unitaires de politique, identité, confirmation, audit et surface
+d'outils, les 9 tests du broker, les 53 tests Vitest ARC et les six tests shell
+YunoHost réussissent. Le build web de production réussit. L'installation réelle du
+nouveau découpage systemd reste à valider sur la machine YunoHost de recette.
 
 Résultats du 2026-09-24 : Ruff et ESLint réussis sans erreur, vérification
 TypeScript et compilation Python réussies. Pour le lot OpenRouter, 3 tests
