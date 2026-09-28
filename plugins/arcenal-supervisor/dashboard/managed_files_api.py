@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -24,6 +25,12 @@ MANAGED_FILES: dict[str, dict[str, str]] = {
         "filename": "CONTEXT.md",
         "label": "Contexte de l’organisation",
         "role": "Décrit l’organisation, ses activités, équipes, produits et vocabulaire.",
+    },
+    "memory": {
+        "category": "memory",
+        "filename": "MEMORY.md",
+        "label": "Mémoire durable",
+        "role": "Conserve les décisions, préférences, conventions, projets et actions.",
     },
     "agents": {
         "category": "directive",
@@ -60,6 +67,19 @@ class ManagedFileWrite(BaseModel):
 
 class ManagedFileRestore(BaseModel):
     """Confirmation explicite exigée avant une restauration."""
+
+    confirmed: bool
+
+
+class MemoryEntryWrite(BaseModel):
+    """Entrée mémoire validée à la frontière HTTP."""
+
+    title: str = Field(min_length=1, max_length=160)
+    content: str = Field(min_length=1, max_length=16_000)
+
+
+class MemoryEntryDelete(BaseModel):
+    """Confirmation exigée avant une suppression de mémoire."""
 
     confirmed: bool
 
@@ -211,6 +231,8 @@ def read_managed_file(file_id: str) -> dict[str, object]:
 
 def write_managed_file(file_id: str, content: str, author: str) -> dict[str, object]:
     _validate_content(content)
+    if file_id == "memory" and content.strip() and not content.startswith("# Mémoire ARC"):
+        raise HTTPException(status_code=422, detail="Le format de MEMORY.md est invalide.")
     _archive_current(file_id)
     updated_at = _now().isoformat()
     _atomic_write(_target(file_id), content)
@@ -255,9 +277,91 @@ def _markdown_sections(content: str) -> list[tuple[str, str]]:
     return [(title, text) for title, text in populated if text]
 
 
+def _memory_id(title: str, content: str) -> str:
+    source = f"{title}\n{content}".encode("utf-8")
+    return hashlib.sha256(source).hexdigest()[:16]
+
+
+def _memory_entries(content: str) -> list[dict[str, str]]:
+    blocks = re.split(r"(?m)^##\s+", content)
+    entries: list[dict[str, str]] = []
+    for block in blocks[1:]:
+        title, separator, body = block.partition("\n")
+        normalized_title = title.strip()
+        normalized_body = body.strip() if separator else ""
+        if normalized_title and normalized_body:
+            entries.append(_memory_entry(normalized_title, normalized_body))
+    return entries
+
+
+def _memory_entry(title: str, content: str) -> dict[str, str]:
+    return {"id": _memory_id(title, content), "title": title, "content": content}
+
+
+def _serialize_memory(entries: list[dict[str, str]]) -> str:
+    sections = [f"## {entry['title']}\n\n{entry['content']}" for entry in entries]
+    body = "\n\n".join(sections)
+    return f"# Mémoire ARC\n\n{body}\n" if body else "# Mémoire ARC\n"
+
+
+def _normalized_memory(payload: MemoryEntryWrite) -> tuple[str, str]:
+    title = payload.title.strip()
+    content = payload.content.strip()
+    if not title or not content:
+        raise HTTPException(status_code=422, detail="Le titre et le contenu sont obligatoires.")
+    if "\n" in title or "\r" in title or re.search(r"(?m)^##\s+", content):
+        raise HTTPException(status_code=422, detail="La structure de l’entrée mémoire est invalide.")
+    _validate_content(content)
+    return title, content
+
+
+def _memory_index(entries: list[dict[str, str]], entry_id: str) -> int:
+    index = next((position for position, item in enumerate(entries) if item["id"] == entry_id), -1)
+    if index < 0:
+        raise HTTPException(status_code=404, detail="Entrée mémoire introuvable.")
+    return index
+
+
+def list_memory_entries(query: str = "") -> list[dict[str, str]]:
+    entries = _memory_entries(_read_text(_target("memory")))
+    normalized = query.strip().casefold()
+    if not normalized:
+        return entries
+    return [entry for entry in entries if normalized in f"{entry['title']}\n{entry['content']}".casefold()]
+
+
+def add_memory_entry(payload: MemoryEntryWrite, author: str) -> dict[str, str]:
+    title, content = _normalized_memory(payload)
+    entries = list_memory_entries()
+    entry = _memory_entry(title, content)
+    if any(item["id"] == entry["id"] for item in entries):
+        raise HTTPException(status_code=409, detail="Cette entrée mémoire existe déjà.")
+    write_managed_file("memory", _serialize_memory([*entries, entry]), author)
+    return entry
+
+
+def update_memory_entry(entry_id: str, payload: MemoryEntryWrite, author: str) -> dict[str, str]:
+    title, content = _normalized_memory(payload)
+    entries = list_memory_entries()
+    index = _memory_index(entries, entry_id)
+    replacement = _memory_entry(title, content)
+    if any(item["id"] == replacement["id"] for position, item in enumerate(entries) if position != index):
+        raise HTTPException(status_code=409, detail="Cette entrée mémoire existe déjà.")
+    updated = [replacement if position == index else item for position, item in enumerate(entries)]
+    write_managed_file("memory", _serialize_memory(updated), author)
+    return replacement
+
+
+def delete_memory_entry(entry_id: str, author: str) -> None:
+    entries = list_memory_entries()
+    index = _memory_index(entries, entry_id)
+    updated = [item for position, item in enumerate(entries) if position != index]
+    write_managed_file("memory", _serialize_memory(updated), author)
+
+
 @router.get("")
 def list_managed_files(category: str | None = None) -> dict[str, object]:
-    if category not in {None, "context", "directive"}:
+    if category not in {None, "context", "directive", "memory"}:
         raise HTTPException(status_code=422, detail="Catégorie de fichier invalide.")
     identifiers = [
         file_id
@@ -297,3 +401,34 @@ def restore_file(
     if not payload.confirmed:
         raise HTTPException(status_code=409, detail="La restauration doit être confirmée.")
     return restore_managed_file(file_id, version_id, _actor(request))
+
+
+@router.get("/memory/entries")
+def memory_entries(query: str = "") -> dict[str, object]:
+    return {"entries": list_memory_entries(query)}
+
+
+@router.post("/memory/entries")
+def create_memory_entry(payload: MemoryEntryWrite, request: Request) -> dict[str, object]:
+    return {"entry": add_memory_entry(payload, _actor(request))}
+
+
+@router.put("/memory/entries/{entry_id}")
+def edit_memory_entry(
+    entry_id: str,
+    payload: MemoryEntryWrite,
+    request: Request,
+) -> dict[str, object]:
+    return {"entry": update_memory_entry(entry_id, payload, _actor(request))}
+
+
+@router.post("/memory/entries/{entry_id}/delete")
+def remove_memory_entry(
+    entry_id: str,
+    payload: MemoryEntryDelete,
+    request: Request,
+) -> dict[str, bool]:
+    if not payload.confirmed:
+        raise HTTPException(status_code=409, detail="La suppression doit être confirmée.")
+    delete_memory_entry(entry_id, _actor(request))
+    return {"deleted": True}

@@ -79,3 +79,56 @@ class ManagedFilesTests(TestCase):
         with self.assertRaises(HTTPException) as raised:
             MODULE._read_json(metadata)
         self.assertEqual(raised.exception.status_code, 500)
+
+    def test_add_memory_entry_persists_a_markdown_section(self) -> None:
+        payload = MODULE.MemoryEntryWrite(title="Décision", content="Utiliser AACP/1.")
+        with (
+            patch.object(MODULE, "list_memory_entries", return_value=[]),
+            patch.object(MODULE, "write_managed_file") as write,
+        ):
+            entry = MODULE.add_memory_entry(payload, "admin")
+        self.assertEqual(entry["title"], "Décision")
+        self.assertIn("## Décision\n\nUtiliser AACP/1.", write.call_args.args[1])
+
+    def test_memory_search_is_case_insensitive_and_accepts_an_empty_query(self) -> None:
+        memory = "# Mémoire ARC\n\n## Projet Atlas\n\nDécision durable.\n\n## Préférence\n\nRéponses courtes.\n"
+        with patch.object(MODULE, "_read_text", return_value=memory):
+            self.assertEqual(len(MODULE.list_memory_entries()), 2)
+            results = MODULE.list_memory_entries("ATLAS")
+        self.assertEqual([entry["title"] for entry in results], ["Projet Atlas"])
+
+    def test_update_memory_entry_refuses_an_unknown_identifier(self) -> None:
+        payload = MODULE.MemoryEntryWrite(title="Décision", content="Texte")
+        with (
+            patch.object(MODULE, "list_memory_entries", return_value=[]),
+            self.assertRaises(HTTPException) as raised,
+        ):
+            MODULE.update_memory_entry("absent", payload, "admin")
+        self.assertEqual(raised.exception.status_code, 404)
+
+    def test_memory_rejects_a_heading_injected_into_content(self) -> None:
+        payload = MODULE.MemoryEntryWrite(title="Décision", content="Texte\n## Entrée injectée")
+        with self.assertRaises(HTTPException) as raised:
+            MODULE.add_memory_entry(payload, "admin")
+        self.assertEqual(raised.exception.status_code, 422)
+
+    def test_delete_memory_entry_keeps_other_entries(self) -> None:
+        removed = MODULE._memory_entry("Ancienne décision", "À retirer.")
+        kept = MODULE._memory_entry("Convention", "À conserver.")
+        with (
+            patch.object(MODULE, "list_memory_entries", return_value=[removed, kept]),
+            patch.object(MODULE, "write_managed_file") as write,
+        ):
+            MODULE.delete_memory_entry(removed["id"], "admin")
+        self.assertNotIn("Ancienne décision", write.call_args.args[1])
+        self.assertIn("Convention", write.call_args.args[1])
+
+    def test_memory_delete_endpoint_requires_confirmation(self) -> None:
+        payload = MODULE.MemoryEntryDelete(confirmed=False)
+        with (
+            patch.object(MODULE, "delete_memory_entry") as delete,
+            self.assertRaises(HTTPException) as raised,
+        ):
+            MODULE.remove_memory_entry("decision", payload, _request({}))
+        self.assertEqual(raised.exception.status_code, 409)
+        delete.assert_not_called()

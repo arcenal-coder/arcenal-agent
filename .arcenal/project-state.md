@@ -134,6 +134,11 @@ achevés sans réintroduire le tableau de bord Hermes comme interface principale
   extraits bornés et les quatre directives sont figées dans chaque nouvelle
   session afin qu'une modification ne change pas silencieusement un échange en
   cours.
+- Le lot Mémoire expose `MEMORY.md` sous forme d’entrées durables : consultation,
+  recherche, ajout, modification, suppression confirmée, historique et
+  restauration. ARC dispose d’un outil de recherche dédié et reçoit un extrait
+  borné de la mémoire au début de chaque nouvelle session. Le format interdit
+  l’injection de faux titres d’entrée.
 
 ## Validation prévue
 
@@ -201,8 +206,13 @@ les 354 tests Vitest, la compilation Python et le build Vite de production. La
 suite Python ciblée ne peut pas être chargée sur ce Mac, car FastAPI et pytest
 ne sont présents dans aucun environnement existant ; aucune dépendance n'a été
 installée implicitement.
+Le panneau Mémoire a été contrôlé visuellement en thème sombre avec des données
+nominales ; sa hiérarchie, ses cartes, son formulaire et son historique sont
+lisibles dans la façade ARC sans réintroduire l’interface Hermes.
+Le lot passe ESLint sans erreur nouvelle, TypeScript, les 360 tests Vitest, la
+compilation Python et le build Vite de production.
 
 ## Étape suivante pressentie
 
-Livrer Mémoire avec recherche, édition et gouvernance, puis poursuivre la
-matrice fonctionnelle dans l'ordre défini par l'audit.
+Achever Fournisseurs IA et Accès avec tests de connexion et états, puis livrer
+Outils et capacités avec permissions et audit d’utilisation.

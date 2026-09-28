@@ -542,6 +542,25 @@ export const api = {
       `/api/plugins/arcenal-supervisor/managed-files/${encodeURIComponent(fileId)}/restore/${encodeURIComponent(versionId)}`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: true }) },
     ),
+  getArcenalMemoryEntries: (query = "") =>
+    fetchJSON<ArcenalMemoryEntriesResponse>(
+      `/api/plugins/arcenal-supervisor/managed-files/memory/entries?query=${encodeURIComponent(query)}`,
+    ),
+  createArcenalMemoryEntry: (title: string, content: string) =>
+    fetchJSON<ArcenalMemoryEntryResponse>(
+      "/api/plugins/arcenal-supervisor/managed-files/memory/entries",
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, content }) },
+    ),
+  updateArcenalMemoryEntry: (entryId: string, title: string, content: string) =>
+    fetchJSON<ArcenalMemoryEntryResponse>(
+      `/api/plugins/arcenal-supervisor/managed-files/memory/entries/${encodeURIComponent(entryId)}`,
+      { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, content }) },
+    ),
+  deleteArcenalMemoryEntry: (entryId: string) =>
+    fetchJSON<{ deleted: boolean }>(
+      `/api/plugins/arcenal-supervisor/managed-files/memory/entries/${encodeURIComponent(entryId)}/delete`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: true }) },
+    ),
   getArcenalWiki: () =>
     fetchJSON<ArcenalKnowledgeOverview>(
       "/api/plugins/arcenal-supervisor/knowledge/wiki/overview",
@@ -2293,7 +2312,7 @@ export interface ArcenalSystemOverview {
   services: Array<{ healthy: boolean; id: string; label: string; state: string }>;
 }
 
-export type ArcenalManagedFileCategory = "context" | "directive";
+export type ArcenalManagedFileCategory = "context" | "directive" | "memory";
 
 export interface ArcenalManagedFileSummary {
   author: string;
@@ -2324,6 +2343,20 @@ export interface ArcenalManagedFilesResponse {
 
 export interface ArcenalManagedFileHistoryResponse {
   versions: ArcenalManagedFileVersion[];
+}
+
+export interface ArcenalMemoryEntry {
+  content: string;
+  id: string;
+  title: string;
+}
+
+export interface ArcenalMemoryEntriesResponse {
+  entries: ArcenalMemoryEntry[];
+}
+
+export interface ArcenalMemoryEntryResponse {
+  entry: ArcenalMemoryEntry;
 }
 
 export interface AnalyticsDailyEntry {

@@ -31,6 +31,7 @@ class ArcenalToolsetTests(unittest.TestCase):
         self.assertIn("arcenal_repair", tools)
         self.assertIn("arcenal_knowledge_search", tools)
         self.assertIn("arcenal_context_search", tools)
+        self.assertIn("arcenal_memory_search", tools)
 
     def test_local_execution_tools_are_absent(self) -> None:
         tools = set(resolve_toolset("arcenal-admin"))

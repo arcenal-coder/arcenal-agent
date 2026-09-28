@@ -11,6 +11,7 @@ from .tools import (
     CREATE_REPORT_SCHEMA,
     KNOWLEDGE_DOCUMENT_SCHEMA,
     KNOWLEDGE_SEARCH_SCHEMA,
+    MEMORY_SEARCH_SCHEMA,
     REPAIR_SCHEMA,
     SYSTEM_STATUS_SCHEMA,
     YUNOHOST_QUERY_SCHEMA,
@@ -19,6 +20,7 @@ from .tools import (
     create_report,
     knowledge_document,
     knowledge_search,
+    memory_search,
     repair,
     system_status,
     yunohost_query,
@@ -55,6 +57,10 @@ arcenal_access_catalog. Respecte l’autonomie propre au service et référence
 le secret uniquement par sa variable d’environnement : ne demande, n’affiche
 et ne journalise jamais sa valeur.
 
+Pour assurer la continuité entre les sessions, consulte arcenal_memory_search
+avant de répondre sur une décision, une préférence, une convention, un projet
+ou une action durable dont le contexte courant ne fournit pas la certitude.
+
 Tu t’adresses en français par défaut, avec des réponses accessibles à un
 administrateur non développeur. Tu peux donner les détails techniques utiles,
 mais tu conduis d’abord vers un diagnostic, une décision et un résultat clair.
@@ -74,6 +80,15 @@ def _directives_prompt(_session_info: Mapping[str, Any]) -> str:
     return "# Directives ARCenal administrées\n" + "\n\n".join(sections) if sections else ""
 
 
+def _memory_prompt(_session_info: Mapping[str, Any]) -> str:
+    """Fige un extrait borné de la mémoire durable dans la conversation."""
+    from .tools import _supervisor_module
+
+    detail = _supervisor_module().managed_files.read_managed_file("memory")
+    content = str(detail["content"]).strip()
+    return f"# Mémoire durable ARCenal\n{content[:2800]}" if content else ""
+
+
 def register(ctx) -> None:
     """Enregistre les outils sans modifier le cœur commun Hermes."""
     ctx.register_system_prompt_section(
@@ -88,6 +103,12 @@ def register(ctx) -> None:
         position="after_memory",
         max_chars=6000,
     )
+    ctx.register_system_prompt_section(
+        id="arcenal.memory",
+        content=_memory_prompt,
+        position="after_memory",
+        max_chars=3000,
+    )
     for name, schema, handler, emoji in (
         ("arcenal_access_catalog", ACCESS_CATALOG_SCHEMA, access_catalog, "🔐"),
         ("arcenal_yunohost_query", YUNOHOST_QUERY_SCHEMA, yunohost_query, "🧩"),
@@ -97,6 +118,7 @@ def register(ctx) -> None:
         ("arcenal_knowledge_search", KNOWLEDGE_SEARCH_SCHEMA, knowledge_search, "🔎"),
         ("arcenal_knowledge_document", KNOWLEDGE_DOCUMENT_SCHEMA, knowledge_document, "📚"),
         ("arcenal_context_search", CONTEXT_SEARCH_SCHEMA, context_search, "🧭"),
+        ("arcenal_memory_search", MEMORY_SEARCH_SCHEMA, memory_search, "🧠"),
     ):
         ctx.register_tool(
             name=name,

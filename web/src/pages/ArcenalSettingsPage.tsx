@@ -6,6 +6,7 @@ import { ArcenalAccessManager } from "@/components/ArcenalAccessManager";
 import { ArcenalAppearanceSettingsPanel } from "@/components/ArcenalAppearanceSettings";
 import { ArcenalGeneralSettingsPanel } from "@/components/ArcenalGeneralSettings";
 import { ArcenalManagedFilesSettingsPanel } from "@/components/ArcenalManagedFilesSettings";
+import { ArcenalMemorySettingsPanel } from "@/components/ArcenalMemorySettings";
 import { ARCENAL_SETTINGS_TABS, type ArcenalSettingsTab } from "@/lib/arcenal-settings-tabs";
 
 interface SettingsState {
@@ -61,6 +62,7 @@ function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
     {activeTab === "general" && <ArcenalGeneralSettingsPanel config={state.config} onReload={reload} />}
     {activeTab === "appearance" && <ArcenalAppearanceSettingsPanel config={state.config} onReload={reload} />}
     {activeTab === "context" && <ArcenalManagedFilesSettingsPanel category="context" key="context" />}
+    {activeTab === "memory" && <ArcenalMemorySettingsPanel />}
     {activeTab === "directives" && <ArcenalManagedFilesSettingsPanel category="directive" key="directive" />}
     {activeTab === "providers" && <section className="arc-settings-section"><SectionTitle icon={<Network />} eyebrow="Moteurs IA" title="Connexions et API" description="Les connexions restent disponibles simultanément. Une clé enregistrée n’est jamais réaffichée." />
       <div className="arc-provider-grid">{connections.map((provider) => <ProviderCard key={provider.id} provider={provider} state={state} setState={setState} reload={reload} />)}</div>

@@ -183,6 +183,37 @@ describe("api fichiers administrés ARCenal", () => {
   });
 });
 
+describe("api mémoire ARCenal", () => {
+  it("encode la recherche sans l’injecter dans le chemin", async () => {
+    const fetchMock = jsonFetchMock({ entries: [] });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.getArcenalMemoryEntries("projet & décisions");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/managed-files/memory/entries?query=projet%20%26%20d%C3%A9cisions",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("envoie une entrée structurée lors de sa création", async () => {
+    const fetchMock = jsonFetchMock({ entry: { id: "1", title: "Décision", content: "Texte" } });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.createArcenalMemoryEntry("Décision", "Texte");
+    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(options.body).toBe(JSON.stringify({ title: "Décision", content: "Texte" }));
+    expect(options.method).toBe("POST");
+  });
+
+  it("confirme explicitement la suppression d’une entrée", async () => {
+    const fetchMock = jsonFetchMock({ deleted: true });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.deleteArcenalMemoryEntry("mémoire/1");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/managed-files/memory/entries/m%C3%A9moire%2F1/delete",
+      expect.objectContaining({ body: JSON.stringify({ confirmed: true }), method: "POST" }),
+    );
+  });
+});
+
 describe("api OAuth helpers", () => {
   it("starts OAuth login in gated mode without requiring an injected session token", async () => {
     vi.stubGlobal("window", { __HERMES_AUTH_REQUIRED__: true });

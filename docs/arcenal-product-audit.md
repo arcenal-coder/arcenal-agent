@@ -85,7 +85,7 @@ doit être unifié avec l'API de contrôle.
 | Paramètres Général | PARTIEL | Écran ARC, identité, langue, fuseau, adresse de notification et versions détectées ; l'envoi de notification reste à raccorder. |
 | Paramètres Apparence | PARTIEL | Clair, sombre, système, couleurs, logo, favicon, nom et prévisualisation ; l'import de fichier local reste à ajouter. |
 | Paramètres Contexte | EXISTANT | Éditeur Markdown, aperçu, auteur, date, historique, restauration confirmée et récupération ciblée de `CONTEXT.md`. |
-| Paramètres Mémoire | PARTIEL | Moteur Hermes existant ; aucun parcours ARC de consultation, édition, historique et restauration. |
+| Paramètres Mémoire | EXISTANT | `MEMORY.md` dispose d’un parcours ARC de consultation, recherche, ajout, modification, suppression confirmée, historique et restauration. |
 | Paramètres Directives | EXISTANT | Inventaire borné, édition, aperçu, historique et restauration de `AGENTS.md`, `RULES.md`, `SECURITY.md` et `TOOLS.md`, injectés dans les nouvelles sessions. |
 | Fournisseurs IA | PARTIEL | Plusieurs connexions et modèle principal ; tests génériques, activation, secondaire et paramètres d'adaptateur manquent. |
 | Accès métier | PARTIEL | Compte/API et autonomie ; permissions, état réel, test, dernier succès et désactivation manquent. |

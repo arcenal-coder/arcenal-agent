@@ -95,6 +95,18 @@ def context_search(args: dict[str, Any], **_: Any) -> str:
         return tool_error(f"Recherche dans le contexte impossible : {exc}")
 
 
+def memory_search(args: dict[str, Any], **_: Any) -> str:
+    """Retrouve les souvenirs durables qui correspondent à une requête."""
+    query = str(args.get("query") or "").strip()
+    if len(query) < 2:
+        return tool_error("La recherche mémoire doit contenir au moins deux caractères.")
+    try:
+        entries = _supervisor_module().managed_files.list_memory_entries(query)
+        return tool_result(query=query, entries=entries[:10])
+    except Exception as exc:
+        return tool_error(f"Recherche dans la mémoire impossible : {exc}")
+
+
 def access_catalog(args: dict[str, Any], **_: Any) -> str:
     """Liste les accès autorisés sans jamais exposer leurs secrets."""
     try:
@@ -212,6 +224,16 @@ KNOWLEDGE_DOCUMENT_SCHEMA = {
 CONTEXT_SEARCH_SCHEMA = {
     "name": "arcenal_context_search",
     "description": "Recherche les seules sections pertinentes du contexte organisationnel administré.",
+    "parameters": {
+        "type": "object",
+        "properties": {"query": {"type": "string", "minLength": 2}},
+        "required": ["query"],
+    },
+}
+
+MEMORY_SEARCH_SCHEMA = {
+    "name": "arcenal_memory_search",
+    "description": "Recherche les décisions, préférences, conventions, projets et actions mémorisés.",
     "parameters": {
         "type": "object",
         "properties": {"query": {"type": "string", "minLength": 2}},
