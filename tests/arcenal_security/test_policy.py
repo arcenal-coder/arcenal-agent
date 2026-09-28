@@ -67,6 +67,13 @@ class PolicyTests(unittest.TestCase):
         self.assertTrue(security.evaluate_action(valid).allowed)
         self.assertFalse(security.evaluate_action(invalid).allowed)
 
+    def test_notification_accepts_an_email_but_rejects_header_injection(self) -> None:
+        valid = security.ActionRequest("arcenal.notification.test", self.admin, "admin@example.test")
+        invalid = security.ActionRequest("arcenal.notification.test", self.admin, "admin@example.test\nBcc:x@example.test")
+
+        self.assertTrue(security.evaluate_action(valid).allowed)
+        self.assertFalse(security.evaluate_action(invalid).allowed)
+
     def test_non_admin_is_rejected(self) -> None:
         actor = security.Actor(username="reader", roles=("all_users",))
         request = security.ActionRequest("yunohost.version.read", actor)

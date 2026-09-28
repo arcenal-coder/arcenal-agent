@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactElement } from "react";
-import { Building2, Save, Server } from "lucide-react";
+import { Building2, MailCheck, Save, Server } from "lucide-react";
 import { api, type ArcenalSystemOverview } from "@/lib/api";
 import { generalSettingsConfig, generalSettingsFromConfig, isArcenalSystemOverview, isValidNotificationEmail, type ArcenalGeneralSettings } from "@/lib/arcenal-product-settings";
 
@@ -15,7 +15,8 @@ export function ArcenalGeneralSettingsPanel({ config, onReload }: ArcenalGeneral
   const [busy, setBusy] = useState(false);
   useEffect(() => { void loadOverview(setOverview, setStatus); }, []);
   const save = (): void => { void saveGeneral(settings, setBusy, setStatus, onReload); };
-  return <section className="arc-settings-section"><PanelHeading /><GeneralForm settings={settings} setSettings={setSettings} /><SystemIdentity overview={overview} />{status && <p className="arc-settings-status" role="status">{status}</p>}<button className="arc-primary-button" disabled={busy} onClick={save} type="button"><Save aria-hidden />{busy ? "Enregistrement…" : "Enregistrer les paramètres généraux"}</button></section>;
+  const testNotification = (): void => { void sendTestNotification(settings, setBusy, setStatus); };
+  return <section className="arc-settings-section"><PanelHeading /><GeneralForm settings={settings} setSettings={setSettings} /><SystemIdentity overview={overview} />{status && <p className="arc-settings-status" role="status">{status}</p>}<div className="arc-general-actions"><button className="arc-secondary-button" disabled={busy || !settings.notificationEmail.trim()} onClick={testNotification} type="button"><MailCheck /> Tester la notification</button><button className="arc-primary-button" disabled={busy} onClick={save} type="button"><Save aria-hidden />{busy ? "Enregistrement…" : "Enregistrer les paramètres généraux"}</button></div></section>;
 }
 
 function PanelHeading(): ReactElement {
@@ -34,7 +35,7 @@ function TextField({ label, value, onChange, placeholder = "", type = "text" }: 
 function SystemIdentity({ overview }: { overview: ArcenalSystemOverview | null }): ReactElement {
   if (!overview) return <div className="arc-system-identity" aria-busy="true"><Server aria-hidden /><span>Détection du serveur…</span></div>;
   const versions = overview.platform.versions;
-  return <div className="arc-system-identity"><Server aria-hidden /><Identity label="Serveur" value={overview.platform.hostname} /><Identity label="Domaine principal" value={overview.platform.domain} /><Identity label="ARC" value={versions.arc} /><Identity label="Hermes" value={versions.hermes} /><Identity label="YunoHost" value={versions.yunohost} /><Identity label="Système" value={versions.debian} /></div>;
+  return <div className="arc-system-identity"><Server aria-hidden /><Identity label="Serveur" value={overview.platform.hostname} /><Identity label="Domaine principal" value={overview.platform.domain} /><Identity label="Adresse d’ARC" value={`arcenal@${overview.platform.domain}`} /><Identity label="ARC" value={versions.arc} /><Identity label="YunoHost" value={versions.yunohost} /><Identity label="Système" value={versions.debian} /></div>;
 }
 
 function Identity({ label, value }: { label: string; value: string }): ReactElement {
@@ -62,6 +63,23 @@ async function saveGeneral(settings: ArcenalGeneralSettings, setBusy: (value: bo
     setStatus("Les paramètres généraux sont enregistrés.");
   } catch (cause) {
     setStatus(errorMessage(cause, "Enregistrement impossible."));
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function sendTestNotification(settings: ArcenalGeneralSettings, setBusy: (value: boolean) => void, setStatus: (value: string) => void): Promise<void> {
+  const validationError = validateGeneral(settings);
+  if (validationError) return setStatus(validationError);
+  if (!settings.notificationEmail.trim()) return setStatus("Indiquez d’abord une adresse de notification.");
+  setBusy(true);
+  setStatus("");
+  try {
+    await api.prepareArcenalAction("arcenal.notification.test", settings.notificationEmail.trim());
+    await api.executeArcenalAction("arcenal.notification.test", settings.notificationEmail.trim());
+    setStatus("La notification de test a été confiée à la messagerie YunoHost.");
+  } catch (cause) {
+    setStatus(errorMessage(cause, "Envoi de la notification impossible."));
   } finally {
     setBusy(false);
   }

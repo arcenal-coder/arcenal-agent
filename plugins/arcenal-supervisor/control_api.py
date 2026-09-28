@@ -23,7 +23,7 @@ class ActionPayload(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     action_id: str = Field(min_length=3, max_length=80)
-    target: str | None = Field(default=None, max_length=80)
+    target: str | None = Field(default=None, max_length=254)
 
 
 class PrepareRequest(ActionPayload):

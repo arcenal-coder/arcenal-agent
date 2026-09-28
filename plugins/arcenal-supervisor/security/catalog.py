@@ -106,6 +106,15 @@ ACTION_CATALOG: Mapping[str, ActionDefinition] = MappingProxyType(
             "Créer une sauvegarde récente avant restauration, puis restaurer cette sauvegarde si nécessaire.",
             target_pattern=r"[A-Za-z0-9][A-Za-z0-9_.+-]{0,79}",
         ),
+        "arcenal.notification.test": ActionDefinition(
+            "arcenal.notification.test",
+            AuthorizationLevel.CONTROLLED,
+            RiskLevel.LOW,
+            "Envoyer une notification de test depuis ARC.",
+            "Un courriel de contrôle est transmis au destinataire configuré.",
+            "Aucun retour arrière n’est requis.",
+            target_pattern=r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,63}",
+        ),
     }
 )
 

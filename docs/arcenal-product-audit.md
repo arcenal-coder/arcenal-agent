@@ -82,7 +82,7 @@ doit être unifié avec l'API de contrôle.
 | LDA | EXISTANT | Registre, filtres, archive, pagination et CSV présents. |
 | Wiki | EXISTANT | Route séparée en lecture limitée aux documents applicables. |
 | RAG traçable | EXISTANT | Recherche et lecture exposent chemin, référence, version, statut et extrait ; les directives ARC imposent leur citation et les tests vérifient les sources retournées. |
-| Paramètres Général | PARTIEL | Écran ARC, identité, langue, fuseau, adresse de notification et versions détectées ; l'envoi de notification reste à raccorder. |
+| Paramètres Général | EXISTANT | Identité, langue, fuseau, destinataire, adresse d’ARC dérivée du domaine, versions détectées et test réel via la messagerie YunoHost. |
 | Paramètres Apparence | PARTIEL | Clair, sombre, système, couleurs, logo, favicon, nom et prévisualisation ; l'import de fichier local reste à ajouter. |
 | Paramètres Contexte | EXISTANT | Éditeur Markdown, aperçu, auteur, date, historique, restauration confirmée et récupération ciblée de `CONTEXT.md`. |
 | Paramètres Mémoire | EXISTANT | `MEMORY.md` dispose d’un parcours ARC de consultation, recherche, ajout, modification, suppression confirmée, historique et restauration. |
