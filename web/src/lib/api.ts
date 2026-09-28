@@ -583,6 +583,15 @@ export const api = {
     fetchJSON<ArcenalCapabilitiesResponse>(
       "/api/plugins/arcenal-supervisor/capabilities",
     ),
+  getArcenalAgentMemory: (name: string) =>
+    fetchJSON<ArcenalAgentMemory>(
+      `/api/plugins/arcenal-supervisor/agents/${encodeURIComponent(name)}/memory`,
+    ),
+  saveArcenalAgentMemory: (name: string, content: string) =>
+    fetchJSON<ArcenalAgentMemory>(
+      `/api/plugins/arcenal-supervisor/agents/${encodeURIComponent(name)}/memory`,
+      { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) },
+    ),
   getArcenalWiki: () =>
     fetchJSON<ArcenalKnowledgeOverview>(
       "/api/plugins/arcenal-supervisor/knowledge/wiki/overview",
@@ -2429,6 +2438,12 @@ export interface ArcenalCapability {
 export interface ArcenalCapabilitiesResponse {
   capabilities: ArcenalCapability[];
   usage: Record<string, ArcenalCapabilityUsage>;
+}
+
+export interface ArcenalAgentMemory {
+  content: string;
+  profile: string;
+  updated_at: string | null;
 }
 
 export interface AnalyticsDailyEntry {

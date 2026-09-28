@@ -1,121 +1,133 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactElement } from "react";
-import { Link } from "react-router";
-import { Bot, Boxes, Brain, CheckCircle2, Plus, ShieldCheck, Sparkles } from "lucide-react";
+import { Bot, Boxes, Brain, CheckCircle2, Plus, ShieldCheck, Trash2, X } from "lucide-react";
+import { ArcenalAgentForm } from "@/components/ArcenalAgentForm";
 import { api, type ProfileInfo } from "@/lib/api";
+import { emptyAgentDraft, specializedProfiles, type AgentDraft } from "@/lib/arcenal-agents";
+import {
+  createSpecializedAgent,
+  loadAgentCatalog,
+  loadSpecializedAgent,
+  saveSpecializedAgent,
+  type AgentCatalog,
+} from "@/lib/arcenal-agent-service";
 
-interface AgentDraft {
-  description: string;
-  model: string;
-  name: string;
-  provider: string;
-}
-
-interface AgentCreatePayload {
-  description: string;
-  model?: string;
-  name: string;
-  provider?: string;
-}
-
-const EMPTY_DRAFT: AgentDraft = { description: "", model: "", name: "", provider: "openrouter" };
+const EMPTY_CATALOG: AgentCatalog = { models: {}, skills: [], toolsets: [] };
 
 export default function ArcenalAgentsPage(): ReactElement {
   const [profiles, setProfiles] = useState<ProfileInfo[]>([]);
-  const [active, setActive] = useState("");
-  const [draft, setDraft] = useState<AgentDraft>(EMPTY_DRAFT);
-  const [creating, setCreating] = useState(false);
+  const [catalog, setCatalog] = useState<AgentCatalog>(EMPTY_CATALOG);
+  const [dialog, setDialog] = useState<"create" | "edit" | null>(null);
+  const [draft, setDraft] = useState<AgentDraft>(emptyAgentDraft());
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const load = useCallback(async (): Promise<void> => {
     try {
-      const [result, activeResult] = await Promise.all([api.getProfiles(), api.getActiveProfile()]);
-      setProfiles(result.profiles);
-      setActive(activeResult.active);
+      const [profileResult, catalogResult] = await Promise.all([api.getProfiles(), loadAgentCatalog()]);
+      setProfiles(specializedProfiles(profileResult.profiles));
+      setCatalog(catalogResult);
       setError("");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Chargement des agents impossible.");
+      setError(errorMessage(cause, "Chargement des agents impossible."));
     }
   }, []);
-
-  useEffect(() => { void load(); }, [load]);
-
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  const openCreate = (): void => {
+    setDraft(emptyAgentDraft(catalog.models.provider ?? catalog.models.providers?.[0]?.slug));
+    setDialog("create");
+  };
+  const openEdit = async (profile: ProfileInfo): Promise<void> => runBusy(async () => {
+    const loaded = await loadSpecializedAgent(profile);
+    setDraft(loaded.draft);
+    setCatalog(loaded.catalog);
+    setDialog("edit");
+  }, setBusy, setError);
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
-    setCreating(true);
-    setError("");
-    try {
-      await api.createProfile(cleanDraft(draft));
-      setDraft(EMPTY_DRAFT);
+    await runBusy(async () => {
+      if (dialog === "create") await createSpecializedAgent(draft);
+      else await saveSpecializedAgent(draft, catalog);
+      setDialog(null);
       await load();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Création de l’agent impossible.");
-    } finally {
-      setCreating(false);
-    }
+    }, setBusy, setError);
   };
+  const remove = async (): Promise<void> => {
+    if (!window.confirm(`Supprimer définitivement l’agent ${draft.name} ?`)) return;
+    await runBusy(async () => { await api.deleteProfile(draft.name); setDialog(null); await load(); }, setBusy, setError);
+  };
+  return <AgentsWorkspace profiles={profiles} catalog={catalog} draft={draft} dialog={dialog} busy={busy} error={error} onCreate={openCreate} onEdit={openEdit} onChange={setDraft} onClose={() => setDialog(null)} onSubmit={submit} onDelete={remove} />;
+}
 
+interface WorkspaceProps {
+  profiles: ProfileInfo[]; catalog: AgentCatalog; draft: AgentDraft; dialog: "create" | "edit" | null;
+  busy: boolean; error: string; onCreate: () => void; onEdit: (profile: ProfileInfo) => Promise<void>;
+  onChange: (draft: AgentDraft) => void; onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onDelete: () => Promise<void>;
+}
+
+function AgentsWorkspace(props: WorkspaceProps): ReactElement {
   return (
     <main className="arc-workspace arc-agents" aria-labelledby="agents-title">
-      <WorkspaceHeading eyebrow="Volet 2 · Fabrique d’agents" title="Des agents spécialisés, gouvernés par ARC" description="Chaque agent possède son modèle, ses compétences et sa mémoire. Les connexions aux applications seront activées par le protocole AACP/1." />
-      {error && <p className="arc-alert arc-alert-error" role="alert">{error}</p>}
-      <section className="arc-agent-layout">
-        <div className="arc-agent-main">
-          <div className="arc-panel-heading"><div><span>Agents disponibles</span><h2>{profiles.length} environnement{profiles.length === 1 ? "" : "s"}</h2></div><Link to="/profiles" className="arc-text-link">Réglages avancés</Link></div>
-          <div className="arc-agent-grid">
-            {profiles.map((profile) => <AgentCard key={profile.name} profile={profile} active={profile.name === active} />)}
-            {profiles.length === 0 && <EmptyAgents />}
-          </div>
+      <WorkspaceHeading />
+      {props.error && <p className="arc-alert arc-alert-error" role="alert">{props.error}</p>}
+      <section className="arc-agent-main arc-agent-inventory">
+        <InventoryHeading count={props.profiles.length} onCreate={props.onCreate} />
+        <div className="arc-agent-grid">
+          {props.profiles.map((profile) => <AgentCard key={profile.name} profile={profile} onEdit={props.onEdit} />)}
+          {props.profiles.length === 0 && <EmptyAgents />}
         </div>
-        <form className="arc-create-agent" onSubmit={(event) => void submit(event)}>
-          <span className="arc-kicker"><Plus aria-hidden /> Nouvel agent</span>
-          <h2>Définir une mission</h2>
-          <Field label="Identifiant" value={draft.name} placeholder="veille-reglementaire" onChange={(name) => setDraft({ ...draft, name })} />
-          <Field label="Rôle" value={draft.description} placeholder="Surveille les évolutions réglementaires…" onChange={(description) => setDraft({ ...draft, description })} />
-          <div className="arc-form-row">
-            <Field label="Fournisseur" value={draft.provider} placeholder="openrouter" onChange={(provider) => setDraft({ ...draft, provider })} />
-            <Field label="Modèle" value={draft.model} placeholder="Modèle par défaut" onChange={(model) => setDraft({ ...draft, model })} />
-          </div>
-          <button className="arc-primary-button" disabled={creating || !draft.name.trim()} type="submit"><Sparkles aria-hidden />{creating ? "Création…" : "Créer l’agent"}</button>
-          <small>L’agent est créé dans un profil isolé. Aucun connecteur applicatif n’est activé automatiquement.</small>
-          <Link to="/settings" className="arc-provider-link">Connecter OpenRouter dans les paramètres ARCenal</Link>
-        </form>
       </section>
       <ConnectorRoadmap />
+      {props.dialog && <AgentDialog {...props} mode={props.dialog} />}
     </main>
   );
 }
 
-function cleanDraft(draft: AgentDraft): AgentCreatePayload {
-  return {
-    name: draft.name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "-"),
-    description: draft.description.trim(),
-    provider: draft.provider.trim() || undefined,
-    model: draft.model.trim() || undefined,
-  };
+function AgentDialog(props: WorkspaceProps & { mode: "create" | "edit" }): ReactElement {
+  return (
+    <div className="arc-agent-modal" role="dialog" aria-modal="true" aria-labelledby="agent-dialog-title">
+      <section>
+        <header><div><span>{props.mode === "create" ? "Nouvel agent" : "Administration"}</span><h2 id="agent-dialog-title">{props.mode === "create" ? "Créer un spécialiste" : props.draft.name}</h2></div><button type="button" onClick={props.onClose} aria-label="Fermer"><X aria-hidden /></button></header>
+        <ArcenalAgentForm busy={props.busy} catalog={props.catalog} draft={props.draft} mode={props.mode} onChange={props.onChange} onSubmit={props.onSubmit} />
+        {props.mode === "edit" && <button className="arc-danger-button" disabled={props.busy} type="button" onClick={() => void props.onDelete()}><Trash2 aria-hidden /> Supprimer cet agent</button>}
+      </section>
+    </div>
+  );
 }
 
-function AgentCard({ profile, active }: { profile: ProfileInfo; active: boolean }): ReactElement {
+function InventoryHeading({ count, onCreate }: { count: number; onCreate: () => void }): ReactElement {
+  return <div className="arc-panel-heading"><div><span>Agents disponibles</span><h2>{count} spécialiste{count === 1 ? "" : "s"}</h2></div><button className="arc-primary-button" type="button" onClick={onCreate}><Plus aria-hidden />Créer un agent</button></div>;
+}
+
+function AgentCard({ profile, onEdit }: { profile: ProfileInfo; onEdit: (profile: ProfileInfo) => Promise<void> }): ReactElement {
   return (
     <article className="arc-agent-card">
       <div className="arc-agent-avatar"><Bot aria-hidden /></div>
-      <div className="arc-agent-copy"><div><h3>{profile.display_name || profile.name}</h3>{active && <span className="arc-live-badge">Actif</span>}</div><p>{profile.description || "Agent à spécialiser"}</p><dl><div><dt>Modèle</dt><dd>{profile.model || "Hérité d’ARC"}</dd></div><div><dt>Compétences</dt><dd>{profile.skill_count}</dd></div></dl></div>
-      <Link to="/profiles" className="arc-card-action" aria-label={`Configurer ${profile.name}`}>Configurer</Link>
+      <div className="arc-agent-copy"><div><h3>{profile.display_name || profile.name}</h3><span className="arc-live-badge">{profile.gateway_running ? "Actif" : "Prêt"}</span></div><p>{profile.description || "Agent à spécialiser"}</p><dl><div><dt>Modèle</dt><dd>{profile.model || "À définir"}</dd></div><div><dt>Compétences</dt><dd>{profile.skill_count}</dd></div></dl></div>
+      <button className="arc-card-action" type="button" onClick={() => void onEdit(profile)}>Administrer</button>
     </article>
   );
 }
 
 function EmptyAgents(): ReactElement {
-  return <div className="arc-empty-state"><Brain aria-hidden /><h3>Aucun agent spécialisé</h3><p>ARC reste disponible. Créez votre premier agent métier avec le formulaire.</p></div>;
+  return <div className="arc-empty-state"><Brain aria-hidden /><h3>Aucun agent spécialisé</h3><p>Créez un agent métier avec une mission, une mémoire et des droits strictement isolés.</p></div>;
 }
 
-function Field({ label, value, placeholder, onChange }: { label: string; value: string; placeholder: string; onChange: (value: string) => void }): ReactElement {
-  return <label className="arc-field"><span>{label}</span><input value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></label>;
-}
-
-function WorkspaceHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }): ReactElement {
-  return <header className="arc-workspace-heading"><p>{eyebrow}</p><h1 id="agents-title">{title}</h1><span>{description}</span></header>;
+function WorkspaceHeading(): ReactElement {
+  return <header className="arc-workspace-heading"><p>Volet 2 · Fabrique d’agents</p><h1 id="agents-title">Des agents spécialisés, gouvernés par ARC</h1><span>Chaque spécialiste possède sa propre identité, ses modèles, ses compétences, ses outils et sa mémoire.</span></header>;
 }
 
 function ConnectorRoadmap(): ReactElement {
   const apps = ["ATS", "Nextcloud", "Veille réglementaire", "Applications ARCenal"];
-  return <section className="arc-connectors"><div><span className="arc-kicker"><Boxes aria-hidden /> Connecteurs AACP/1</span><h2>Architecture prête, activation contrôlée</h2><p>Les applications pourront déléguer une mission à un agent sans lui transmettre les droits d’administration du serveur.</p></div><ul>{apps.map((app) => <li key={app}><ShieldCheck aria-hidden /><span><strong>{app}</strong><small>Connecteur à développer</small></span><CheckCircle2 aria-hidden /></li>)}</ul></section>;
+  return <section className="arc-connectors"><div><span className="arc-kicker"><Boxes aria-hidden /> Connecteurs AACP/1</span><h2>Architecture prête, connecteurs désactivés</h2><p>Une future application pourra déléguer une mission sans transmettre les droits d’administration du serveur.</p></div><ul>{apps.map((app) => <li key={app}><ShieldCheck aria-hidden /><span><strong>{app}</strong><small>Contrat futur AACP/1</small></span><CheckCircle2 aria-hidden /></li>)}</ul></section>;
+}
+
+async function runBusy(action: () => Promise<void>, setBusy: (value: boolean) => void, setError: (value: string) => void): Promise<void> {
+  setBusy(true);
+  setError("");
+  try { await action(); }
+  catch (cause) { setError(errorMessage(cause, "Opération impossible.")); }
+  finally { setBusy(false); }
+}
+
+function errorMessage(cause: unknown, fallback: string): string {
+  return cause instanceof Error ? cause.message : fallback;
 }

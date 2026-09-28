@@ -75,7 +75,7 @@ doit être unifié avec l'API de contrôle.
 | Identité de notification | ABSENT | Aucun compte ou paramètre mail ARC dédié. |
 | Trois volets principaux | EXISTANT | ARC, Agents et RAG & LDA sont les seules entrées métier. |
 | Chat ARC | PARTIEL | Chat natif, historique et fournisseur ; recette complète diagnostic-action-vérification manquante. |
-| Agents spécialisés | PARTIEL | Création d'un profil avec rôle, fournisseur et modèle ; compétences, outils, mémoire et édition intégrée manquent. |
+| Agents spécialisés | EXISTANT | Création et administration intégrées d’un profil isolé avec identité, mission, modèles principal et secondaire, compétences, outils et mémoire dédiée. |
 | Connecteurs AACP/1 | PARTIEL | Contrat documenté, aucun connecteur actif conformément au périmètre ; la carte de feuille de route n'apporte pas de fonction. |
 | Coffre Markdown | EXISTANT | Création, lecture, édition, recherche, liens, historique et pièces jointes présents. |
 | Cycle documentaire | PARTIEL | Statuts et filtrage présents ; approbation nominative, transitions contrôlées et restauration UI manquent. |
@@ -103,8 +103,9 @@ doit être unifié avec l'API de contrôle.
 
 1. Deux chemins de maintenance coexistent : l'API plugin et l'API de contrôle.
    Ils peuvent appliquer des règles de confirmation différentes.
-2. Les profils Hermes couvrent l'isolation technique, mais le volet Agents ne
-   gouverne pas encore toutes leurs capacités depuis une interface cohérente.
+2. La synchronisation d’un grand nombre de compétences ou d’outils effectue
+   plusieurs écritures ; une interruption réseau peut laisser une spécialisation
+   partiellement appliquée, explicitement signalée à l’administrateur.
 3. Les paramètres promis sont dispersés dans les API Hermes ; les exposer sans
    couche métier ARC risquerait de réintroduire le tableau de bord technique.
 4. La modification libre du frontmatter peut contourner le futur processus

@@ -133,6 +133,20 @@ describe("api.getArcenalCapabilities", () => {
   });
 });
 
+describe("api.saveArcenalAgentMemory", () => {
+  it("cible uniquement le profil demandé", async () => {
+    const fetchMock = jsonFetchMock({ content: "Mémoire", profile: "veille", updated_at: null });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.saveArcenalAgentMemory("veille", "Mémoire");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/agents/veille/memory",
+      expect.objectContaining({ body: JSON.stringify({ content: "Mémoire" }), method: "PUT" }),
+    );
+  });
+});
+
 describe("api.testArcenalOpenRouter", () => {
   it("envoie la clé uniquement au test ARCenal demandé", async () => {
     const fetchMock = jsonFetchMock({ configured: true, connection: "connected" });
