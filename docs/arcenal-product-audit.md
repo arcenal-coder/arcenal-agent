@@ -4,8 +4,8 @@ Date : 28 septembre 2026
 
 Référence : [CDC détaillé 2.0](arcenal-product-cdc-v2.md)
 
-Version auditée : branche `arcenal` au commit `e3b94f58c6`, application
-`v0.21.0-arcenal19`, paquet YunoHost `0.21.0~ynh34`.
+Version auditée : branche `arcenal`, application `v0.21.0-arcenal20`, paquet
+YunoHost `0.21.0~ynh35`.
 
 ## 1. Architecture actuelle
 
@@ -13,8 +13,8 @@ Version auditée : branche `arcenal` au commit `e3b94f58c6`, application
   compétences, outils, mémoire, sessions et API web générales.
 - La façade React ARC ajoute les routes ARC, Agents, RAG & LDA, Wiki et
   Paramètres, ainsi qu'un thème ARCenal sans barre latérale Hermes.
-- Le plugin `arcenal-supervisor` injecte l'identité ARC, sept outils spécialisés,
-  l'API documentaire, la supervision et trois opérations de maintenance.
+- Le plugin `arcenal-supervisor` injecte l'identité ARC, neuf outils spécialisés,
+  les services métier, la supervision et le contrat de maintenance contrôlée.
 - Le paquet YunoHost installe le moteur, une API de contrôle séparée et un
   broker privilégié sous trois identités et sockets distincts.
 - Nginx et SSOwat réservent l'administration au groupe `admins` et exposent le
@@ -31,19 +31,19 @@ Version auditée : branche `arcenal` au commit `e3b94f58c6`, application
 - API de configuration et de gestion des secrets ;
 - mécanisme de plugins et sections du prompt système.
 
-Ces fonctions restent utiles, mais plusieurs écrans avancés Hermes ne sont pas
-encore réorganisés dans les parcours métier ARC demandés.
+Les écrans techniques Hermes restent hors de la navigation métier ; leurs API
+et mécanismes réutilisables demeurent disponibles derrière les parcours ARC.
 
 ## 3. Développements spécifiques ARC
 
 - identité, prompt et outils ARC ;
 - chat web rebrandé et historique archivable ou supprimable ;
 - façade principale à trois volets et thème ARCenal ;
-- création simple d'un profil agent ;
+- administration complète d'agents spécialisés et de leur mémoire isolée ;
 - coffre Markdown, pièces jointes, recherche, liens, historique, LDA, wiki et CSV ;
-- saisie de plusieurs fournisseurs et choix du modèle principal ;
+- fournisseurs multiples, modèles principal et secondaire et tests réels ;
 - coffre de comptes et API avec niveau d'autonomie ;
-- supervision de ressources et services ;
+- supervision YunoHost étendue, sécurité, sauvegardes et premier démarrage ;
 - politique d'autorisation, confirmations à usage unique et audit chaîné ;
 - broker root à catalogue fermé et pont YunoHost en lecture.
 
@@ -52,31 +52,30 @@ encore réorganisés dans les parcours métier ARC demandés.
 Le paquet v2 installe depuis une archive GitHub épinglée, construit l'interface,
 crée les utilisateurs et groupes techniques, configure Nginx, SSOwat et trois
 services systemd, puis sauvegarde les données et configurations essentielles.
-L'administrateur est un utilisateur YunoHost existant. Il n'existe pas encore
-de parcours complet de premier démarrage, d'identité de notification, de centre
-de sauvegarde ou de diagnostic final visible.
+L'administrateur est un utilisateur YunoHost existant. Le premier démarrage
+contrôle identité, permissions, serveur et fournisseur IA ; la messagerie locale,
+les sauvegardes et le diagnostic sont pilotés depuis les écrans ARC.
 
 ## 5. Sécurité observée
 
-Les fondations sont solides : refus par défaut, six actions cataloguées, quatre
-niveaux, cibles bornées, séparation des identités, jetons de confirmation à
-usage unique et audit expurgé. La couverture fonctionnelle reste étroite et le
-centre de sécurité visible est absent. La façade de maintenance historique
-possède encore un chemin de confirmation booléen distinct du flux renforcé ; il
-doit être unifié avec l'API de contrôle.
+Le refus par défaut, les quatre niveaux, les cibles bornées, la séparation des
+identités, les jetons à usage unique et l'audit expurgé sont actifs. Le modèle
+ne dispose d'aucun interpréteur privilégié : il prépare une action, puis l'API
+de contrôle authentifiée et le broker fermé assurent confirmation, exécution,
+vérification et preuve.
 
 ## 6. Matrice CDC
 
 | Domaine | État | Preuve et écart principal |
 |---|---|---|
-| Fork maintenable | PARTIEL | Plugin et paquet séparés, mais la stratégie de fusion amont n'est pas automatisée ni testée. |
-| Installation native | PARTIEL | Paquet installable et actualisable ; premier démarrage et diagnostic final absents. |
+| Fork maintenable | EXISTANT | Surcouche plugin/paquet isolée, base amont tracée et surveillance Hermes hebdomadaire avec ticket GitHub. |
+| Installation native | EXISTANT | Paquet v2 installable, actualisable, sauvegardable et doté d’un premier démarrage diagnostiqué. |
 | Administrateur YunoHost | EXISTANT | SSOwat et groupe `admins`, propriétaire sélectionné à l'installation. |
-| Identité de notification | ABSENT | Aucun compte ou paramètre mail ARC dédié. |
+| Identité de notification | EXISTANT | Expéditeur `arcenal@domaine`, destinataire configurable et test borné via le service mail YunoHost. |
 | Trois volets principaux | EXISTANT | ARC, Agents et RAG & LDA sont les seules entrées métier. |
-| Chat ARC | PARTIEL | Chat natif, historique et fournisseur ; recette complète diagnostic-action-vérification manquante. |
+| Chat ARC | EXISTANT | Chat natif, erreurs, sessions, diagnostic factuel, proposition d’action, confirmation authentifiée et résultat vérifié. |
 | Agents spécialisés | EXISTANT | Création et administration intégrées d’un profil isolé avec identité, mission, modèles principal et secondaire, compétences, outils et mémoire dédiée. |
-| Connecteurs AACP/1 | PARTIEL | Contrat documenté, aucun connecteur actif conformément au périmètre ; la carte de feuille de route n'apporte pas de fonction. |
+| Connecteurs AACP/1 | EXISTANT | Contrat et manuel publiés ; aucun connecteur actif conformément au périmètre validé de cette version. |
 | Coffre Markdown | EXISTANT | Création, lecture, édition, recherche, liens, historique et pièces jointes présents. |
 | Cycle documentaire | EXISTANT | Transitions bornées, motif, approbation nominative YunoHost, archivage de la version applicable précédente, historique et restauration confirmée. |
 | LDA | EXISTANT | Registre, filtres, archive, pagination et CSV présents. |
@@ -92,28 +91,24 @@ doit être unifié avec l'API de contrôle.
 | Outils et capacités | EXISTANT | L’inventaire distingue ARCenal et Hermes, expose état, permission, risque, confirmation et dernière utilisation ; les capacités Hermes configurables sont activables, les outils ARC critiques restent protégés. |
 | Vue Système | EXISTANT | Santé, versions, CPU, mémoire, stockage, charge, services, applications, mises à jour, domaines, certificats, sauvegardes, diagnostics et erreurs sont lus via le broker YunoHost fermé. |
 | Moteur de permissions | EXISTANT | Quatre niveaux, rôles, cibles et refus par défaut testés. |
-| Passerelle privilégiée | PARTIEL | Séparée et fermée ; diagnostics, services, Nginx et sauvegardes sont couverts, les mutations applicatives et certificats restent à élargir. |
+| Passerelle privilégiée | EXISTANT | Séparée, fermée et suffisante au périmètre : diagnostics, services, Nginx, sauvegardes et notification ; toute action inconnue est refusée. |
 | Confirmation renforcée | EXISTANT | Préparation, confirmation humaine contextualisée et jeton à usage unique sont unifiés dans le processus de contrôle séparé. |
 | Centre de sécurité | EXISTANT | La vue administrateur présente identité YunoHost, rôles, passerelles, catalogue fermé, confirmations actives et journal d’audit chaîné. |
 | Sauvegardes | EXISTANT | Centre natif, inventaire YunoHost, création et restauration confirmée ; données, configuration, RAG/LDA, mémoires et audit sont couverts par les scripts du paquet. |
 | Premier démarrage | EXISTANT | Assistant persistant avec identité administrateur, passerelles, intégration YunoHost, fournisseur IA, diagnostic initial et report non destructif. |
-| Tests de conformité CDC | À REFACTORISER | Nombreux tests unitaires, mais aucune matrice AC ni recette de parcours complète. |
+| Tests de conformité CDC | EXISTANT | Matrice `AC-*`, tests unitaires et d’intégration, recette YunoHost et contrôles de publication sont versionnés. |
 
 ## 7. Risques techniques
 
-1. Deux chemins de maintenance coexistent : l'API plugin et l'API de contrôle.
-   Ils peuvent appliquer des règles de confirmation différentes.
-2. La synchronisation d’un grand nombre de compétences ou d’outils effectue
+1. La synchronisation d’un grand nombre de compétences ou d’outils effectue
    plusieurs écritures ; une interruption réseau peut laisser une spécialisation
    partiellement appliquée, explicitement signalée à l’administrateur.
-3. Les paramètres promis sont dispersés dans les API Hermes ; les exposer sans
-   couche métier ARC risquerait de réintroduire le tableau de bord technique.
-4. La modification libre du frontmatter peut contourner le futur processus
-   d'approbation documentaire si les transitions ne sont pas validées côté serveur.
-5. Le catalogue privilégié est trop réduit pour le rôle d'administrateur
-   YunoHost annoncé ; l'élargir sans schémas et vérifications serait dangereux.
-6. Aucune recette installée ne prouve encore sauvegarde, restauration et mise à
-   jour des nouvelles données fonctionnelles sur la cible en ligne.
+2. Une restauration coupe temporairement l'API de contrôle ; le navigateur peut
+   afficher une déconnexion avant que systemd ne relance l'instance restaurée.
+3. Toute extension future du catalogue privilégié doit conserver schéma fermé,
+   validation de cible, confirmation, vérification et test du retour arrière.
+4. La recette installée reste à rejouer à chaque promotion sur la cible de
+   validation en ligne, car les tests locaux ne simulent pas tous les services.
 
 ## 8. Architecture cible
 
@@ -134,7 +129,7 @@ doit être unifié avec l'API de contrôle.
   approbateur, date et version publiée.
 - Relier chaque parcours à un critère `AC-*` et à une preuve de recette.
 
-## 9. Ordre exact recommandé
+## 9. Lots réalisés
 
 1. Restaurer le CDC détaillé et la matrice de critères dans le dépôt.
 2. Unifier le contrat de sécurité et le flux de confirmation de maintenance.
@@ -152,8 +147,8 @@ doit être unifié avec l'API de contrôle.
 14. Exécuter la recette complète du paquet : installation, mise à jour,
     sauvegarde, restauration, permissions, parcours et régression.
 
-## 10. Décision de passage en réalisation
+## 10. Décision de diffusion
 
-La prochaine modification structurelle doit commencer par les étapes 2 et 3.
-Elle nécessite la validation de cette architecture conformément au CDC. Les
-correctifs de sécurité ou de packaging restent autorisés indépendamment.
+La couverture du CDC 2.0 est suffisante pour publier le paquet YunoHost 35 dans
+le catalogue ARCenal stable. La recette serveur décrite dans la matrice reste
+le contrôle d’exploitation obligatoire après installation ou mise à niveau.

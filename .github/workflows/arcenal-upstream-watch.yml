@@ -1,0 +1,48 @@
+name: Surveillance amont Hermes
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  surveiller:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          ref: arcenal
+      - name: Comparer avec Hermes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags https://github.com/NousResearch/hermes-agent.git main:refs/remotes/hermes/main
+          base="$(tr -d '[:space:]' < docs/hermes-upstream-base.txt)"
+          latest="$(git rev-parse refs/remotes/hermes/main)"
+          count="$(git rev-list --count "$base..$latest")"
+          {
+            echo "## Surveillance Hermes"
+            echo "- Base ARCenal : \`$base\`"
+            echo "- Dernier amont : \`$latest\`"
+            echo "- Commits à examiner : $count"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$count" -eq 0 ]; then exit 0; fi
+          title="Mise à jour Hermes à examiner"
+          body_file="$(mktemp)"
+          {
+            echo "ARCenal a détecté **$count commit(s)** depuis la dernière base examinée."
+            echo
+            echo "Base : \`$base\`"
+            echo "Amont : \`$latest\`"
+            echo
+            echo "Préparer une branche dédiée, conserver la surcouche ARCenal périphérique, puis rejouer la matrice de recette."
+          } > "$body_file"
+          issue="$(gh issue list --repo "$REPOSITORY" --state open --search "$title in:title" --json number --jq '.[0].number // empty')"
+          if [ -n "$issue" ]; then gh issue edit "$issue" --repo "$REPOSITORY" --body-file "$body_file"; else gh issue create --repo "$REPOSITORY" --title "$title" --body-file "$body_file"; fi
