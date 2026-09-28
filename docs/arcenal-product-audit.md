@@ -96,7 +96,7 @@ doit être unifié avec l'API de contrôle.
 | Confirmation renforcée | EXISTANT | Préparation, confirmation humaine contextualisée et jeton à usage unique sont unifiés dans le processus de contrôle séparé. |
 | Centre de sécurité | EXISTANT | La vue administrateur présente identité YunoHost, rôles, passerelles, catalogue fermé, confirmations actives et journal d’audit chaîné. |
 | Sauvegardes | EXISTANT | Centre natif, inventaire YunoHost, création et restauration confirmée ; données, configuration, RAG/LDA, mémoires et audit sont couverts par les scripts du paquet. |
-| Premier démarrage | ABSENT | Pas d'assistant de vérification, identité, permissions et diagnostic. |
+| Premier démarrage | EXISTANT | Assistant persistant avec identité administrateur, passerelles, intégration YunoHost, fournisseur IA, diagnostic initial et report non destructif. |
 | Tests de conformité CDC | À REFACTORISER | Nombreux tests unitaires, mais aucune matrice AC ni recette de parcours complète. |
 
 ## 7. Risques techniques

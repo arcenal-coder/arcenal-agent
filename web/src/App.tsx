@@ -110,6 +110,7 @@ import { api, HERMES_BASE_PATH } from "@/lib/api";
 import type { StatusResponse, UpdateCheckResponse } from "@/lib/api";
 import { ARCENAL_LOGO_PATH } from "@/brand";
 import { ArcenalPrimaryHeader } from "@/components/ArcenalPrimaryHeader";
+import { ArcenalOnboarding } from "@/components/ArcenalOnboarding";
 
 const ARCENAL_LOGO_URL = `${HERMES_BASE_PATH}${ARCENAL_LOGO_PATH}`;
 
@@ -500,6 +501,7 @@ function ArcenalAdminApp(): ReactElement {
       className="arcenal-shell flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-background-base text-text-primary antialiased"
     >
       <SelectionSwitcher />
+      <ArcenalOnboarding />
 
       <div
         aria-hidden
