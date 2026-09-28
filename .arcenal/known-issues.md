@@ -47,7 +47,6 @@
 ## UI-SETTINGS-001 — Onglets métier restants
 
 - État : ouvert.
-- Impact : Général, Apparence, Contexte, Directives et Mémoire disposent
-  maintenant de parcours réels. Outils, Système et Sauvegardes restent à
-  développer sans écran factice ; le centre de sécurité doit encore être
-  approfondi.
+- Impact : Général, Apparence, Contexte, Directives, Mémoire et Outils disposent
+  maintenant de parcours réels. Système et Sauvegardes restent à développer
+  sans écran factice ; le centre de sécurité doit encore être approfondi.

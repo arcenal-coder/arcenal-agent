@@ -89,7 +89,7 @@ doit être unifié avec l'API de contrôle.
 | Paramètres Directives | EXISTANT | Inventaire borné, édition, aperçu, historique et restauration de `AGENTS.md`, `RULES.md`, `SECURITY.md` et `TOOLS.md`, injectés dans les nouvelles sessions. |
 | Fournisseurs IA | EXISTANT | OpenRouter, OpenAI, Anthropic, Mistral, Gemini, Ollama et API compatibles disposent d'une adresse contrôlée, d'un modèle principal et secondaire, d'une activation, d'un test réel et d'un état persistant expurgé. |
 | Accès métier | EXISTANT | Comptes et API associent périmètre, permissions et autonomie ; ARC ne voit que les accès actifs, tandis que le test réel, l'état, la date et la désactivation restent gouvernés depuis Paramètres. |
-| Outils et capacités | ABSENT | Les outils existent côté Hermes/ARC, mais aucun inventaire ARC gouverné ne répond au CDC. |
+| Outils et capacités | EXISTANT | L’inventaire distingue ARCenal et Hermes, expose état, permission, risque, confirmation et dernière utilisation ; les capacités Hermes configurables sont activables, les outils ARC critiques restent protégés. |
 | Vue Système | PARTIEL | Ressources et cinq services ; applications, mises à jour, domaines, certificats, sauvegardes et journaux manquent. |
 | Moteur de permissions | EXISTANT | Quatre niveaux, rôles, cibles et refus par défaut testés. |
 | Passerelle privilégiée | PARTIEL | Séparée et fermée, mais seulement six actions et trois mutations. |

@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from .capabilities import record_usage
+
 from .tools import (
     ACCESS_CATALOG_SCHEMA,
     CONTEXT_SEARCH_SCHEMA,
@@ -89,6 +91,14 @@ def _memory_prompt(_session_info: Mapping[str, Any]) -> str:
     return f"# Mémoire durable ARCenal\n{content[:2800]}" if content else ""
 
 
+def _record_tool_usage(
+    *, tool_name: str = "", duration_ms: int = 0, status: str = "", **_: object
+) -> None:
+    """Conserve uniquement les métadonnées nécessaires à la gouvernance."""
+    normalized = "success" if status in {"ok", "success"} else status
+    record_usage(tool_name, normalized, duration_ms)
+
+
 def register(ctx) -> None:
     """Enregistre les outils sans modifier le cœur commun Hermes."""
     ctx.register_system_prompt_section(
@@ -109,6 +119,7 @@ def register(ctx) -> None:
         position="after_memory",
         max_chars=3000,
     )
+    ctx.register_hook("post_tool_call", _record_tool_usage)
     for name, schema, handler, emoji in (
         ("arcenal_access_catalog", ACCESS_CATALOG_SCHEMA, access_catalog, "🔐"),
         ("arcenal_yunohost_query", YUNOHOST_QUERY_SCHEMA, yunohost_query, "🧩"),

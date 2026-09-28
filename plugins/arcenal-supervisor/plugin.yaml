@@ -1,8 +1,10 @@
 name: arcenal-supervisor
-version: 0.3.0
+version: 0.4.0
 description: "Supervision ARCenal Système et coffre documentaire RAG accessible depuis ARC."
 author: ARCenal
 kind: backend
+provides_hooks:
+  - post_tool_call
 provides_tools:
   - arcenal_system_status
   - arcenal_create_report

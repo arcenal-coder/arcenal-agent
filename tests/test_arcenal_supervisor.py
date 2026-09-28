@@ -4,7 +4,6 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
-from typing import Any
 
 
 MODULE = Path(__file__).parents[1] / "plugins/arcenal-supervisor/dashboard/plugin_api.py"
@@ -16,14 +15,18 @@ SPEC.loader.exec_module(supervisor)
 
 class PluginContext:
     def __init__(self) -> None:
-        self.prompt_sections: list[dict[str, Any]] = []
-        self.tools: list[dict[str, Any]] = []
+        self.hooks: list[tuple[str, object]] = []
+        self.prompt_sections: list[dict[str, object]] = []
+        self.tools: list[dict[str, object]] = []
 
-    def register_system_prompt_section(self, **kwargs: Any) -> None:
+    def register_system_prompt_section(self, **kwargs: object) -> None:
         self.prompt_sections.append(kwargs)
 
-    def register_tool(self, **kwargs: Any) -> None:
+    def register_tool(self, **kwargs: object) -> None:
         self.tools.append(kwargs)
+
+    def register_hook(self, name: str, callback: object) -> None:
+        self.hooks.append((name, callback))
 
 
 def _load_plugin() -> ModuleType:
@@ -133,8 +136,8 @@ def test_plugin_specializes_the_agent_as_arc() -> None:
     context = PluginContext()
     plugin.register(context)
 
-    assert len(context.prompt_sections) == 1
-    section = context.prompt_sections[0]
+    assert len(context.prompt_sections) == 3
+    section = next(item for item in context.prompt_sections if item["id"] == "arcenal.identity")
     assert section["id"] == "arcenal.identity"
     assert section["position"] == "after_memory"
     assert "Tu es ARC" in section["content"]
@@ -146,9 +149,12 @@ def test_plugin_specializes_the_agent_as_arc() -> None:
         "arcenal_repair",
         "arcenal_knowledge_search",
         "arcenal_knowledge_document",
+        "arcenal_context_search",
+        "arcenal_memory_search",
         "arcenal_access_catalog",
         "arcenal_yunohost_query",
     }
+    assert [name for name, _callback in context.hooks] == ["post_tool_call"]
 
 
 def test_access_catalog_reports_availability_without_secret() -> None:

@@ -3,6 +3,7 @@ import { Bot, CheckCircle2, KeyRound, LoaderCircle, Network, Plus, ShieldCheck }
 import { api, type ArcenalProviderProbe, type EnvVarInfo, type ModelOptionsResponse } from "@/lib/api";
 import { autonomyFromConfig, buildProviderConnections, normalizeCustomEnvKey, type AutonomyLevel, type ProviderConnection } from "@/lib/arcenal-providers";
 import { ArcenalAccessManager } from "@/components/ArcenalAccessManager";
+import { ArcenalCapabilitiesSettings } from "@/components/ArcenalCapabilitiesSettings";
 import { ArcenalAppearanceSettingsPanel } from "@/components/ArcenalAppearanceSettings";
 import { ArcenalGeneralSettingsPanel } from "@/components/ArcenalGeneralSettings";
 import { ArcenalManagedFilesSettingsPanel } from "@/components/ArcenalManagedFilesSettings";
@@ -75,6 +76,7 @@ function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
       <CustomConnection state={state} setState={setState} reload={reload} />
     </section>}
     {activeTab === "access" && <ArcenalAccessManager config={state.config} env={state.env} reload={reload} />}
+    {activeTab === "tools" && <ArcenalCapabilitiesSettings />}
     {activeTab === "security" && <AutonomySettings state={state} setState={setState} />}
   </main>;
 }

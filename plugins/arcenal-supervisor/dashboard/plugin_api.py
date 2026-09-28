@@ -74,6 +74,18 @@ def _load_access_connections_api() -> ModuleType:
     return module
 
 
+def _load_capabilities_api() -> ModuleType:
+    """Charge l’inventaire gouverné des outils ARC et Hermes."""
+    source = Path(__file__).with_name("capabilities_api.py")
+    spec = importlib.util.spec_from_file_location("arcenal_capabilities_api", source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Le module des capacités ARCenal est introuvable.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 knowledge = _load_knowledge_api()
 router.include_router(knowledge.router)
 managed_files = _load_managed_files_api()
@@ -82,6 +94,8 @@ provider_connections = _load_provider_connections_api()
 router.include_router(provider_connections.router)
 access_connections = _load_access_connections_api()
 router.include_router(access_connections.router)
+capabilities = _load_capabilities_api()
+router.include_router(capabilities.router)
 
 SERVICES = (
     ("arcenal", "ARCenal Agent"),

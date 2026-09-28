@@ -6,7 +6,7 @@ describe("navigation des paramètres ARC", () => {
     const ids = ARCENAL_SETTINGS_TABS.map((tab) => tab.id);
 
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toEqual(["general", "appearance", "context", "memory", "directives", "providers", "access", "security"]);
+    expect(ids).toEqual(["general", "appearance", "context", "memory", "directives", "providers", "access", "tools", "security"]);
   });
 
   it("refuse un onglet inconnu", () => {

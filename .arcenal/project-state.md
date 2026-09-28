@@ -147,6 +147,13 @@ achevés sans réintroduire le tableau de bord Hermes comme interface principale
   leur état. Ils peuvent être testés, activés ou désactivés ; seuls les accès
   actifs sont présentés aux outils d’ARC, sans valeur de mot de passe ou de
   jeton.
+- Le panneau Outils inventorie séparément les capacités ARCenal et les
+  ensembles hérités de Hermes. Il affiche permission, risque, confirmation,
+  disponibilité et dernière utilisation ; les ensembles Hermes configurables
+  peuvent être activés, tandis que les outils ARC critiques restent protégés.
+- Un hook officiel `post_tool_call` journalise le nom, le résultat synthétique,
+  la durée et le compteur d’utilisation de chaque outil. Aucun argument ni
+  contenu de résultat n’est conservé ; l’écriture atomique est sérialisée.
 
 ## Validation prévue
 
@@ -224,7 +231,12 @@ Vitest, la compilation Python et le build Vite de production. Les panneaux
 Fournisseurs IA et Accès ont été contrôlés visuellement en thème sombre. Les
 tests Python ciblés sont présents mais restent non exécutables sur ce Mac faute
 de FastAPI, Pydantic et pytest installés ; aucune dépendance n’a été ajoutée.
+Le lot Outils passe la vérification TypeScript, 25 tests Vitest ciblés, quatre
+tests Python autonomes et la compilation Python. Le panneau a été contrôlé en
+thème sombre avec des capacités ARCenal protégées et des capacités Hermes
+activables.
 
 ## Étape suivante pressentie
 
-Livrer Outils et capacités avec permissions et audit d’utilisation.
+Achever le volet Agents de bout en bout : identité, mission, modèles,
+compétences, outils et mémoire isolée.

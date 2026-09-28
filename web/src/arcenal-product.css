@@ -247,6 +247,31 @@
 .arc-access-actions { display: flex; gap: 5px; }
 .arc-access-status[data-state="connected"] { color: var(--arc-emerald); }
 .arc-access-status[data-state="invalid"], .arc-access-status[data-state="unreachable"] { color: var(--arc-wine); }
+.arc-capability-filters { display: grid; grid-template-columns: minmax(220px, 1fr) 180px 160px; gap: 10px; margin-bottom: 16px; }
+.arc-capability-filters label { display: flex; align-items: center; gap: 7px; color: var(--arc-muted); font-size: 8px; font-weight: 700; }
+.arc-capability-filters label:first-child { padding: 0 11px; border: 1px solid var(--arc-line); border-radius: 9px; background: var(--arc-white); }
+.arc-capability-filters svg { width: 14px; }
+.arc-capability-filters input, .arc-capability-filters select { width: 100%; min-height: 38px; border: 1px solid var(--arc-line); border-radius: 9px; padding: 0 10px; color: var(--arc-ink); background: var(--arc-white); font-size: 9px; }
+.arc-capability-filters label:first-child input { border: 0; padding: 0; background: transparent; }
+.arc-capability-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+.arc-capability-card { padding: 15px; border: 1px solid var(--arc-line); border-radius: 13px; background: var(--arc-white); }
+.arc-capability-card[data-enabled="false"] { opacity: .66; }
+.arc-capability-card[data-risk="high"] { border-left: 3px solid var(--arc-wine); }
+.arc-capability-card header { display: flex; align-items: center; gap: 9px; }
+.arc-capability-card header > span { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 8px; color: var(--arc-prussian); background: rgba(52, 73, 93, .08); }
+.arc-capability-card header svg { width: 15px; }
+.arc-capability-card header div { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+.arc-capability-card header strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.arc-capability-card header small, .arc-capability-card header em { color: var(--arc-muted); font-size: 7px; font-style: normal; }
+.arc-capability-card > p { min-height: 30px; margin: 12px 0; color: var(--arc-muted); font-size: 8px; line-height: 1.55; }
+.arc-capability-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 0; }
+.arc-capability-card dl div { padding: 8px; border-radius: 8px; background: rgba(52, 73, 93, .05); }
+.arc-capability-card dt { color: var(--arc-muted); font-size: 7px; }
+.arc-capability-card dd { margin: 3px 0 0; color: var(--arc-text); font-size: 8px; font-weight: 700; }
+.arc-capability-tools { display: flex; flex-wrap: wrap; gap: 4px; margin: 11px 0; }
+.arc-capability-tools code, .arc-capability-tools small { padding: 3px 5px; border-radius: 5px; color: var(--arc-prussian); background: rgba(52, 73, 93, .08); font-size: 7px; }
+.arc-capability-card > button { display: flex; min-height: 34px; width: 100%; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--arc-line); border-radius: 8px; color: var(--arc-text); background: transparent; font-size: 8px; font-weight: 750; }
+.arc-capability-card > button svg { width: 13px; }
 .arc-autonomy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .arc-autonomy-grid label { display: flex; gap: 10px; min-height: 105px; padding: 15px; border: 1px solid var(--arc-line); border-radius: 14px; background: #fffdf8; cursor: pointer; }
 .arc-autonomy-grid label[data-selected="true"] { border-color: var(--arc-wine); background: #fff7e8; box-shadow: inset 0 0 0 1px var(--arc-wine); }
@@ -558,6 +583,10 @@ html[data-arc-color-mode="dark"] .arc-lda-pagination button,
 html[data-arc-color-mode="dark"] .arc-document-list > button.is-selected,
 html[data-arc-color-mode="dark"] .arc-card-action,
 html[data-arc-color-mode="dark"] .arc-access-card button { color: var(--arc-text); background: #25282f; }
+html[data-arc-color-mode="dark"] .arc-capability-card,
+html[data-arc-color-mode="dark"] .arc-capability-filters label:first-child,
+html[data-arc-color-mode="dark"] .arc-capability-filters input,
+html[data-arc-color-mode="dark"] .arc-capability-filters select { color: var(--arc-text); background: #25282f; }
 
 @media (max-width: 640px) {
   .arc-primary-brand img { max-width: 60px; height: 34px; }
@@ -577,7 +606,7 @@ html[data-arc-color-mode="dark"] .arc-access-card button { color: var(--arc-text
   .arc-appearance-preview > button { grid-column: 1 / -1; }
   .arc-card-action { grid-column: 1 / -1; text-align: center; }
   .arc-form-row, .arc-connectors ul { grid-template-columns: 1fr; }
-  .arc-provider-grid, .arc-autonomy-grid, .arc-custom-connection, .arc-access-form { grid-template-columns: 1fr; }
+  .arc-provider-grid, .arc-autonomy-grid, .arc-custom-connection, .arc-access-form, .arc-capability-list, .arc-capability-filters { grid-template-columns: 1fr; }
   .arc-knowledge-actions { align-items: stretch; flex-direction: column; }
   .arc-mode-switch { display: grid; grid-template-columns: repeat(3, 1fr); }
   .arc-mode-switch button { justify-content: center; }

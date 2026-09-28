@@ -6,6 +6,7 @@ export const ARCENAL_SETTINGS_TABS = [
   { id: "directives", label: "Directives" },
   { id: "providers", label: "Fournisseurs IA" },
   { id: "access", label: "Accès" },
+  { id: "tools", label: "Outils" },
   { id: "security", label: "Sécurité" },
 ] as const;
 

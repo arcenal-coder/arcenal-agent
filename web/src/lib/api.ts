@@ -579,6 +579,10 @@ export const api = {
       `/api/plugins/arcenal-supervisor/access/${encodeURIComponent(accessId)}/test`,
       { method: "POST" },
     ),
+  getArcenalCapabilities: () =>
+    fetchJSON<ArcenalCapabilitiesResponse>(
+      "/api/plugins/arcenal-supervisor/capabilities",
+    ),
   getArcenalWiki: () =>
     fetchJSON<ArcenalKnowledgeOverview>(
       "/api/plugins/arcenal-supervisor/knowledge/wiki/overview",
@@ -2399,6 +2403,32 @@ export interface ArcenalAccessProbe {
 
 export interface ArcenalAccessStatusesResponse {
   accesses: Record<string, ArcenalAccessProbe>;
+}
+
+export type ArcenalCapabilityRisk = "high" | "low" | "medium" | "none";
+
+export interface ArcenalCapabilityUsage {
+  count: number;
+  duration_ms: number;
+  last_status: "blocked" | "error" | "success" | "unknown";
+  last_used: string;
+}
+
+export interface ArcenalCapability {
+  confirmation: boolean;
+  description: string;
+  enabled: boolean;
+  last_usage: ArcenalCapabilityUsage | null;
+  mutable: boolean;
+  name: string;
+  origin: "arcenal";
+  permission: string;
+  risk: ArcenalCapabilityRisk;
+}
+
+export interface ArcenalCapabilitiesResponse {
+  capabilities: ArcenalCapability[];
+  usage: Record<string, ArcenalCapabilityUsage>;
 }
 
 export interface AnalyticsDailyEntry {

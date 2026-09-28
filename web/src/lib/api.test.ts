@@ -119,6 +119,20 @@ describe("api.getModelOptions", () => {
   });
 });
 
+describe("api.getArcenalCapabilities", () => {
+  it("charge l’inventaire gouverné depuis la surcouche ARC", async () => {
+    const fetchMock = jsonFetchMock({ capabilities: [], usage: {} });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.getArcenalCapabilities();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/capabilities",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+});
+
 describe("api.testArcenalOpenRouter", () => {
   it("envoie la clé uniquement au test ARCenal demandé", async () => {
     const fetchMock = jsonFetchMock({ configured: true, connection: "connected" });
