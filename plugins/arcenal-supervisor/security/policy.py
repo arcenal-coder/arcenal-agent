@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import re
+
 from .catalog import action_definition
 from .models import ActionDefinition, ActionRequest, AuthorizationLevel, PolicyDecision
 
 
 def _target_is_allowed(request: ActionRequest) -> bool:
     action = action_definition(request.action_id)
-    if not action.allowed_targets:
-        return request.target is None
-    return request.target in action.allowed_targets
+    if action.allowed_targets:
+        return request.target in action.allowed_targets
+    if action.target_pattern and request.target:
+        return re.fullmatch(action.target_pattern, request.target) is not None
+    return request.target is None
 
 
 def _denied(action: ActionDefinition, reason: str, confirmation: bool = False) -> PolicyDecision:

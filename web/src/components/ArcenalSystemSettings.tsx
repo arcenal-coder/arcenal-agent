@@ -1,7 +1,8 @@
-import { AlertTriangle, Archive, Boxes, Globe2, HardDrive, RefreshCw, Server, ShieldCheck, Users } from "lucide-react";
+import { AlertTriangle, Archive, Boxes, Globe2, HardDrive, RefreshCw, RotateCcw, Server, ShieldCheck, Users } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactElement } from "react";
 import { api, type ArcenalSystemCollection, type ArcenalSystemInventory, type ArcenalSystemOverview } from "@/lib/api";
 import { isArcenalSystemInventory, systemRecordDetail, systemRecordLabel } from "@/lib/arcenal-system";
+import { backupArchiveNames } from "@/lib/arcenal-backups";
 
 interface SystemState {
   busy: boolean;
@@ -26,16 +27,58 @@ export function ArcenalSystemSettingsPanel(): ReactElement {
 
 export function ArcenalBackupSettingsPanel(): ReactElement {
   const { state, reload } = useSystemState();
+  const [operation, setOperation] = useState<BackupOperation>({ busy: false, error: "", notice: "", selected: "" });
   const backups = state.inventory?.backups;
+  const create = (): void => { void createBackup(setOperation, reload); };
+  const restore = (): void => { void restoreBackup(operation.selected, setOperation, reload); };
   return (
     <section className="arc-settings-section">
       <PanelHeader busy={state.busy} title="Sauvegardes YunoHost d’ARC" description="Archives détectées et contrôle de la protection des données applicatives." onReload={reload} />
       {state.error && <p className="arc-alert arc-alert-error">{state.error}</p>}
+      {operation.error && <p className="arc-alert arc-alert-error">{operation.error}</p>}
+      {operation.notice && <p className="arc-alert arc-alert-success">{operation.notice}</p>}
       <BackupSummary overview={state.overview} backups={backups} />
+      <BackupActions backups={backups} create={create} operation={operation} restore={restore} setOperation={setOperation} />
       {backups && <SystemCollection icon={<Archive />} title="Archives disponibles" collection={backups} />}
-      <p className="arc-backup-note"><ShieldCheck aria-hidden /> Les opérations de création et restauration seront exécutées uniquement par le broker privilégié avec confirmation renforcée.</p>
+      <p className="arc-backup-note"><ShieldCheck aria-hidden /> Configuration, contexte, mémoires, directives, RAG/LDA, métadonnées d’accès et audit sont inclus. Les secrets restent protégés dans les données YunoHost.</p>
     </section>
   );
+}
+
+function BackupActions({ backups, create, operation, restore, setOperation }: BackupActionProps): ReactElement {
+  const names = backupNames(backups);
+  return <div className="arc-backup-actions"><button className="arc-primary-button" disabled={operation.busy} onClick={create} type="button"><Archive /> Créer une sauvegarde</button><label><span>Archive à restaurer</span><select disabled={operation.busy} onChange={(event) => setOperation((current) => ({ ...current, selected: event.target.value }))} value={operation.selected}><option value="">Choisir une archive</option>{names.map((name) => <option key={name}>{name}</option>)}</select></label><button className="arc-danger-button" disabled={operation.busy || !operation.selected} onClick={restore} type="button"><RotateCcw /> Restaurer</button></div>;
+}
+
+async function createBackup(setOperation: SetBackupOperation, reload: () => Promise<void>): Promise<void> {
+  setOperation((current) => ({ ...current, busy: true, error: "", notice: "" }));
+  try {
+    await api.prepareArcenalAction("arcenal.backup.create", null);
+    await api.executeArcenalAction("arcenal.backup.create", null);
+    setOperation((current) => ({ ...current, busy: false, notice: "La sauvegarde ARCenal a été créée." }));
+    await reload();
+  } catch (cause) {
+    setOperation((current) => ({ ...current, busy: false, error: message(cause) }));
+  }
+}
+
+async function restoreBackup(name: string, setOperation: SetBackupOperation, reload: () => Promise<void>): Promise<void> {
+  if (!name || !window.confirm(`Restaurer l’archive ${name} ? Les données ARC actuelles seront remplacées.`)) return;
+  setOperation((current) => ({ ...current, busy: true, error: "", notice: "" }));
+  try {
+    const prepared = await api.prepareArcenalAction("arcenal.backup.restore", name, true);
+    if (!prepared.approval_id) throw new Error("La confirmation de restauration est absente.");
+    await api.executeArcenalAction("arcenal.backup.restore", name, prepared.approval_id);
+    setOperation((current) => ({ ...current, busy: false, notice: "ARCenal a été restauré. La page peut se reconnecter." }));
+    await reload();
+  } catch (cause) {
+    setOperation((current) => ({ ...current, busy: false, error: message(cause) }));
+  }
+}
+
+function backupNames(backups?: ArcenalSystemCollection): string[] {
+  if (!backups) return [];
+  return backupArchiveNames(backups.items);
 }
 
 function useSystemState(): { state: SystemState; reload: () => Promise<void> } {
@@ -92,3 +135,7 @@ function certificateDetail(details: unknown): string {
 function message(cause: unknown): string {
   return cause instanceof Error ? cause.message : "Lecture du système impossible.";
 }
+
+interface BackupOperation { busy: boolean; error: string; notice: string; selected: string }
+type SetBackupOperation = React.Dispatch<React.SetStateAction<BackupOperation>>;
+interface BackupActionProps { backups?: ArcenalSystemCollection; create: () => void; operation: BackupOperation; restore: () => void; setOperation: SetBackupOperation }

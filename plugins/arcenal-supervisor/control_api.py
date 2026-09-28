@@ -58,6 +58,7 @@ def _public_action(action_id: str) -> dict[str, object]:
         "consequence": action.consequence,
         "rollback": action.rollback,
         "allowed_targets": action.allowed_targets,
+        "target_required": action.target_pattern is not None,
     }
 
 
@@ -131,7 +132,10 @@ def _confirmed(request: ExecuteRequest, actor: Actor) -> bool:
 def _execute_authorized(request: ExecuteRequest, actor: Actor) -> dict[str, object]:
     append_event("action.requested", actor.username, {"action_id": request.action_id, "target": request.target})
     try:
-        result = execute({"action_id": request.action_id, "target": request.target})
+        result = execute(
+            {"action_id": request.action_id, "target": request.target},
+            timeout=_broker_timeout(request.action_id),
+        )
     except BrokerUnavailableError as exc:
         append_event("action.failed", actor.username, {"action_id": request.action_id, "reason": str(exc)})
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -140,6 +144,10 @@ def _execute_authorized(request: ExecuteRequest, actor: Actor) -> dict[str, obje
     if not result["ok"]:
         raise HTTPException(status_code=500, detail=str(result.get("error") or "L'action a échoué."))
     return {"status": "completed", "action": _public_action(request.action_id), "result": result}
+
+
+def _broker_timeout(action_id: str) -> float:
+    return 1_805.0 if action_id.startswith("arcenal.backup.") else 125.0
 
 
 @app.post("/actions/execute")

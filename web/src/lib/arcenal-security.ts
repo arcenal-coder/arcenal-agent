@@ -32,6 +32,7 @@ function isAction(value: unknown): value is ArcenalSecurityAction {
     && typeof action.description === "string"
     && typeof action.consequence === "string"
     && typeof action.rollback === "string"
+    && typeof action.target_required === "boolean"
     && stringArray(action.allowed_targets)
     && ["none", "low", "medium", "high"].includes(String(action.risk));
 }

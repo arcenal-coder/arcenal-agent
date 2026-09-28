@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { authorizationLabel, isArcenalSecurityOverview, riskLabel } from "./arcenal-security";
 
-const action = { allowed_targets: [], authorization: 1, consequence: "Aucune", description: "Lire", id: "system.read", risk: "none", rollback: "Aucun" };
+const action = { allowed_targets: [], authorization: 1, consequence: "Aucune", description: "Lire", id: "system.read", risk: "none", rollback: "Aucun", target_required: false };
 const overview = { actions: [action], actor: { roles: ["admin"], username: "alice" }, approvals: [], audit: { events: [], integrity: true }, gateways: { control: true, readonly: true } };
 
 describe("contrat du centre de sécurité ARCenal", () => {

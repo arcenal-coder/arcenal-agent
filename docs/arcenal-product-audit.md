@@ -92,10 +92,10 @@ doit être unifié avec l'API de contrôle.
 | Outils et capacités | EXISTANT | L’inventaire distingue ARCenal et Hermes, expose état, permission, risque, confirmation et dernière utilisation ; les capacités Hermes configurables sont activables, les outils ARC critiques restent protégés. |
 | Vue Système | EXISTANT | Santé, versions, CPU, mémoire, stockage, charge, services, applications, mises à jour, domaines, certificats, sauvegardes, diagnostics et erreurs sont lus via le broker YunoHost fermé. |
 | Moteur de permissions | EXISTANT | Quatre niveaux, rôles, cibles et refus par défaut testés. |
-| Passerelle privilégiée | PARTIEL | Séparée et fermée, mais seulement six actions et trois mutations. |
+| Passerelle privilégiée | PARTIEL | Séparée et fermée ; diagnostics, services, Nginx et sauvegardes sont couverts, les mutations applicatives et certificats restent à élargir. |
 | Confirmation renforcée | EXISTANT | Préparation, confirmation humaine contextualisée et jeton à usage unique sont unifiés dans le processus de contrôle séparé. |
 | Centre de sécurité | EXISTANT | La vue administrateur présente identité YunoHost, rôles, passerelles, catalogue fermé, confirmations actives et journal d’audit chaîné. |
-| Sauvegardes | PARTIEL | Scripts de sauvegarde/restauration ; aucun centre, état, déclenchement ou recette complète sur le serveur en ligne. |
+| Sauvegardes | EXISTANT | Centre natif, inventaire YunoHost, création et restauration confirmée ; données, configuration, RAG/LDA, mémoires et audit sont couverts par les scripts du paquet. |
 | Premier démarrage | ABSENT | Pas d'assistant de vérification, identité, permissions et diagnostic. |
 | Tests de conformité CDC | À REFACTORISER | Nombreux tests unitaires, mais aucune matrice AC ni recette de parcours complète. |
 

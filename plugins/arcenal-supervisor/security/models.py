@@ -55,6 +55,7 @@ class ActionDefinition:
     consequence: str
     rollback: str
     allowed_targets: tuple[str, ...] = ()
+    target_pattern: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

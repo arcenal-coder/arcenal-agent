@@ -2418,6 +2418,7 @@ export interface ArcenalSecurityAction {
   id: string;
   risk: "none" | "low" | "medium" | "high";
   rollback: string;
+  target_required: boolean;
 }
 
 export interface ArcenalSecurityApproval {

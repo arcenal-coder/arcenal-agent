@@ -60,6 +60,13 @@ class PolicyTests(unittest.TestCase):
         self.assertFalse(decision.allowed)
         self.assertIn("cible", decision.reason)
 
+    def test_backup_restore_accepts_only_a_bounded_archive_name(self) -> None:
+        valid = security.ActionRequest("arcenal.backup.restore", self.admin, "arcenal-manual", True)
+        invalid = security.ActionRequest("arcenal.backup.restore", self.admin, "../../etc/passwd", True)
+
+        self.assertTrue(security.evaluate_action(valid).allowed)
+        self.assertFalse(security.evaluate_action(invalid).allowed)
+
     def test_non_admin_is_rejected(self) -> None:
         actor = security.Actor(username="reader", roles=("all_users",))
         request = security.ActionRequest("yunohost.version.read", actor)

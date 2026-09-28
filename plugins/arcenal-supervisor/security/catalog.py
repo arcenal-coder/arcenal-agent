@@ -89,6 +89,23 @@ ACTION_CATALOG: Mapping[str, ActionDefinition] = MappingProxyType(
             "Vérifier l'état puis relancer ou restaurer sa configuration.",
             _SERVICES,
         ),
+        "arcenal.backup.create": ActionDefinition(
+            "arcenal.backup.create",
+            AuthorizationLevel.CONTROLLED,
+            RiskLevel.LOW,
+            "Créer une sauvegarde complète d’ARCenal Agent.",
+            "Une nouvelle archive YunoHost est créée et consomme de l’espace disque.",
+            "L’archive peut être supprimée depuis l’administration YunoHost.",
+        ),
+        "arcenal.backup.restore": ActionDefinition(
+            "arcenal.backup.restore",
+            AuthorizationLevel.CONFIRMED,
+            RiskLevel.HIGH,
+            "Restaurer ARCenal Agent depuis une archive YunoHost.",
+            "La configuration et les données actuelles seront remplacées par celles de l’archive.",
+            "Créer une sauvegarde récente avant restauration, puis restaurer cette sauvegarde si nécessaire.",
+            target_pattern=r"[A-Za-z0-9][A-Za-z0-9_.+-]{0,79}",
+        ),
     }
 )
 
