@@ -82,8 +82,8 @@ doit être unifié avec l'API de contrôle.
 | LDA | EXISTANT | Registre, filtres, archive, pagination et CSV présents. |
 | Wiki | EXISTANT | Route séparée en lecture limitée aux documents applicables. |
 | RAG traçable | PARTIEL | Outils de recherche et lecture présents ; preuve bout en bout de citation par le chat absente. |
-| Paramètres Général | ABSENT | Aucun écran ARC dédié. |
-| Paramètres Apparence | PARTIEL | Clair, sombre et système ; couleurs, favicon, logo, nom et prévisualisation manquent. |
+| Paramètres Général | PARTIEL | Écran ARC, identité, langue, fuseau, adresse de notification et versions détectées ; l'envoi de notification reste à raccorder. |
+| Paramètres Apparence | PARTIEL | Clair, sombre, système, couleurs, logo, favicon, nom et prévisualisation ; l'import de fichier local reste à ajouter. |
 | Paramètres Contexte | ABSENT | Aucun éditeur, historique ou récupération ciblée de `CONTEXT.md`. |
 | Paramètres Mémoire | PARTIEL | Moteur Hermes existant ; aucun parcours ARC de consultation, édition, historique et restauration. |
 | Paramètres Directives | ABSENT | Aucun inventaire ou éditeur sécurisé des fichiers de directives. |
@@ -138,7 +138,7 @@ doit être unifié avec l'API de contrôle.
 1. Restaurer le CDC détaillé et la matrice de critères dans le dépôt.
 2. Unifier le contrat de sécurité et le flux de confirmation de maintenance.
 3. Construire le squelette réel des onze sections Paramètres.
-4. Livrer Général et Apparence complète.
+4. Finaliser Général et Apparence avec notification active et import de fichiers.
 5. Livrer Contexte et Directives avec historique et restauration.
 6. Livrer Mémoire avec recherche et gouvernance.
 7. Achever Fournisseurs IA et Accès avec tests de connexion et états.

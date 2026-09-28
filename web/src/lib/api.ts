@@ -516,6 +516,10 @@ export const api = {
     fetchJSON<ArcenalKnowledgeOverview>(
       "/api/plugins/arcenal-supervisor/knowledge/overview",
     ),
+  getArcenalSystemOverview: () =>
+    fetchJSON<ArcenalSystemOverview>(
+      "/api/plugins/arcenal-supervisor/overview",
+    ),
   getArcenalWiki: () =>
     fetchJSON<ArcenalKnowledgeOverview>(
       "/api/plugins/arcenal-supervisor/knowledge/wiki/overview",
@@ -2245,6 +2249,26 @@ export interface ArcenalOpenRouterProbeResponse {
   configured: boolean;
   connection: "connected" | "invalid" | "missing" | "unreachable";
   message: string;
+}
+
+export interface ArcenalSystemOverview {
+  generated_at: string;
+  health: "degraded" | "healthy";
+  incidents: Array<{ message: string; severity: string; source: string }>;
+  platform: {
+    domain: string;
+    hostname: string;
+    kernel: string;
+    name: string;
+    versions: { arc: string; debian: string; hermes: string; yunohost: string };
+    yunohost: boolean;
+  };
+  resources: {
+    disk: { percent: number; total: number; used: number };
+    load: number[];
+    memory: { percent: number; total: number; used: number };
+  };
+  services: Array<{ healthy: boolean; id: string; label: string; state: string }>;
 }
 
 export interface AnalyticsDailyEntry {

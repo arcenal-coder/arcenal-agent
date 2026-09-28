@@ -123,6 +123,11 @@ achevés sans réintroduire le tableau de bord Hermes comme interface principale
   dans `docs/arcenal-product-cdc-v2.md`. L'audit
   `docs/arcenal-product-audit.md` classe chaque domaine en existant, partiel,
   absent ou à refactoriser et remplace les affirmations générales de conformité.
+- Le premier lot de réalisation validé ajoute les panneaux Général et Apparence
+  sans créer d'onglet factice : identité d'ARC, organisation, langue, fuseau,
+  adresse de notification, versions serveur, couleurs, logo, favicon et aperçu.
+  Le bandeau reprend immédiatement ces réglages tout en conservant la
+  personnalisation publique YunoHost comme valeur de secours.
 
 ## Validation prévue
 
@@ -181,9 +186,12 @@ toujours de fichiers restaurables. Les neuf tests du broker, les six tests shell
 du paquet et les treize tests du catalogue réussissent. Les promotions ciblées
 development, preview et stable, puis la publication Pages réussissent ; les
 flux publics brut et Pages annoncent bien ynh34.
+Le lot Général et Apparence passe ESLint sans erreur nouvelle, TypeScript, les
+349 tests Vitest et le build Vite de production. Les quatre scénarios backend
+ajoutés passent avec le Python Hermes ; le lanceur canonique reste indisponible
+localement faute de `pytest`, sans installation implicite de dépendance.
 
 ## Étape suivante pressentie
 
-Après validation de l'architecture auditée, unifier le flux de confirmation de
-maintenance sur l'API de contrôle, puis construire le conteneur fonctionnel des
-onze sections Paramètres avant de livrer Général et Apparence complète.
+Livrer Contexte et Directives avec historique et restauration, puis poursuivre
+la matrice fonctionnelle dans l'ordre défini par l'audit.

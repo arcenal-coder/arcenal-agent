@@ -266,6 +266,8 @@ html[dir="rtl"] {
   --arc-white: #ffffff;
   --arc-wine: #d45d36;
   --arc-prussian: #9d3d25;
+  --arc-action: #d45d36;
+  --arc-link: #9d3d25;
   --arc-brass: #e8a629;
   --arc-emerald: #26705d;
   --arc-violet: #665277;

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type Dispatch, type ReactElement, type SetStateAction } from "react";
-import { Bot, CheckCircle2, KeyRound, LoaderCircle, Monitor, Moon, Network, Plus, ShieldCheck, Sun } from "lucide-react";
+import { Bot, CheckCircle2, KeyRound, LoaderCircle, Network, Plus, ShieldCheck } from "lucide-react";
 import { api, type EnvVarInfo, type ModelOptionsResponse } from "@/lib/api";
 import { autonomyFromConfig, buildProviderConnections, normalizeCustomEnvKey, type AutonomyLevel, type ProviderConnection } from "@/lib/arcenal-providers";
 import { ArcenalAccessManager } from "@/components/ArcenalAccessManager";
-import { useArcColorMode, type ArcColorMode } from "@/lib/arcenal-color-mode";
+import { ArcenalAppearanceSettingsPanel } from "@/components/ArcenalAppearanceSettings";
+import { ArcenalGeneralSettingsPanel } from "@/components/ArcenalGeneralSettings";
 import { ARCENAL_SETTINGS_TABS, type ArcenalSettingsTab } from "@/lib/arcenal-settings-tabs";
 
 interface SettingsState {
@@ -48,7 +49,7 @@ function modelDefaults(options: ModelOptionsResponse): Record<string, string> {
 }
 
 function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
-  const [activeTab, setActiveTab] = useState<ArcenalSettingsTab>("providers");
+  const [activeTab, setActiveTab] = useState<ArcenalSettingsTab>("general");
   const providers = state.config.providers as Record<string, { base_url?: unknown }> | undefined;
   const connections = buildProviderConnections(state.env, providers);
   return <main className="arc-workspace arc-settings" aria-labelledby="settings-title">
@@ -56,7 +57,8 @@ function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
     {state.error && <p className="arc-alert arc-alert-error" role="alert">{state.error}</p>}
     {state.notice && <p className="arc-alert arc-alert-success" role="status">{state.notice}</p>}
     <nav aria-label="Sections des paramètres" className="arc-settings-tabs">{ARCENAL_SETTINGS_TABS.map((tab) => <button aria-pressed={activeTab === tab.id} key={tab.id} onClick={() => setActiveTab(tab.id)} type="button">{tab.label}</button>)}</nav>
-    {activeTab === "appearance" && <AppearanceSettings />}
+    {activeTab === "general" && <ArcenalGeneralSettingsPanel config={state.config} onReload={reload} />}
+    {activeTab === "appearance" && <ArcenalAppearanceSettingsPanel config={state.config} onReload={reload} />}
     {activeTab === "providers" && <section className="arc-settings-section"><SectionTitle icon={<Network />} eyebrow="Moteurs IA" title="Connexions et API" description="Les connexions restent disponibles simultanément. Une clé enregistrée n’est jamais réaffichée." />
       <div className="arc-provider-grid">{connections.map((provider) => <ProviderCard key={provider.id} provider={provider} state={state} setState={setState} reload={reload} />)}</div>
       <CustomConnection state={state} setState={setState} reload={reload} />
@@ -64,12 +66,6 @@ function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
     {activeTab === "access" && <ArcenalAccessManager config={state.config} env={state.env} reload={reload} />}
     {activeTab === "security" && <AutonomySettings state={state} setState={setState} />}
   </main>;
-}
-
-function AppearanceSettings(): ReactElement {
-  const { mode, setMode } = useArcColorMode();
-  const options: Array<{ icon: ReactElement; id: ArcColorMode; label: string }> = [{ icon: <Sun />, id: "light", label: "Clair" }, { icon: <Moon />, id: "dark", label: "Sombre" }, { icon: <Monitor />, id: "system", label: "Système" }];
-  return <section className="arc-appearance" aria-label="Apparence"><strong>Thème</strong><div>{options.map((option) => <button aria-pressed={mode === option.id} key={option.id} onClick={() => setMode(option.id)} type="button">{option.icon}<span>{option.label}</span></button>)}</div></section>;
 }
 
 function SectionTitle({ icon, eyebrow, title, description }: { icon: ReactElement; eyebrow: string; title: string; description: string }): ReactElement {

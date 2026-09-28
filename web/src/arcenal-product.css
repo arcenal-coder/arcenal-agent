@@ -57,13 +57,13 @@
 .arc-alert { display: block; padding: 10px 12px; border-radius: 7px; font-size: 11px; }
 .arc-alert-error { border: 1px solid rgba(132, 47, 71, 0.2); color: #6d263b; background: rgba(132, 47, 71, 0.08); }
 .arc-alert-success { border: 1px solid rgba(36, 104, 92, 0.2); color: var(--arc-emerald); background: rgba(36, 104, 92, 0.08); }
-.arc-primary-button { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border: 0; border-radius: 12px; color: #fff; background: var(--arc-wine); box-shadow: 0 8px 18px rgba(212, 93, 54, 0.24); font-size: 11px; font-weight: 750; cursor: pointer; }
+.arc-primary-button { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border: 0; border-radius: 12px; color: #fff; background: var(--arc-action); box-shadow: 0 8px 18px rgba(212, 93, 54, 0.24); font-size: 11px; font-weight: 750; cursor: pointer; }
 .arc-primary-button:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
 .arc-primary-button:disabled { cursor: not-allowed; opacity: 0.45; }
 .arc-primary-button svg { width: 16px; }
 .arc-secondary-button { display: inline-flex; min-height: 38px; align-items: center; gap: 6px; padding: 0 11px; border: 1px solid var(--arc-line); border-radius: 7px; color: var(--arc-prussian); background: rgba(255, 255, 255, 0.7); font-size: 9px; font-weight: 750; cursor: pointer; }
 .arc-secondary-button svg { width: 14px; }
-.arc-text-link { color: var(--arc-prussian); font-size: 10px; font-weight: 700; }
+.arc-text-link { color: var(--arc-link); font-size: 10px; font-weight: 700; }
 
 .arc-agent-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.7fr); gap: 20px; margin-top: 26px; }
 .arc-agent-main,
@@ -142,6 +142,27 @@
 .arc-settings-section-title small { color: var(--arc-wine); font-size: 8px; font-weight: 800; text-transform: uppercase; }
 .arc-settings-section-title h2 { margin: 2px 0; font-family: var(--arc-font-display); font-size: 24px; font-weight: 400; }
 .arc-settings-section-title p { margin: 0; color: var(--arc-muted); font-size: 9px; }
+.arc-general-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+.arc-system-identity { display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); align-items: center; gap: 12px; margin: 6px 0 18px; padding: 16px; border: 1px solid var(--arc-line); border-radius: 14px; background: var(--arc-cream, #fff7e8); }
+.arc-system-identity > svg { width: 24px; color: var(--arc-wine); }
+.arc-system-identity dl { min-width: 0; margin: 0; }
+.arc-system-identity dt { color: var(--arc-muted); font-size: 7px; font-weight: 800; text-transform: uppercase; }
+.arc-system-identity dd { overflow: hidden; margin: 3px 0 0; color: var(--arc-ink); font-size: 9px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.arc-settings-status { margin: 0 0 12px; color: var(--arc-muted); font-size: 9px; }
+.arc-appearance-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.arc-color-field { display: grid; min-height: 58px; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--arc-line); border-radius: 10px; background: rgba(255, 255, 255, 0.68); }
+.arc-color-field span { color: var(--arc-muted); font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.arc-color-field input { width: 34px; height: 28px; padding: 0; border: 0; background: transparent; }
+.arc-color-field code { color: var(--arc-text); font-size: 8px; }
+.arc-appearance-preview { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; margin: 3px 0 18px; padding: 16px; border: 1px solid var(--arc-line); border-radius: 14px; background: linear-gradient(135deg, rgba(255,255,255,.84), rgba(255,247,232,.64)); }
+.arc-preview-brand { display: grid; width: 54px; height: 54px; place-items: center; overflow: hidden; border-radius: 12px; color: #fff; background: var(--arc-wine); }
+.arc-preview-brand img { width: 100%; height: 100%; object-fit: contain; }
+.arc-preview-brand svg { width: 20px; }
+.arc-appearance-preview > div:nth-child(2) { display: flex; flex-direction: column; gap: 3px; }
+.arc-appearance-preview small { color: var(--arc-muted); font-size: 7px; text-transform: uppercase; }
+.arc-appearance-preview strong { color: var(--arc-text); font-size: 12px; }
+.arc-appearance-preview a { color: var(--arc-link); font-size: 9px; }
+.arc-appearance-preview button { min-height: 36px; padding: 0 13px; border: 0; border-radius: 9px; color: #fff; background: var(--arc-action); font-size: 9px; font-weight: 750; }
 .arc-provider-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .arc-provider-card { padding: 17px; border: 1px solid var(--arc-line); border-radius: 14px; background: rgba(255, 253, 248, 0.72); }
 .arc-provider-card[data-configured="true"] { border-color: rgba(36, 104, 92, 0.34); }
@@ -437,6 +458,9 @@ html[data-arc-color-mode="dark"] .arc-field select,
 html[data-arc-color-mode="dark"] .arc-access-form input,
 html[data-arc-color-mode="dark"] .arc-access-form select,
 html[data-arc-color-mode="dark"] .arc-custom-connection input { color: var(--arc-text); background: #17191e; }
+html[data-arc-color-mode="dark"] .arc-system-identity,
+html[data-arc-color-mode="dark"] .arc-color-field,
+html[data-arc-color-mode="dark"] .arc-appearance-preview { background: #1d2026; }
 html[data-arc-color-mode="dark"] .arc-appearance,
 html[data-arc-color-mode="dark"] .arc-lda-register,
 html[data-arc-color-mode="dark"] .arc-lda-toolbar,
@@ -458,6 +482,11 @@ html[data-arc-color-mode="dark"] .arc-access-card button { color: var(--arc-text
   .arc-primary-tab small { display: none; }
   .arc-primary-tab strong { font-size: 9px; }
   .arc-agent-card { grid-template-columns: 42px 1fr; }
+  .arc-general-grid,
+  .arc-appearance-form { grid-template-columns: 1fr; }
+  .arc-system-identity { grid-template-columns: auto 1fr; }
+  .arc-appearance-preview { grid-template-columns: auto 1fr; }
+  .arc-appearance-preview > button { grid-column: 1 / -1; }
   .arc-card-action { grid-column: 1 / -1; text-align: center; }
   .arc-form-row, .arc-connectors ul { grid-template-columns: 1fr; }
   .arc-provider-grid, .arc-autonomy-grid, .arc-custom-connection, .arc-access-form { grid-template-columns: 1fr; }

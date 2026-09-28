@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -175,6 +176,48 @@ def _memory() -> dict[str, float]:
     }
 
 
+def _installed_version() -> str:
+    try:
+        return version("hermes-agent")
+    except PackageNotFoundError:
+        from hermes_cli import __version__
+
+        return f"{__version__}+arcenal"
+
+
+def _os_release_name(path: Path = Path("/etc/os-release")) -> str:
+    try:
+        values = dict(line.split("=", 1) for line in path.read_text().splitlines() if "=" in line)
+    except OSError:
+        return "Indisponible"
+    return values.get("PRETTY_NAME", "Indisponible").strip('"')
+
+
+def _main_domain(path: Path = Path("/etc/yunohost/current_host")) -> str:
+    try:
+        return path.read_text().strip() or platform.node()
+    except OSError:
+        return platform.node()
+
+
+def _yunohost_version() -> str:
+    code, output = _run(["yunohost", "--version"])
+    if code != 0 or not output:
+        return "Non détecté"
+    return output.splitlines()[0].strip()
+
+
+def _platform_versions() -> dict[str, str]:
+    from hermes_cli import __version__
+
+    return {
+        "arc": _installed_version(),
+        "debian": _os_release_name(),
+        "hermes": __version__,
+        "yunohost": _yunohost_version(),
+    }
+
+
 def collect_overview() -> dict[str, Any]:
     """Construit un instantané système stable et sérialisable."""
     disk = shutil.disk_usage("/")
@@ -205,6 +248,8 @@ def collect_overview() -> dict[str, Any]:
             "hostname": platform.node(),
             "kernel": platform.release(),
             "yunohost": Path("/etc/yunohost/installed").exists(),
+            "domain": _main_domain(),
+            "versions": _platform_versions(),
         },
         "resources": {
             "disk": {"total": disk.total, "used": disk.used, "percent": disk_percent},

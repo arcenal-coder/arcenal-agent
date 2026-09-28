@@ -1,4 +1,5 @@
 export const ARCENAL_SETTINGS_TABS = [
+  { id: "general", label: "Général" },
   { id: "appearance", label: "Apparence" },
   { id: "providers", label: "Fournisseurs IA" },
   { id: "access", label: "Accès" },
