@@ -70,3 +70,17 @@ def consume_approval(approval_id: str, actor: str, action_id: str, target: str |
         ).fetchone()
         _validate_row(row, actor, action_id, target)
         connection.execute("DELETE FROM approvals WHERE id = ?", (approval_id,))
+
+
+def pending_approvals(limit: int = 100) -> list[dict[str, object]]:
+    """Expose les confirmations actives sans divulguer leur jeton."""
+    if limit < 1 or limit > 500:
+        raise ApprovalError("La limite de confirmations est invalide.")
+    now = int(time.time())
+    with _connect() as connection:
+        connection.execute("DELETE FROM approvals WHERE expires_at < ?", (now,))
+        rows = connection.execute(
+            "SELECT actor, action_id, target, expires_at FROM approvals ORDER BY expires_at LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [{"actor": row[0], "action_id": row[1], "target": row[2], "expires_at": row[3]} for row in rows]

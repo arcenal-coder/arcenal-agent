@@ -73,3 +73,47 @@ def append_event(event: str, actor: str, details: Mapping[str, object]) -> dict[
     except OSError as exc:
         raise AuditWriteError("Le journal d'audit ARCenal est indisponible.") from exc
     return record
+
+
+def read_events(limit: int = 100) -> list[dict[str, object]]:
+    """Lit les dernières preuves après validation de la chaîne disponible."""
+    if limit < 1 or limit > 500:
+        raise AuditWriteError("La limite de lecture d’audit est invalide.")
+    path = _audit_path()
+    if not path.is_file():
+        return []
+    try:
+        records = [_decode_event(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    except OSError as exc:
+        raise AuditWriteError("Le journal d’audit ARCenal est illisible.") from exc
+    _verify_chain(records)
+    return records[-limit:]
+
+
+def _decode_event(line: str) -> dict[str, object]:
+    try:
+        value = json.loads(line)
+    except json.JSONDecodeError as exc:
+        raise AuditWriteError("Le journal d’audit ARCenal est corrompu.") from exc
+    if not isinstance(value, dict):
+        raise AuditWriteError("Une preuve d’audit est invalide.")
+    return value
+
+
+def _verify_chain(records: list[dict[str, object]]) -> None:
+    previous_hash = ""
+    for record in records:
+        expected_previous = str(record.get("previous_hash") or "")
+        if expected_previous != previous_hash:
+            raise AuditWriteError("La chaîne d’audit ARCenal est rompue.")
+        previous_hash = _verified_hash(record)
+
+
+def _verified_hash(record: dict[str, object]) -> str:
+    claimed = record.get("hash")
+    payload = {key: value for key, value in record.items() if key != "hash"}
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    expected = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    if claimed != expected:
+        raise AuditWriteError("L’empreinte d’audit ARCenal est invalide.")
+    return expected

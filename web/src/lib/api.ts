@@ -524,6 +524,20 @@ export const api = {
     fetchJSON<ArcenalSystemInventory>(
       "/api/plugins/arcenal-supervisor/system/inventory",
     ),
+  getArcenalSecurityOverview: () =>
+    fetchJSON<ArcenalSecurityOverview>("/api/arcenal-control/security/overview"),
+  prepareArcenalAction: (actionId: string, target: string | null, humanConfirmed = false) =>
+    fetchJSON<ArcenalActionDecision>("/api/arcenal-control/actions/prepare", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action_id: actionId, target, human_confirmed: humanConfirmed }),
+    }),
+  executeArcenalAction: (actionId: string, target: string | null, approvalId?: string) =>
+    fetchJSON<ArcenalActionExecution>("/api/arcenal-control/actions/execute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action_id: actionId, target, approval_id: approvalId ?? null }),
+    }),
   getArcenalManagedFiles: (category: ArcenalManagedFileCategory) =>
     fetchJSON<ArcenalManagedFilesResponse>(
       `/api/plugins/arcenal-supervisor/managed-files?category=${encodeURIComponent(category)}`,
@@ -2394,6 +2408,52 @@ export interface ArcenalSystemInventory {
   errors: string[];
   updates: ArcenalSystemCollection;
   users: ArcenalSystemCollection;
+}
+
+export interface ArcenalSecurityAction {
+  allowed_targets: string[];
+  authorization: number;
+  consequence: string;
+  description: string;
+  id: string;
+  risk: "none" | "low" | "medium" | "high";
+  rollback: string;
+}
+
+export interface ArcenalSecurityApproval {
+  action_id: string;
+  actor: string;
+  expires_at: number;
+  target: string | null;
+}
+
+export interface ArcenalAuditEvent {
+  actor: string;
+  details: Record<string, unknown>;
+  event: string;
+  hash: string;
+  previous_hash: string;
+  timestamp: string;
+}
+
+export interface ArcenalSecurityOverview {
+  actions: ArcenalSecurityAction[];
+  actor: { roles: string[]; username: string };
+  approvals: ArcenalSecurityApproval[];
+  audit: { events: ArcenalAuditEvent[]; integrity: boolean };
+  gateways: { control: boolean; readonly: boolean };
+}
+
+export interface ArcenalActionDecision {
+  action: ArcenalSecurityAction;
+  approval_id?: string;
+  status: "ready" | "confirmation_required";
+}
+
+export interface ArcenalActionExecution {
+  action: ArcenalSecurityAction;
+  result: Record<string, unknown>;
+  status: "completed";
 }
 
 export type ArcenalManagedFileCategory = "context" | "directive" | "memory";

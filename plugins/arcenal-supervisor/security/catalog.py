@@ -36,6 +36,34 @@ ACTION_CATALOG: Mapping[str, ActionDefinition] = MappingProxyType(
             "Aucune modification du serveur.",
             "Aucun retour arrière requis.",
         ),
+        "yunohost.domains.read": ActionDefinition(
+            "yunohost.domains.read", AuthorizationLevel.READ, RiskLevel.NONE,
+            "Lister les domaines YunoHost.", "Aucune modification du serveur.", "Aucun retour arrière requis.",
+        ),
+        "yunohost.certificate.read": ActionDefinition(
+            "yunohost.certificate.read", AuthorizationLevel.READ, RiskLevel.NONE,
+            "Lire l’état d’un certificat YunoHost.", "Aucune modification du serveur.", "Aucun retour arrière requis.",
+        ),
+        "yunohost.backups.read": ActionDefinition(
+            "yunohost.backups.read", AuthorizationLevel.READ, RiskLevel.NONE,
+            "Lister les sauvegardes YunoHost.", "Aucune modification du serveur.", "Aucun retour arrière requis.",
+        ),
+        "yunohost.users.read": ActionDefinition(
+            "yunohost.users.read", AuthorizationLevel.READ, RiskLevel.NONE,
+            "Lister les comptes YunoHost.", "Aucune modification du serveur.", "Aucun retour arrière requis.",
+        ),
+        "yunohost.diagnostics.read": ActionDefinition(
+            "yunohost.diagnostics.read", AuthorizationLevel.READ, RiskLevel.NONE,
+            "Lire les diagnostics YunoHost.", "Aucune modification du serveur.", "Aucun retour arrière requis.",
+        ),
+        "yunohost.updates.read": ActionDefinition(
+            "yunohost.updates.read", AuthorizationLevel.READ, RiskLevel.NONE,
+            "Lister les mises à jour applicatives.", "Aucune modification du serveur.", "Aucun retour arrière requis.",
+        ),
+        "system.errors.read": ActionDefinition(
+            "system.errors.read", AuthorizationLevel.READ, RiskLevel.NONE,
+            "Lire les erreurs système récentes.", "Aucune modification du serveur.", "Aucun retour arrière requis.",
+        ),
         "yunohost.diagnosis.refresh": ActionDefinition(
             "yunohost.diagnosis.refresh",
             AuthorizationLevel.CONTROLLED,

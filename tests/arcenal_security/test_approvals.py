@@ -22,7 +22,7 @@ if "arcenal_security" not in sys.modules:
     sys.modules[SPEC.name] = module
     SPEC.loader.exec_module(module)
 
-from arcenal_security.approvals import ApprovalError, consume_approval, issue_approval  # noqa: E402
+from arcenal_security.approvals import ApprovalError, consume_approval, issue_approval, pending_approvals  # noqa: E402
 
 
 class ApprovalTests(unittest.TestCase):
@@ -50,6 +50,14 @@ class ApprovalTests(unittest.TestCase):
     def test_invalid_expiry_is_rejected(self) -> None:
         with self.assertRaises(ApprovalError):
             issue_approval("admin", "nginx.reload", None, ttl_seconds=0)
+
+    def test_pending_approval_never_exposes_token(self) -> None:
+        approval_id = issue_approval("admin", "service.restart", "nginx")
+
+        pending = pending_approvals()
+
+        self.assertEqual(pending[0]["actor"], "admin")
+        self.assertNotIn(approval_id, str(pending))
 
 
 if __name__ == "__main__":

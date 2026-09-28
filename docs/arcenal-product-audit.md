@@ -93,8 +93,8 @@ doit être unifié avec l'API de contrôle.
 | Vue Système | EXISTANT | Santé, versions, CPU, mémoire, stockage, charge, services, applications, mises à jour, domaines, certificats, sauvegardes, diagnostics et erreurs sont lus via le broker YunoHost fermé. |
 | Moteur de permissions | EXISTANT | Quatre niveaux, rôles, cibles et refus par défaut testés. |
 | Passerelle privilégiée | PARTIEL | Séparée et fermée, mais seulement six actions et trois mutations. |
-| Confirmation renforcée | PARTIEL | Jeton à usage unique présent ; présentation complète et unification de tous les chemins manquent. |
-| Centre de sécurité | ABSENT | Audit backend présent, aucune vue administrateurs, rôles, sessions, confirmations ou événements. |
+| Confirmation renforcée | EXISTANT | Préparation, confirmation humaine contextualisée et jeton à usage unique sont unifiés dans le processus de contrôle séparé. |
+| Centre de sécurité | EXISTANT | La vue administrateur présente identité YunoHost, rôles, passerelles, catalogue fermé, confirmations actives et journal d’audit chaîné. |
 | Sauvegardes | PARTIEL | Scripts de sauvegarde/restauration ; aucun centre, état, déclenchement ou recette complète sur le serveur en ligne. |
 | Premier démarrage | ABSENT | Pas d'assistant de vérification, identité, permissions et diagnostic. |
 | Tests de conformité CDC | À REFACTORISER | Nombreux tests unitaires, mais aucune matrice AC ni recette de parcours complète. |
@@ -147,7 +147,7 @@ doit être unifié avec l'API de contrôle.
 9. Achever le volet Agents de bout en bout.
 10. Renforcer le workflow documentaire et la citation RAG dans le chat.
 11. Livrer Système, puis étendre les actions YunoHost par cas d'usage.
-12. Livrer le centre Sécurité et le centre Sauvegardes.
+12. Livrer le centre Sauvegardes et ses opérations confirmées.
 13. Livrer l'assistant de premier démarrage et le diagnostic final.
 14. Exécuter la recette complète du paquet : installation, mise à jour,
     sauvegarde, restauration, permissions, parcours et régression.

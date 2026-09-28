@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from security import ACTION_CATALOG, ActionRequest, Actor, evaluate_action
-from security.approvals import ApprovalError, consume_approval, issue_approval
-from security.audit import append_event
+from security.approvals import ApprovalError, consume_approval, issue_approval, pending_approvals
+from security.audit import AuditWriteError, append_event, read_events
 from security.broker_client import BrokerUnavailableError, execute
 from security.identity import AdministratorDeniedError, AdministratorLookupError, administrator_actor
 from security.models import SecurityContractError
@@ -70,6 +71,26 @@ def health(remote_user: str | None = Header(default=None, alias="Remote-User")) 
 def actions(remote_user: str | None = Header(default=None, alias="Remote-User")) -> dict[str, object]:
     _actor(remote_user)
     return {"actions": [_public_action(key) for key in ACTION_CATALOG]}
+
+
+@app.get("/security/overview")
+def security_overview(remote_user: str | None = Header(default=None, alias="Remote-User")) -> dict[str, object]:
+    actor = _actor(remote_user)
+    try:
+        events = read_events(100)
+        approvals = pending_approvals(100)
+    except (AuditWriteError, ApprovalError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {
+        "actor": {"username": actor.username, "roles": list(actor.roles)},
+        "actions": [_public_action(key) for key in ACTION_CATALOG],
+        "approvals": approvals,
+        "audit": {"events": events, "integrity": True},
+        "gateways": {
+            "control": Path("/run/arcenal-control/privileged.sock").exists(),
+            "readonly": Path("/run/arcenal-readonly/query.sock").exists(),
+        },
+    }
 
 
 @app.post("/actions/prepare")

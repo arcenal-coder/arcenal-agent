@@ -9,6 +9,7 @@ import { ArcenalGeneralSettingsPanel } from "@/components/ArcenalGeneralSettings
 import { ArcenalManagedFilesSettingsPanel } from "@/components/ArcenalManagedFilesSettings";
 import { ArcenalMemorySettingsPanel } from "@/components/ArcenalMemorySettings";
 import { ArcenalBackupSettingsPanel, ArcenalSystemSettingsPanel } from "@/components/ArcenalSystemSettings";
+import { ArcenalSecuritySettingsPanel } from "@/components/ArcenalSecuritySettings";
 import { isProviderStatusesResponse } from "@/lib/arcenal-provider-status";
 import { ARCENAL_SETTINGS_TABS, type ArcenalSettingsTab } from "@/lib/arcenal-settings-tabs";
 
@@ -79,7 +80,7 @@ function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
     {activeTab === "access" && <ArcenalAccessManager config={state.config} env={state.env} reload={reload} />}
     {activeTab === "tools" && <ArcenalCapabilitiesSettings />}
     {activeTab === "system" && <ArcenalSystemSettingsPanel />}
-    {activeTab === "security" && <AutonomySettings state={state} setState={setState} />}
+    {activeTab === "security" && <><ArcenalSecuritySettingsPanel /><AutonomySettings state={state} setState={setState} /></>}
     {activeTab === "backups" && <ArcenalBackupSettingsPanel />}
   </main>;
 }

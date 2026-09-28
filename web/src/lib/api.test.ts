@@ -282,6 +282,31 @@ describe("api mémoire ARCenal", () => {
   });
 });
 
+describe("api du centre de sécurité ARCenal", () => {
+  it("charge la vue sécurité auprès du processus séparé", async () => {
+    const fetchMock = jsonFetchMock({ actions: [], actor: {}, approvals: [], audit: {}, gateways: {} });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.getArcenalSecurityOverview();
+    expect(fetchMock).toHaveBeenCalledWith("/api/arcenal-control/security/overview", expect.objectContaining({ credentials: "include" }));
+  });
+
+  it("lie la préparation à une action et sa cible exactes", async () => {
+    const fetchMock = jsonFetchMock({ status: "confirmation_required" });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.prepareArcenalAction("service.restart", "nginx", true);
+    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(options.body).toBe(JSON.stringify({ action_id: "service.restart", target: "nginx", human_confirmed: true }));
+  });
+
+  it("transmet la preuve temporaire uniquement pendant l’exécution", async () => {
+    const fetchMock = jsonFetchMock({ status: "completed" });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.executeArcenalAction("nginx.reload", null, "preuve-temporaire");
+    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(options.body).toBe(JSON.stringify({ action_id: "nginx.reload", target: null, approval_id: "preuve-temporaire" }));
+  });
+});
+
 describe("api fournisseurs ARCenal", () => {
   it("teste un fournisseur sans persister son secret", async () => {
     const fetchMock = jsonFetchMock({ provider: "mistral", connection: "connected", models: [] });

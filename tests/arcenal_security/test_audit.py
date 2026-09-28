@@ -23,7 +23,7 @@ if "arcenal_security" not in sys.modules:
     sys.modules[SPEC.name] = module
     SPEC.loader.exec_module(module)
 
-from arcenal_security.audit import AuditWriteError, append_event  # noqa: E402
+from arcenal_security.audit import AuditWriteError, append_event, read_events  # noqa: E402
 
 
 class AuditTests(unittest.TestCase):
@@ -53,6 +53,34 @@ class AuditTests(unittest.TestCase):
 
             with self.assertRaises(AuditWriteError):
                 append_event("action.requested", "admin", {})
+
+    def test_recent_events_are_verified_before_reading(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            os.environ["ARCENAL_AUDIT_DIR"] = directory
+            append_event("action.requested", "admin", {"action_id": "nginx.reload"})
+            events = read_events(10)
+
+        self.assertEqual(events[0]["actor"], "admin")
+
+    def test_tampered_event_is_rejected_on_read(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            os.environ["ARCENAL_AUDIT_DIR"] = directory
+            append_event("action.requested", "admin", {})
+            path = Path(directory, "actions.jsonl")
+            path.write_text(path.read_text().replace("admin", "intrus"), encoding="utf-8")
+
+            with self.assertRaises(AuditWriteError):
+                read_events()
+
+    def test_chain_cannot_start_from_an_unknown_event(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            os.environ["ARCENAL_AUDIT_DIR"] = directory
+            record = append_event("action.requested", "admin", {})
+            record["previous_hash"] = "a" * 64
+            Path(directory, "actions.jsonl").write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+            with self.assertRaises(AuditWriteError):
+                read_events()
 
 
 if __name__ == "__main__":
