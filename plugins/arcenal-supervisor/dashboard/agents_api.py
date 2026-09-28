@@ -42,7 +42,7 @@ def _profile_dir(name: str) -> Path:
 
 
 def _memory_path(name: str) -> Path:
-    root = _profile_dir(name)
+    root = _profile_dir(name).resolve()
     path = root / "memories" / "MEMORY.md"
     if root not in path.resolve().parents:
         raise HTTPException(status_code=422, detail="Chemin de mémoire invalide.")
