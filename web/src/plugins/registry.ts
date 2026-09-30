@@ -34,6 +34,7 @@ import { Select, SelectOption } from "@nous-research/ui/ui/components/select";
 import { Card, CardHeader, CardTitle, CardContent } from "@nous-research/ui/ui/components/card";
 import { Input } from "@nous-research/ui/ui/components/input";
 import { Label } from "@nous-research/ui/ui/components/label";
+import { Markdown } from "@/components/Markdown";
 import { Separator } from "@nous-research/ui/ui/components/separator";
 import { Tabs, TabsList, TabsTrigger } from "@nous-research/ui/ui/components/tabs";
 import { useI18n } from "@/i18n";
@@ -177,6 +178,7 @@ export function exposePluginSDK() {
       DialogTitle,
       Input,
       Label,
+      Markdown,
       Select,
       SelectOption,
       Separator,

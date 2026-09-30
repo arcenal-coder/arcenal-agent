@@ -32,6 +32,7 @@ describe("plugin SDK dialog/toast surface", () => {
     expect(sdk.components.DialogClose).toBeDefined();
     expect(sdk.components.ConfirmDialog).toBeDefined();
     expect(sdk.components.Toast).toBeDefined();
+    expect(sdk.components.Markdown).toBeDefined();
   });
 
   it("exposes useToast and useConfirmDelete on hooks", () => {

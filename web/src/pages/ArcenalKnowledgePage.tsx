@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactElement } from "react";
 import { Link } from "react-router";
-import { BookOpen, Check, CircleAlert, FilePenLine, Files, GitFork, Library, Paperclip, Plus, Save, Search, X } from "lucide-react";
+import { BookOpen, Check, CircleAlert, ExternalLink, FilePenLine, Files, GitFork, Library, Paperclip, Plus, RefreshCw, RotateCcw, Save, Search, X } from "lucide-react";
 import { ArcenalLdaRegister } from "@/components/ArcenalLdaRegister";
 import { ArcenalDocumentWorkflow } from "@/components/ArcenalDocumentWorkflow";
 import { Markdown } from "@/components/Markdown";
-import { api, type ArcenalDocumentSummary, type ArcenalKnowledgeOverview } from "@/lib/api";
+import { api, type ArcenalDocumentSummary, type ArcenalKnowledgeOverview, type ArcenalSilverBulletStatus } from "@/lib/api";
 import { createDocumentTemplate, filterDocuments, LDA_ATTACHMENT_ACCEPT, slugifyDocumentTitle, statusTone, validateLdaAttachment, type DocumentTemplateFields } from "@/lib/arcenal-knowledge";
 
 type KnowledgeMode = "vault" | "lda" | "wiki";
@@ -20,6 +20,9 @@ export default function ArcenalKnowledgePage(): ReactElement {
   const [editorMode, setEditorMode] = useState<EditorMode>("read");
   const [newDocumentOpen, setNewDocumentOpen] = useState(false);
   const [busy, setBusy] = useState(true);
+  const [rebuilding, setRebuilding] = useState(false);
+  const [silverBullet, setSilverBullet] = useState<ArcenalSilverBulletStatus | null>(null);
+  const [synchronizing, setSynchronizing] = useState(false);
   const [error, setError] = useState("");
 
   const loadOverview = useCallback(async (): Promise<void> => {
@@ -40,6 +43,7 @@ export default function ArcenalKnowledgePage(): ReactElement {
     : documents[0]?.path ?? "";
 
   useEffect(() => { void loadOverview(); }, [loadOverview]);
+  useEffect(() => { void loadSilverBullet(setSilverBullet); }, []);
   useEffect(() => {
     if (!activePath) return;
     let cancelled = false;
@@ -96,6 +100,26 @@ export default function ArcenalKnowledgePage(): ReactElement {
     setMode("vault");
   };
 
+  const rebuildIndex = async (): Promise<void> => {
+    if (!window.confirm("Reconstruire l’index dérivé depuis les documents sources ?")) return;
+    setRebuilding(true);
+    try { await api.rebuildArcenalKnowledgeIndex(); await loadOverview(); }
+    catch (cause) { setError(errorMessage(cause, "Reconstruction de l’index impossible.")); }
+    finally { setRebuilding(false); }
+  };
+
+  const synchronize = async (): Promise<void> => {
+    setSynchronizing(true);
+    try {
+      await api.syncArcenalSilverBullet();
+      await Promise.all([loadOverview(), loadSilverBullet(setSilverBullet)]);
+    } catch (cause) {
+      setError(errorMessage(cause, "Synchronisation SilverBullet impossible."));
+    } finally {
+      setSynchronizing(false);
+    }
+  };
+
   return (
     <main className="arc-knowledge" aria-labelledby="knowledge-title">
       <KnowledgeHeader overview={overview} mode={mode} onModeChange={setMode} onCreate={() => setNewDocumentOpen(true)} />
@@ -103,7 +127,7 @@ export default function ArcenalKnowledgePage(): ReactElement {
       {mode === "lda" ? <ArcenalLdaRegister busy={busy} documents={overview?.documents ?? []} onArchive={archive} onCreate={() => setNewDocumentOpen(true)} onOpen={openFromLda} /> : <section className="arc-vault" aria-busy={busy}>
         <DocumentRail documents={filtered} selectedPath={activePath} query={query} mode={mode} onQuery={changeQuery} onSelect={setSelectedPath} />
         <DocumentCanvas document={selected} content={content} editorMode={editorMode} onContent={setContent} onMode={setEditorMode} onSave={() => void save()} />
-        <KnowledgeContext document={selected} overview={overview} mode={mode} onChanged={loadOverview} onError={setError} />
+        <KnowledgeContext document={selected} overview={overview} mode={mode} rebuilding={rebuilding} silverBullet={silverBullet} synchronizing={synchronizing} onRebuild={() => void rebuildIndex()} onSynchronize={() => void synchronize()} onChanged={loadOverview} onError={setError} />
       </section>}
       {newDocumentOpen && <NewDocumentDialog onClose={() => setNewDocumentOpen(false)} onCreated={async (path, attached) => { setNewDocumentOpen(false); await loadOverview(); setSelectedPath(path); setMode("vault"); setEditorMode(attached ? "read" : "edit"); }} />}
     </main>
@@ -112,6 +136,13 @@ export default function ArcenalKnowledgePage(): ReactElement {
 
 function errorMessage(cause: unknown, fallback: string): string {
   return cause instanceof Error ? cause.message : fallback;
+}
+
+async function loadSilverBullet(setStatus: (status: ArcenalSilverBulletStatus | null) => void): Promise<void> {
+  try { setStatus(await api.getArcenalSilverBulletStatus()); }
+  catch (cause) {
+    setStatus({ configured: false, connection: "error", documents: 0, last_error: errorMessage(cause, "État SilverBullet indisponible."), last_sync_at: null, service_url: "" });
+  }
 }
 
 function documentsForMode(overview: ArcenalKnowledgeOverview | null, mode: KnowledgeMode): ArcenalDocumentSummary[] {
@@ -149,7 +180,8 @@ function modeLabel(mode: KnowledgeMode): string {
 
 function DocumentCanvas({ document, content, editorMode, onContent, onMode, onSave }: { document: ArcenalDocumentSummary | null; content: string; editorMode: EditorMode; onContent: (content: string) => void; onMode: (mode: EditorMode) => void; onSave: () => void }): ReactElement {
   if (!document) return <EmptyDocumentCanvas />;
-  return <article className="arc-document-canvas"><header><div><span>{document.reference || "NOTE"} · v{document.version}</span><h2>{document.title}</h2></div><div className="arc-editor-actions"><button type="button" aria-pressed={editorMode === "read"} onClick={() => onMode("read")}>Lecture</button><button type="button" aria-pressed={editorMode === "edit"} onClick={() => onMode("edit")}>Édition</button>{editorMode === "edit" && <button type="button" className="save" onClick={onSave}><Save aria-hidden /> Enregistrer</button>}</div></header><div className="arc-document-body">{editorMode === "edit" ? <textarea aria-label="Contenu Markdown" value={content} onChange={(event) => onContent(event.target.value)} spellCheck /> : <Markdown content={contentWithoutFrontmatter(content)} />}</div></article>;
+  const visibleMode = document.read_only ? "read" : editorMode;
+  return <article className="arc-document-canvas"><header><div><span>{document.reference || "NOTE"} · v{document.version}</span><h2>{document.title}</h2>{document.read_only && <small>Source SilverBullet · synchronisée en lecture seule</small>}</div><div className="arc-editor-actions"><button type="button" aria-pressed={visibleMode === "read"} onClick={() => onMode("read")}>Lecture</button>{!document.read_only && <button type="button" aria-pressed={visibleMode === "edit"} onClick={() => onMode("edit")}>Édition</button>}{visibleMode === "edit" && <button type="button" className="save" onClick={onSave}><Save aria-hidden /> Enregistrer</button>}</div></header><div className="arc-document-body">{visibleMode === "edit" ? <textarea aria-label="Contenu Markdown" value={content} onChange={(event) => onContent(event.target.value)} spellCheck /> : <Markdown content={contentWithoutFrontmatter(content)} />}</div></article>;
 }
 
 function contentWithoutFrontmatter(content: string): string {
@@ -160,8 +192,37 @@ function EmptyDocumentCanvas(): ReactElement {
   return <article className="arc-document-canvas arc-empty-canvas"><Library aria-hidden /><h2>Le coffre est prêt</h2><p>Créez un document Markdown. ARC pourra ensuite le retrouver, le citer et l’inscrire dans la LDA lorsqu’il devient applicable.</p></article>;
 }
 
-function KnowledgeContext({ document, overview, mode, onChanged, onError }: { document: ArcenalDocumentSummary | null; overview: ArcenalKnowledgeOverview | null; mode: KnowledgeMode; onChanged: () => Promise<void>; onError: (message: string) => void }): ReactElement {
-  return <aside className="arc-knowledge-context"><section><span>État du corpus</span><div className="arc-stat-list"><Stat value={overview?.statistics.documents ?? 0} label="Documents" /><Stat value={overview?.statistics.pending ?? 0} label="À traiter" /><Stat value={overview?.statistics.overdue ?? 0} label="Revues échues" alert /></div></section>{document && <><section><span>Gouvernance</span><dl className="arc-metadata"><Meta label="Statut" value={document.status} /><Meta label="Propriétaire" value={document.owner || "Non défini"} /><Meta label="Approbateur" value={document.approved_by || "Non approuvé"} /><Meta label="Périmètre" value={document.scope || "Non défini"} /><Meta label="Prochaine revue" value={document.review_date || "Non planifiée"} /><Meta label="Versions conservées" value={String(document.history_count)} /></dl>{document.tags.length > 0 && <div className="arc-tags">{document.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}</section><ArcenalDocumentWorkflow document={document} onChanged={onChanged} onError={onError} /><RelationList title="Liens de la note" items={document.links} empty="Ajoutez [[Nom de note]] pour relier les connaissances." /><RelationList title="Liens entrants" items={document.backlinks} empty="Aucune note ne cite encore ce document." /></>}<section className="arc-publishing-rule"><Check aria-hidden /><p>{mode === "wiki" ? "Le wiki expose uniquement les versions applicables." : "ARC peut proposer une révision, jamais la publier sans approbation."}</p></section></aside>;
+function KnowledgeContext({ document, overview, mode, rebuilding, silverBullet, synchronizing, onRebuild, onSynchronize, onChanged, onError }: KnowledgeContextProps): ReactElement {
+  return <aside className="arc-knowledge-context"><SilverBulletStatus status={silverBullet} busy={synchronizing} onSynchronize={onSynchronize} /><IndexStatus overview={overview} rebuilding={rebuilding} onRebuild={onRebuild} /><section><span>État du corpus</span><div className="arc-stat-list"><Stat value={overview?.statistics.documents ?? 0} label="Documents" /><Stat value={overview?.statistics.pending ?? 0} label="À traiter" /><Stat value={overview?.statistics.overdue ?? 0} label="Revues échues" alert /></div></section>{document && <><section><span>Gouvernance</span><dl className="arc-metadata"><Meta label="Source" value={document.origin === "silverbullet" ? "SilverBullet" : "ARCenal"} /><Meta label="Statut" value={document.status} /><Meta label="Confidentialité" value={document.confidentiality} /><Meta label="Scopes" value={document.knowledge_scopes.join(", ")} /><Meta label="Indexé le" value={formatIndexDate(document.indexed_at)} /><Meta label="Propriétaire" value={document.owner || "Non défini"} /><Meta label="Approbateur" value={document.approved_by || "Non approuvé"} /><Meta label="Périmètre" value={document.scope || "Non défini"} /><Meta label="Prochaine revue" value={document.review_date || "Non planifiée"} /><Meta label="Versions conservées" value={String(document.history_count)} /></dl>{document.tags.length > 0 && <div className="arc-tags">{document.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>}</section>{!document.read_only && <ArcenalDocumentWorkflow document={document} onChanged={onChanged} onError={onError} />}<RelationList title="Liens de la note" items={document.links} empty="Ajoutez [[Nom de note]] pour relier les connaissances." /><RelationList title="Liens entrants" items={document.backlinks} empty="Aucune note ne cite encore ce document." /></>}<section className="arc-publishing-rule"><Check aria-hidden /><p>{mode === "wiki" ? "Le wiki expose uniquement les versions applicables." : "ARC peut proposer une révision, jamais la publier sans approbation."}</p></section></aside>;
+}
+
+function SilverBulletStatus({ status, busy, onSynchronize }: { status: ArcenalSilverBulletStatus | null; busy: boolean; onSynchronize: () => void }): ReactElement {
+  const configured = status?.configured === true;
+  const message = status?.last_error || (configured ? `Dernière synchronisation : ${formatIndexDate(status.last_sync_at)}` : "Ajoutez un accès API nommé SilverBullet dans Paramètres > Accès.");
+  return <section className="arc-silverbullet-status"><span>Coffre SilverBullet</span><strong>{configured ? `${status.documents} pages synchronisées` : "Connexion à configurer"}</strong><small>{message}</small><div>{configured && status.service_url && <a className="arc-secondary-button" href={status.service_url} target="_blank" rel="noreferrer"><ExternalLink aria-hidden /> Ouvrir</a>}<button type="button" className="arc-secondary-button" disabled={!configured || busy} onClick={onSynchronize}><RefreshCw aria-hidden />{busy ? "Synchronisation…" : "Synchroniser"}</button></div></section>;
+}
+
+interface KnowledgeContextProps {
+  document: ArcenalDocumentSummary | null;
+  mode: KnowledgeMode;
+  onChanged: () => Promise<void>;
+  onError: (message: string) => void;
+  onRebuild: () => void;
+  onSynchronize: () => void;
+  overview: ArcenalKnowledgeOverview | null;
+  rebuilding: boolean;
+  silverBullet: ArcenalSilverBulletStatus | null;
+  synchronizing: boolean;
+}
+
+function IndexStatus({ overview, rebuilding, onRebuild }: { overview: ArcenalKnowledgeOverview | null; rebuilding: boolean; onRebuild: () => void }): ReactElement {
+  const index = overview?.index;
+  return <section className="arc-index-status"><span>Index RAG central</span><div className="arc-stat-list"><Stat value={index?.documents ?? 0} label="Indexés" /><Stat value={index?.chunks ?? 0} label="Fragments" /><Stat value={index?.errors.length ?? 0} label="Erreurs" alert /></div><small>Dernière indexation : {formatIndexDate(index?.built_at ?? null)}</small><button type="button" className="arc-secondary-button" disabled={rebuilding} onClick={onRebuild}><RotateCcw aria-hidden />{rebuilding ? "Reconstruction…" : "Reconstruire l’index"}</button></section>;
+}
+
+function formatIndexDate(value: string | null): string {
+  if (!value) return "Jamais";
+  return new Intl.DateTimeFormat("fr-FR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
 function RelationList({ title, items, empty }: { title: string; items: string[]; empty: string }): ReactElement {

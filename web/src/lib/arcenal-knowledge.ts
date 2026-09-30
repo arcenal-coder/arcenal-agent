@@ -43,6 +43,9 @@ date_application: ${fields.validationDate?.trim() || ""}
 prochaine_revue: ""
 perimetre: ${fields.activity?.trim() || "ARCenal"}
 tags: []
+knowledge_scopes: [company]
+confidentialite: internal
+source_type: markdown
 ---
 # ${title}
 

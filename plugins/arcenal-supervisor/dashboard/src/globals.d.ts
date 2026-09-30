@@ -6,6 +6,9 @@ interface ArcenalPluginGateway {
 
 interface ArcenalPluginSdk {
   React: typeof React;
+  components: {
+    Markdown: React.ComponentType<{ content: string; streaming?: boolean }>;
+  };
   fetchJSON<Result>(url: string, init?: RequestInit): Promise<Result>;
   gateway: ArcenalPluginGateway;
 }

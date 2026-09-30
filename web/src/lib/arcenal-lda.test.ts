@@ -4,6 +4,7 @@ import { filterLdaDocuments, paginateLdaDocuments, uniqueLdaValues } from "@/lib
 
 function document(overrides: Partial<ArcenalDocumentSummary> = {}): ArcenalDocumentSummary {
   return {
+    approved_by: "",
     activity: "Qualité",
     application_date: "",
     attachment_name: "",
@@ -11,13 +12,18 @@ function document(overrides: Partial<ArcenalDocumentSummary> = {}): ArcenalDocum
     attachment_size: 0,
     backlinks: [],
     change_type: "Création",
+    confidentiality: "internal",
     excerpt: "",
     history_count: 0,
+    indexed_at: "2026-09-24T10:00:00Z",
+    knowledge_scopes: ["company"],
     links: [],
     number: "1",
     owner: "",
+    origin: "arcenal",
     path: "QSSERP/document.md",
     reason: "",
+    read_only: false,
     reference: "PRO-Q-01",
     revision: "1",
     review_date: "",

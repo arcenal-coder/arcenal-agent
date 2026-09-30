@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
+import pytest
+
 
 MODULE = Path(__file__).parents[1] / "plugins/arcenal-supervisor/dashboard/plugin_api.py"
 SPEC = importlib.util.spec_from_file_location("arcenal_supervisor_test", MODULE)
@@ -376,6 +378,37 @@ def test_knowledge_upload_stores_attachment_and_document(monkeypatch, tmp_path) 
     assert document["attachment_name"] == "procédure validée.pdf"
     assert attachment.read_bytes() == b"%PDF-1.7\nsource"
     assert "Document source" in supervisor.knowledge.read_document(payload.path)["content"]
+
+
+def test_knowledge_upload_extracts_text_into_the_rag(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    payload = supervisor.knowledge.DocumentWrite(path="QSSERP/consigne.md", content="# Consigne")
+
+    supervisor.knowledge.create_document_with_attachment(
+        payload, "consigne.txt", "text/plain", "Porter les EPI obligatoires.".encode()
+    )
+
+    content = supervisor.knowledge.read_document(payload.path)["content"]
+    assert "## Contenu extrait" in content
+    assert "Porter les EPI obligatoires." in content
+
+
+def test_knowledge_silverbullet_mirror_is_read_only(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    mirrored = tmp_path / "knowledge" / ".silverbullet" / "LDA" / "procedure.md"
+    mirrored.parent.mkdir(parents=True)
+    mirrored.write_text(_applicable_document(), encoding="utf-8")
+
+    overview = supervisor.knowledge.knowledge_overview()
+    document = next(item for item in overview["documents"] if item["path"].startswith(".silverbullet/"))
+
+    assert document["origin"] == "silverbullet"
+    assert document["read_only"] is True
+    with pytest.raises(supervisor.HTTPException) as raised:
+        supervisor.knowledge.write_document(
+            supervisor.knowledge.DocumentWrite(path=document["path"], content="# Modification")
+        )
+    assert raised.value.status_code == 409
 
 
 def test_knowledge_upload_rejects_unsupported_format(monkeypatch, tmp_path) -> None:

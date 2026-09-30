@@ -173,6 +173,20 @@ describe("api.transitionArcenalDocument", () => {
   });
 });
 
+describe("api.rebuildArcenalKnowledgeIndex", () => {
+  it("exige explicitement la reconstruction confirmée", async () => {
+    const fetchMock = jsonFetchMock({ built_at: "2026-09-30T10:00:00Z", index: {}, ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.rebuildArcenalKnowledgeIndex();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/knowledge/index/rebuild?confirmed=true",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+});
+
 describe("api.getArcenalSystemInventory", () => {
   it("interroge uniquement l’inventaire ARC en lecture", async () => {
     const fetchMock = jsonFetchMock({});

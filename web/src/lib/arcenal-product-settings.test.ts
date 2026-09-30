@@ -3,6 +3,7 @@ import {
   appearanceSettingsConfig,
   appearanceSettingsFromConfig,
   applyAppearance,
+  contrastingTextColor,
   generalSettingsConfig,
   generalSettingsFromConfig,
   isCssHexColor,
@@ -57,8 +58,17 @@ describe("paramètres produit ARCenal", () => {
     const properties = new Map<string, string>();
     const root = { style: { setProperty: (name: string, value: string): void => { properties.set(name, value); } } };
     applyAppearance({ ...appearanceSettingsFromConfig({}), accentColor: "#123456" }, root);
+    expect(properties.get("--arc-primary")).toBe("#123456");
+    expect(properties.get("--arc-primary-text")).toBe("#FFFFFF");
     expect(properties.get("--arc-wine")).toBe("#123456");
     expect(properties.get("--arc-action")).toBe("#D95A35");
+    expect(properties.get("--arc-action-text")).toBe("#FFFFFF");
+  });
+
+  it("choisit un texte lisible sur la couleur dominante", () => {
+    expect(contrastingTextColor("#FFFFFF")).toBe("#1F2937");
+    expect(contrastingTextColor("#000000")).toBe("#FFFFFF");
+    expect(contrastingTextColor("invalide")).toBe("#FFFFFF");
   });
 
   it("conserve l'identité de secours lorsque la configuration est incomplète", () => {

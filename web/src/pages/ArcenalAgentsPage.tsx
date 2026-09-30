@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactElement } from "react";
 import { Bot, Boxes, Brain, CheckCircle2, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import { ArcenalAgentForm } from "@/components/ArcenalAgentForm";
+import { ArcenalCoreAgentsPanel } from "@/components/ArcenalCoreAgentsPanel";
 import { api, type ProfileInfo } from "@/lib/api";
 import { emptyAgentDraft, specializedProfiles, type AgentDraft } from "@/lib/arcenal-agents";
 import {
@@ -68,6 +69,7 @@ function AgentsWorkspace(props: WorkspaceProps): ReactElement {
     <main className="arc-workspace arc-agents" aria-labelledby="agents-title">
       <WorkspaceHeading />
       {props.error && <p className="arc-alert arc-alert-error" role="alert">{props.error}</p>}
+      <ArcenalCoreAgentsPanel />
       <section className="arc-agent-main arc-agent-inventory">
         <InventoryHeading count={props.profiles.length} onCreate={props.onCreate} />
         <div className="arc-agent-grid">
@@ -94,7 +96,7 @@ function AgentDialog(props: WorkspaceProps & { mode: "create" | "edit" }): React
 }
 
 function InventoryHeading({ count, onCreate }: { count: number; onCreate: () => void }): ReactElement {
-  return <div className="arc-panel-heading"><div><span>Agents disponibles</span><h2>{count} spécialiste{count === 1 ? "" : "s"}</h2></div><button className="arc-primary-button" type="button" onClick={onCreate}><Plus aria-hidden />Créer un agent</button></div>;
+  return <div className="arc-panel-heading"><div><span>Profils Hermes spécialisés</span><h2>{count} profil{count === 1 ? "" : "s"} d’exécution</h2></div><button className="arc-primary-button" type="button" onClick={onCreate}><Plus aria-hidden />Créer un profil</button></div>;
 }
 
 function AgentCard({ profile, onEdit }: { profile: ProfileInfo; onEdit: (profile: ProfileInfo) => Promise<void> }): ReactElement {

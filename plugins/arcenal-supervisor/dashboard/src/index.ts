@@ -59,7 +59,7 @@ function EmptyConversation({ onPrompt }: { onPrompt: (prompt: string) => void })
 function Message({ message }: { message: ArcenalChatMessage }): ReturnType<typeof h> {
   return h("article", { className: `arc-chat-message is-${message.role}` },
     h("span", { className: "arc-chat-avatar" }, message.role === "assistant" ? "ARC" : "Vous"),
-    h("div", null, h("p", null, message.text)),
+    h("div", null, h(SDK.components.Markdown, { content: message.text })),
   );
 }
 

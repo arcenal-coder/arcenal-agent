@@ -516,6 +516,20 @@ export const api = {
     fetchJSON<ArcenalKnowledgeOverview>(
       "/api/plugins/arcenal-supervisor/knowledge/overview",
     ),
+  rebuildArcenalKnowledgeIndex: () =>
+    fetchJSON<ArcenalKnowledgeIndexRebuildResponse>(
+      "/api/plugins/arcenal-supervisor/knowledge/index/rebuild?confirmed=true",
+      { method: "POST" },
+    ),
+  getArcenalSilverBulletStatus: () =>
+    fetchJSON<ArcenalSilverBulletStatus>(
+      "/api/plugins/arcenal-supervisor/knowledge/silverbullet/status",
+    ),
+  syncArcenalSilverBullet: () =>
+    fetchJSON<ArcenalSilverBulletSyncResult>(
+      "/api/plugins/arcenal-supervisor/knowledge/silverbullet/sync",
+      { method: "POST" },
+    ),
   getArcenalSystemOverview: () =>
     fetchJSON<ArcenalSystemOverview>(
       "/api/plugins/arcenal-supervisor/overview",
@@ -2311,12 +2325,17 @@ export interface ArcenalDocumentSummary {
   change_type: string;
   excerpt: string;
   history_count: number;
+  indexed_at: string | null;
+  confidentiality: "public" | "internal" | "restricted" | "confidential" | "admin";
+  knowledge_scopes: string[];
   links: string[];
   number: string;
   owner: string;
+  origin: "arcenal" | "silverbullet";
   path: string;
   reference: string;
   reason: string;
+  read_only: boolean;
   revision: string;
   review_date: string;
   scope: string;
@@ -2342,6 +2361,44 @@ export interface ArcenalKnowledgeOverview {
   statistics: ArcenalKnowledgeStatistics;
   statuses: ArcenalDocumentStatus[];
   wiki: ArcenalDocumentSummary[];
+  index: ArcenalKnowledgeIndexStatus;
+}
+
+export interface ArcenalKnowledgeIndexStatus {
+  average_chunks_selected: number;
+  average_context_characters: number;
+  average_context_tokens_estimated: number;
+  average_documents_found: number;
+  average_duration_ms: number;
+  built_at: string | null;
+  chunks: number;
+  documents: number;
+  errors: string[];
+  no_result_rate: number;
+  searches: number;
+  sources_by_agent: Record<string, number>;
+}
+
+export interface ArcenalKnowledgeIndexRebuildResponse {
+  built_at: string;
+  index: ArcenalKnowledgeIndexStatus;
+  ok: boolean;
+}
+
+export interface ArcenalSilverBulletStatus {
+  configured: boolean;
+  connection: "connected" | "error" | "missing" | "never";
+  documents: number;
+  last_error: string;
+  last_sync_at: string | null;
+  service_url: string;
+}
+
+export interface ArcenalSilverBulletSyncResult {
+  downloaded: number;
+  removed: number;
+  synchronized_at: string;
+  unchanged: number;
 }
 
 export interface ArcenalDocumentResponse {

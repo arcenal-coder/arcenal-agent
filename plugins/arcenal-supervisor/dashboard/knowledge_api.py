@@ -5,9 +5,11 @@ from __future__ import annotations
 import mimetypes
 import os
 import re
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 from urllib.parse import quote
 
@@ -63,17 +65,21 @@ class WorkflowRequest(BaseModel):
 
 def knowledge_root() -> Path:
     """Retourne le coffre privé attaché au répertoire de données ARC."""
-    home = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
+    from hermes_constants import get_hermes_home
+
+    home = get_hermes_home()
     root = home / "knowledge"
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     return root.resolve()
 
 
-def _safe_path(relative_path: str) -> Path:
+def _safe_path(relative_path: str, writable: bool = False) -> Path:
     """Résout un chemin Markdown sans permettre de sortir du coffre."""
     candidate = Path(relative_path.strip().replace("\\", "/"))
     if candidate.is_absolute() or ".." in candidate.parts or ".history" in candidate.parts:
         raise HTTPException(status_code=422, detail="Chemin documentaire invalide.")
+    if writable and candidate.parts[:1] == (".silverbullet",):
+        raise HTTPException(status_code=409, detail="Modifiez ce document depuis SilverBullet, puis synchronisez ARC.")
     if candidate.suffix.lower() != ".md":
         raise HTTPException(status_code=422, detail="Seuls les documents Markdown sont acceptés.")
     target = (knowledge_root() / candidate).resolve()
@@ -177,6 +183,11 @@ def _document_summary(path: Path) -> dict[str, Any]:
         "excerpt": _excerpt(body),
         "updated_at": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(),
         "history_count": _history_count(path),
+        "confidentiality": metadata.get("confidentialite", "internal"),
+        "knowledge_scopes": _tags(metadata.get("knowledge_scopes", metadata.get("scopes", metadata.get("tags", "company")))) or ["company"],
+        "indexed_at": None,
+        "origin": "silverbullet" if relative.startswith(".silverbullet/") else "arcenal",
+        "read_only": relative.startswith(".silverbullet/"),
     }
 
 
@@ -223,13 +234,17 @@ def _is_overdue(raw_date: str) -> bool:
 def knowledge_overview() -> dict[str, Any]:
     """Produit les vues cohérentes du coffre, de la LDA et du wiki."""
     documents = _with_backlinks(list_documents())
-    applicable = [item for item in documents if item["status"] == "Applicable"]
+    status = _index_status()
+    indexed_at = status.get("built_at")
+    enriched = [{**item, "indexed_at": indexed_at} for item in documents]
+    applicable = [item for item in enriched if item["status"] == "Applicable"]
     return {
-        "documents": documents,
+        "documents": enriched,
         "lda": sorted(applicable, key=lambda item: (item["reference"], item["title"])),
         "wiki": sorted(applicable, key=lambda item: (item["type"], item["title"])),
         "statistics": _statistics(documents),
         "statuses": list(ALLOWED_STATUSES),
+        "index": status,
     }
 
 
@@ -262,6 +277,7 @@ def wiki_overview() -> dict[str, Any]:
         "wiki": published,
         "statistics": {"documents": len(published), "applicable": len(published), "pending": 0, "overdue": 0},
         "statuses": ["Applicable"],
+        "index": overview["index"],
     }
 
 
@@ -337,16 +353,17 @@ def read_document(relative_path: str) -> dict[str, Any]:
 
 def write_document(payload: DocumentWrite, allow_status_change: bool = True) -> dict[str, Any]:
     _validate_content(payload.content)
-    target = _safe_path(payload.path)
+    target = _safe_path(payload.path, writable=True)
     if target.is_file() and not allow_status_change:
         _reject_direct_status_change(target, payload.content)
     _archive_existing(target)
     _atomic_write(target, payload.content)
+    _rebuild_index()
     return {"ok": True, "document": _document_summary(target)}
 
 
 def create_document(payload: DocumentWrite) -> dict[str, Any]:
-    target = _safe_path(payload.path)
+    target = _safe_path(payload.path, writable=True)
     if target.exists():
         raise HTTPException(status_code=409, detail="Un document existe déjà à cet emplacement.")
     return write_document(payload)
@@ -434,7 +451,7 @@ def _history_summary(path: Path) -> dict[str, str]:
 def restore_history(path: str, version_id: str) -> dict[str, Any]:
     if not HISTORY_ID_RE.fullmatch(version_id):
         raise HTTPException(status_code=422, detail="Version historique invalide.")
-    target = _safe_path(path)
+    target = _safe_path(path, writable=True)
     version = _history_directory(target) / f"{version_id}.md"
     if not version.is_file():
         raise HTTPException(status_code=404, detail="Version historique introuvable.")
@@ -452,7 +469,7 @@ def _authenticated_actor(request: Request) -> str:
 def create_document_with_attachment(
     payload: DocumentWrite, filename: str, media_type: str, data: bytes
 ) -> dict[str, Any]:
-    target = _safe_path(payload.path)
+    target = _safe_path(payload.path, writable=True)
     if target.exists():
         raise HTTPException(status_code=409, detail="Un document existe déjà à cet emplacement.")
     safe_name = _safe_attachment_name(filename)
@@ -464,6 +481,7 @@ def create_document_with_attachment(
     _atomic_write_bytes(attachment, data)
     try:
         enriched = _with_attachment(payload.content, relative, safe_name, media_type, len(data))
+        enriched = _with_extracted_content(enriched, safe_name, data)
         return create_document(DocumentWrite(path=payload.path, content=enriched))
     except Exception:
         attachment.unlink(missing_ok=True)
@@ -503,6 +521,24 @@ def _with_attachment(content: str, path: Path, name: str, media_type: str, size:
         content = content.replace("---\n", f"---\n{metadata}", 1)
     encoded_path = quote(path.as_posix(), safe="")
     return f"{content.rstrip()}\n\n## Document source\n\n[{name}](/api/plugins/arcenal-supervisor/knowledge/attachment?path={encoded_path})\n"
+
+
+def _with_extracted_content(content: str, name: str, data: bytes) -> str:
+    core = _load_arc_core()
+    try:
+        extracted = core.extract_attachment_text(name, data)
+    except core.DocumentExtractionUnavailable as exc:
+        return _append_extraction_status(content, str(exc))
+    except core.DocumentExtractionError as exc:
+        if Path(name).suffix.casefold() == ".pdf":
+            return _append_extraction_status(content, str(exc))
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return f"{content.rstrip()}\n\n## Contenu extrait\n\n{extracted}\n"
+
+
+def _append_extraction_status(content: str, message: str) -> str:
+    safe_message = message.replace("\n", " ").replace("\r", " ")
+    return f"{content.rstrip()}\n\n## État de l’extraction\n\n{safe_message}\n"
 
 
 async def _read_upload(file: UploadFile) -> bytes:
@@ -546,9 +582,52 @@ def search_documents(query: str, limit: int = 8) -> list[dict[str, Any]]:
     return sorted(results, key=lambda item: (-item["score"], item["title"]))[:limit]
 
 
+def _load_arc_core() -> ModuleType:
+    name = "arcenal_arc_core"
+    if name in sys.modules:
+        return sys.modules[name]
+    from importlib.util import module_from_spec, spec_from_file_location
+
+    source = Path(__file__).parents[1] / "arc_core" / "__init__.py"
+    spec = spec_from_file_location(name, source, submodule_search_locations=[str(source.parent)])
+    if spec is None or spec.loader is None:
+        raise RuntimeError("ARC Core est introuvable.")
+    module = module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _index_status() -> dict[str, object]:
+    from hermes_constants import get_hermes_home
+
+    status = _load_arc_core().index_status(get_hermes_home())
+    return status.model_dump(mode="json")
+
+
+def _rebuild_index() -> dict[str, object]:
+    from hermes_constants import get_hermes_home
+
+    index = _load_arc_core().rebuild_index(get_hermes_home())
+    return {"ok": True, "index": _index_status(), "built_at": index.built_at.isoformat()}
+
+
 @router.get("/overview")
 def overview() -> dict[str, Any]:
     return knowledge_overview()
+
+
+@router.get("/index/status")
+def knowledge_index_status() -> dict[str, object]:
+    return _index_status()
+
+
+@router.post("/index/rebuild")
+def rebuild_knowledge_index(request: Request) -> dict[str, object]:
+    _authenticated_actor(request)
+    if request.query_params.get("confirmed") != "true":
+        raise HTTPException(status_code=409, detail="La reconstruction de l’index doit être confirmée.")
+    return _rebuild_index()
 
 
 @router.get("/document")

@@ -9,7 +9,8 @@ from types import ModuleType
 from unittest import TestCase
 from unittest.mock import patch
 
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
 
 
 def _load_module() -> ModuleType:
@@ -66,3 +67,17 @@ class KnowledgeWorkflowTests(TestCase):
             restored = MODULE.read_document("note.md")["content"]
 
         self.assertEqual(restored, "# Première")
+
+    def test_index_rebuild_requires_yunohost_identity_and_confirmation(self) -> None:
+        app = FastAPI()
+        app.include_router(MODULE.router)
+        client = TestClient(app)
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"HERMES_HOME": directory}):
+            anonymous = client.post("/knowledge/index/rebuild?confirmed=true")
+            unconfirmed = client.post("/knowledge/index/rebuild", headers={"Remote-User": "admin"})
+            rebuilt = client.post("/knowledge/index/rebuild?confirmed=true", headers={"Remote-User": "admin"})
+
+        self.assertEqual(anonymous.status_code, 401)
+        self.assertEqual(unconfirmed.status_code, 409)
+        self.assertEqual(rebuilt.status_code, 200)
+        self.assertTrue(rebuilt.json()["ok"])

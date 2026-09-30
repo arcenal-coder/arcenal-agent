@@ -1,0 +1,75 @@
+/* Contrat sémantique unique partagé par la façade ARC et ses plugins. */
+.arcenal-shell {
+  --arc-background: #fff9ef;
+  --arc-surface: #fffdf8;
+  --arc-surface-secondary: #fff7e8;
+  --arc-text: var(--arc-custom-text, #1f2937);
+  --arc-text-secondary: #64748b;
+  --arc-primary: #d45d36;
+  --arc-primary-text: #ffffff;
+  --arc-border: #e9e3d7;
+  --arc-input: #d7d1c5;
+  --arc-success: #26705d;
+  --arc-warning: #e8a629;
+  --arc-error: #9d3d25;
+  --arc-ink: var(--arc-text);
+  --arc-muted: var(--arc-text-secondary);
+  --arc-ivory: var(--arc-surface);
+  --arc-canvas: var(--arc-background);
+  --arc-white: var(--arc-surface);
+  --arc-wine: var(--arc-primary);
+  --arc-prussian: var(--arc-error);
+  --arc-action: var(--arc-primary);
+  --arc-action-text: var(--arc-primary-text);
+  --arc-link: var(--arc-error);
+  --arc-brass: var(--arc-warning);
+  --arc-emerald: var(--arc-success);
+  --arc-violet: #665277;
+  --arc-blue: #3157a4;
+  --arc-teal: #3d7774;
+  --arc-line: var(--arc-border);
+  --arc-font-ui: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --arc-font-display: var(--arc-font-ui);
+  --arc-shadow-rail: 0 14px 38px color-mix(in srgb, var(--arc-text) 10%, transparent);
+  --arc-shadow-card: var(--arc-shadow-rail);
+  --arc-shadow-hover: 0 20px 46px color-mix(in srgb, var(--arc-text) 16%, transparent);
+  --background-base: var(--arc-background);
+  --midground: var(--arc-text);
+  --midground-base: var(--arc-text);
+  --color-text-primary: var(--arc-text);
+  --color-text-secondary: var(--arc-text-secondary);
+  --color-text-tertiary: var(--arc-text-secondary);
+  --color-card: color-mix(in srgb, var(--arc-surface) 88%, transparent);
+  --color-card-foreground: var(--arc-text);
+  --color-primary: var(--arc-primary);
+  --color-primary-foreground: var(--arc-primary-text);
+  --color-secondary: color-mix(in srgb, var(--arc-surface) 48%, transparent);
+  --color-secondary-foreground: var(--arc-text);
+  --color-muted: var(--arc-surface-secondary);
+  --color-muted-foreground: var(--arc-text-secondary);
+  --color-accent: color-mix(in srgb, var(--arc-surface) 56%, transparent);
+  --color-accent-foreground: var(--arc-text);
+  --color-border: var(--arc-border);
+  --color-input: var(--arc-input);
+  --color-ring: var(--arc-primary);
+  --color-popover: var(--arc-surface);
+  --color-popover-foreground: var(--arc-text);
+  --theme-font-sans: var(--arc-font-ui);
+  --theme-font-display: var(--arc-font-display);
+  --theme-radius: 12px;
+  color: var(--arc-text);
+  background: linear-gradient(135deg, var(--arc-background), color-mix(in srgb, var(--arc-success) 8%, var(--arc-background)));
+  font-family: var(--arc-font-ui);
+}
+
+html[data-arc-color-mode="dark"] .arcenal-shell {
+  --arc-background: #17191e;
+  --arc-surface: #20232a;
+  --arc-surface-secondary: #25282f;
+  --arc-text: #e8e2d9;
+  --arc-text-secondary: #aba59c;
+  --arc-border: #3a3d45;
+  --arc-input: #4a4d55;
+  --arc-error: #d86b49;
+  --arc-ink: #f5f0e8;
+}

@@ -11,14 +11,19 @@ const DOCUMENT: ArcenalDocumentSummary = {
   attachment_size: 1024,
   backlinks: [],
   change_type: "Révision",
+  confidentiality: "internal",
   excerpt: "Maîtrise des documents",
   history_count: 0,
+  indexed_at: "2026-09-22T10:00:00Z",
+  knowledge_scopes: ["company", "quality"],
   links: [],
   number: "1",
   owner: "Direction Q&D",
+  origin: "arcenal",
   path: "QSSERP/PR-QSSE-001.md",
   reference: "PR-QSSE-001",
   reason: "Mise à jour du processus",
+  read_only: false,
   revision: "4",
   review_date: "2027-09-22",
   scope: "ONYX",
@@ -48,6 +53,8 @@ describe("modèle documentaire ARCenal", () => {
     expect(content).toContain("activite: Qualité");
     expect(content).toContain("nature: Révision");
     expect(content).toContain("statut: Brouillon");
+    expect(content).toContain("knowledge_scopes: [company]");
+    expect(content).toContain("confidentialite: internal");
     expect(content).toContain("# Gestion documentaire");
   });
 

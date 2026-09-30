@@ -74,6 +74,18 @@ def _load_access_connections_api() -> ModuleType:
     return module
 
 
+def _load_silverbullet_api() -> ModuleType:
+    """Charge le connecteur documentaire sans exposer son jeton au navigateur."""
+    source = Path(__file__).with_name("silverbullet_api.py")
+    spec = importlib.util.spec_from_file_location("arcenal_silverbullet_api", source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Le module SilverBullet ARCenal est introuvable.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def _load_capabilities_api() -> ModuleType:
     """Charge l’inventaire gouverné des outils ARC et Hermes."""
     source = Path(__file__).with_name("capabilities_api.py")
@@ -130,10 +142,13 @@ provider_connections = _load_provider_connections_api()
 router.include_router(provider_connections.router)
 access_connections = _load_access_connections_api()
 router.include_router(access_connections.router)
+silverbullet = _load_silverbullet_api()
+router.include_router(silverbullet.router)
 capabilities = _load_capabilities_api()
 router.include_router(capabilities.router)
 agents = _load_agents_api()
 router.include_router(agents.router)
+root_router = agents.root_router
 system = _load_system_api()
 router.include_router(system.router)
 branding = _load_branding_api()

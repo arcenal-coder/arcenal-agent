@@ -114,10 +114,22 @@ export function isArcenalSystemOverview(value: unknown): value is ArcenalSystemO
 }
 
 export function applyAppearance(settings: ArcenalAppearanceSettings, root: AppearanceRoot): void {
+  root.style.setProperty("--arc-primary", settings.accentColor);
+  root.style.setProperty("--arc-primary-text", contrastingTextColor(settings.accentColor));
   root.style.setProperty("--arc-wine", settings.accentColor);
   root.style.setProperty("--arc-action", settings.buttonColor);
+  root.style.setProperty("--arc-action-text", contrastingTextColor(settings.buttonColor));
   root.style.setProperty("--arc-link", settings.linkColor);
-  root.style.setProperty("--arc-text", settings.textColor);
+  root.style.setProperty("--arc-custom-text", settings.textColor);
+}
+
+export function contrastingTextColor(background: string): "#1F2937" | "#FFFFFF" {
+  if (!isCssHexColor(background)) return "#FFFFFF";
+  const red = Number.parseInt(background.slice(1, 3), 16);
+  const green = Number.parseInt(background.slice(3, 5), 16);
+  const blue = Number.parseInt(background.slice(5, 7), 16);
+  const luminance = (red * 299 + green * 587 + blue * 114) / 1000;
+  return luminance > 150 ? "#1F2937" : "#FFFFFF";
 }
 
 export function productBranding(config: Record<string, unknown>, fallback: ArcenalBranding): ArcenalBranding {
