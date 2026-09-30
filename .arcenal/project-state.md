@@ -61,7 +61,8 @@ le même index RAG central. Le volet RAG & LDA affiche l'état, le nombre de
 pages, l'accès à SilverBullet et la commande de synchronisation. Les pièces
 jointes TXT, Markdown, DOCX et ODT sont extraites sans nouvelle dépendance ;
 les PDF utilisent `pdftotext` lorsqu'il est disponible. Aucun rebranding de
-SilverBullet n'a été introduit et aucun commit ni push n'a été effectué.
+SilverBullet n'a été introduit. Les lots 01 à 03 sont figés dans trois commits
+locaux sur `arcenal` ; aucun push n'a été effectué.
 
 - L'architecture de sécurité a été validée par l'utilisateur le 2026-09-28 :
   YunoHost reste l'unique autorité d'identité et ARC ne crée pas de second mot
@@ -324,7 +325,7 @@ activables.
 
 ## Étape suivante pressentie
 
-Lot 03 : intégrer SilverBullet par son API de fichiers, synchroniser les pages
-Markdown avec leurs `ETag` et leurs métadonnées LDA, puis ajouter l'extraction
-contrôlée des pièces jointes et exécuter la recette YunoHost réelle sans
-modifier le contrat ACL central validé au lot 02.
+Lot 04 : introduire la mémoire d'entreprise comme une collection gouvernée du
+RAG central, distincte du corpus documentaire. Elle doit conserver provenance,
+confidentialité, durée de conservation, correction et oubli, puis être filtrée
+par les mêmes ACL avant toute injection dans le contexte d'un agent.

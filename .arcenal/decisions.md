@@ -73,3 +73,14 @@
 - Limite de présentation décidée par l'utilisateur : SilverBullet conserve son
   interface et son identité visuelle d'origine. Aucun thème ARCenal, fork
   graphique ou rebranding SilverBullet n'appartient au lot 03.
+
+## RAG-003 — Mémoire d'entreprise comme collection gouvernée
+
+- Date : 2026-09-30
+- Décision : la mémoire d'entreprise est interrogeable par le RAG central mais
+  reste une source distincte des documents applicables.
+- Raison : un souvenir doit pouvoir être corrigé, expirer ou être oublié,
+  tandis qu'un document conserve une version, une preuve et un workflow LDA.
+- Conséquence : le Context Builder peut fusionner les passages documentaires et
+  mémoriels après contrôle des ACL, sans transformer une mémoire en référence
+  documentaire officielle ni en entrée automatique de la LDA.
