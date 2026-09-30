@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import os
 from typing import Any
 
 from .capabilities import record_usage
@@ -99,8 +100,26 @@ def _record_tool_usage(
     record_usage(tool_name, normalized, duration_ms)
 
 
+def _register_application_auth(ctx) -> None:
+    from .arc_core.app_auth_provider import ArcenalApplicationProvider
+    from .arc_core.auth import is_strong_secret
+    from hermes_cli.dashboard_auth.token_auth import register_token_route
+
+    configured_tokens = {
+        "arcenal-system": os.environ.get("ARCENAL_APP_ARCENAL_SYSTEM_TOKEN", "").strip(),
+        "arcenal-ats": os.environ.get("ARCENAL_APP_ARCENAL_ATS_TOKEN", "").strip(),
+    }
+    tokens = {key: value for key, value in configured_tokens.items() if is_strong_secret(value)}
+    if not tokens:
+        return
+    ctx.register_dashboard_auth_provider(ArcenalApplicationProvider(tokens))
+    register_token_route("/api/v1/agents/arc/query")
+    register_token_route("/api/v1/agents/ats/query")
+
+
 def register(ctx) -> None:
     """Enregistre les outils sans modifier le cœur commun Hermes."""
+    _register_application_auth(ctx)
     ctx.register_system_prompt_section(
         id="arcenal.identity",
         content=ARC_SYSTEM_PROMPT,

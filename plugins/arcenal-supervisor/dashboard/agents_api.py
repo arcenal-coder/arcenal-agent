@@ -4,16 +4,40 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 import tempfile
 from datetime import datetime, timezone
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from types import ModuleType
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Header, HTTPException
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 router = APIRouter(prefix="/agents")
+root_router = APIRouter(prefix="/api/v1/agents")
 PROFILE_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+
+
+def _load_arc_core() -> ModuleType:
+    name = "arcenal_arc_core"
+    if name in sys.modules:
+        return sys.modules[name]
+    source = Path(__file__).parents[1] / "arc_core" / "__init__.py"
+    spec = spec_from_file_location(name, source, submodule_search_locations=[str(source.parent)])
+    if spec is None or spec.loader is None:
+        raise RuntimeError("ARC Core est introuvable.")
+    module = module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+CORE = _load_arc_core()
+AgentQueryResponseModel = CORE.AgentQueryResponse
+AgentUpdateModel = CORE.AgentUpdate
 
 
 class AgentMemoryUpdate(BaseModel):
@@ -28,6 +52,66 @@ class AgentMemoryResponse(BaseModel):
     content: str
     profile: str
     updated_at: str | None
+
+
+class AgentQueryRequest(BaseModel):
+    """Message applicatif borné, sans politique contrôlée par le client."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    message: str = Field(min_length=1, max_length=20_000)
+    session_id: str | None = Field(default=None, max_length=128)
+    context: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("context")
+    @classmethod
+    def validate_context(cls, value: dict[str, str]) -> dict[str, str]:
+        if len(value) > 20 or any(len(key) > 64 or len(item) > 2_000 for key, item in value.items()):
+            raise ValueError("Le contexte applicatif dépasse les limites autorisées.")
+        return value
+
+
+def _registry_path() -> Path:
+    from hermes_constants import get_hermes_home
+
+    return get_hermes_home() / "arcenal" / "agents.json"
+
+
+def _manager():
+    repository = CORE.AgentRepository(_registry_path(), CORE.default_agents())
+    return CORE.AgentManager(repository)
+
+
+def _audit_writer(event: str, actor: str, details: dict[str, object]) -> object:
+    from arcenal_arc_core.audit_adapter import append_agent_event
+
+    return append_agent_event(event, actor, details)
+
+
+def _arc_core():
+    policy = CORE.GlobalAgentPolicy(instructions=("Refuser par défaut toute permission absente du contrat de l’agent.", "Ne jamais exposer de secret et conserver les validations des actions sensibles."))
+    from hermes_constants import get_hermes_home
+
+    retriever = CORE.create_retriever(get_hermes_home(), _audit_writer)
+    builder = CORE.ContextBuilder(policy, retriever)
+    from arcenal_arc_core.hermes_engine import HermesAgentEngine
+
+    return CORE.ArcCore(_manager(), builder, HermesAgentEngine(), _audit_writer)
+
+
+def _translate_error(exc: Exception) -> HTTPException:
+    from arcenal_arc_core.errors import AgentAccessDeniedError, AgentDisabledError, AgentExecutionError, AgentNotFoundError, ApplicationAuthenticationError
+
+    if isinstance(exc, AgentNotFoundError):
+        return HTTPException(status_code=404, detail=str(exc))
+    if isinstance(exc, AgentDisabledError):
+        return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, ApplicationAuthenticationError):
+        return HTTPException(status_code=401, detail=str(exc))
+    if isinstance(exc, AgentAccessDeniedError):
+        return HTTPException(status_code=403, detail=str(exc))
+    if isinstance(exc, AgentExecutionError):
+        return HTTPException(status_code=503, detail=str(exc))
+    return HTTPException(status_code=500, detail="ARC Core a rencontré une erreur interne.")
 
 
 def _profile_dir(name: str) -> Path:
@@ -84,3 +168,47 @@ def get_agent_memory(name: str) -> AgentMemoryResponse:
 @router.put("/{name}/memory", response_model=AgentMemoryResponse)
 def update_agent_memory(name: str, request: AgentMemoryUpdate) -> AgentMemoryResponse:
     return _write_memory(name, request.content)
+
+
+@router.get("/registry")
+def list_registered_agents() -> dict[str, object]:
+    return {"agents": [agent.model_dump(mode="json") for agent in _manager().list_agents()]}
+
+
+@router.get("/registry/{agent_id}")
+def get_registered_agent(agent_id: str) -> dict[str, object]:
+    try:
+        return _manager().get(agent_id).model_dump(mode="json")
+    except Exception as exc:
+        raise _translate_error(exc) from exc
+
+
+@router.patch("/registry/{agent_id}")
+def update_registered_agent(agent_id: str, request: AgentUpdateModel) -> dict[str, object]:
+    try:
+        return _manager().update(agent_id, request).model_dump(mode="json")
+    except Exception as exc:
+        raise _translate_error(exc) from exc
+
+
+@root_router.post("/{agent_id}/query", response_model=AgentQueryResponseModel)
+def query_agent(
+    agent_id: str,
+    request: AgentQueryRequest,
+    application_id: Annotated[str, Header(alias="X-ARCenal-Application")],
+    authorization: Annotated[str | None, Header()] = None,
+    user_id: Annotated[str | None, Header(alias="X-ARCenal-User")] = None,
+) -> AgentQueryResponseModel:
+    from arcenal_arc_core.auth import ApplicationAuthenticator
+
+    try:
+        caller = ApplicationAuthenticator().authenticate(application_id, authorization, user_id)
+        return _arc_core().query(
+            agent_id,
+            caller,
+            request.message,
+            request.session_id,
+            request.context,
+        )
+    except Exception as exc:
+        raise _translate_error(exc) from exc

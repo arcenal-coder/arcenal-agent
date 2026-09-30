@@ -361,6 +361,7 @@ def _run_agent(
     toolsets: object = None,
     use_config_toolsets: bool = True,
     skills: object = None,
+    system_prompt: str | None = None,
 ) -> tuple[str, dict]:
     """Build an AIAgent exactly like a normal CLI chat turn would, then
     run a single conversation.  Returns ``(final_response, run_result)``."""
@@ -476,6 +477,9 @@ def _run_agent(
     )
 
     skills_prompt = _build_preloaded_skills_prompt(skills)
+    ephemeral_prompt = "\n\n".join(
+        part for part in (system_prompt, skills_prompt) if part
+    )
 
     session_db = _create_session_db_for_oneshot()
     # The try spans agent construction (not just ``chat``) so the SQLite store
@@ -502,7 +506,7 @@ def _run_agent(
             session_db=session_db,
             credential_pool=runtime.get("credential_pool"),
             fallback_model=_fb or None,
-            ephemeral_system_prompt=skills_prompt,
+            ephemeral_system_prompt=ephemeral_prompt or None,
             # Interactive callbacks are intentionally NOT wired beyond this
             # one.  In oneshot mode there's no user sitting at a terminal:
             #   - clarify  → returns a synthetic "pick a default" instruction

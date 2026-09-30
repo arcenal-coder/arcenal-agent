@@ -110,7 +110,7 @@ from utils import env_var_enabled
 
 try:
     from fastapi import (
-        FastAPI, File, Form, HTTPException, Query, Request, UploadFile,
+        APIRouter, FastAPI, File, Form, HTTPException, Query, Request, UploadFile,
         WebSocket, WebSocketDisconnect,
     )
     from fastapi.middleware.cors import CORSMiddleware
@@ -126,7 +126,7 @@ except ImportError:
         from tools.lazy_deps import ensure as _lazy_ensure
         _lazy_ensure("tool.dashboard", prompt=False)
         from fastapi import (
-            FastAPI, File, Form, HTTPException, Query, Request, UploadFile,
+            APIRouter, FastAPI, File, Form, HTTPException, Query, Request, UploadFile,
             WebSocket, WebSocketDisconnect,
         )
         from fastapi.middleware.cors import CORSMiddleware
@@ -19087,6 +19087,13 @@ async def serve_plugin_asset(plugin_name: str, file_path: str):
     )
 
 
+def _root_router_is_allowed(plugin: dict[str, object], router: APIRouter) -> bool:
+    if plugin.get("source") != "bundled":
+        return False
+    paths = tuple(str(getattr(route, "path", "")) for route in router.routes)
+    return bool(paths) and all(path.startswith("/api/v1/agents/") for path in paths)
+
+
 def _mount_plugin_api_routes():
     """Import and mount backend API routes from plugins that declare them.
 
@@ -19196,6 +19203,11 @@ def _mount_plugin_api_routes():
                 _log.warning("Plugin %s api file has no 'router' attribute", plugin["name"])
                 continue
             app.include_router(router, prefix=f"/api/plugins/{plugin['name']}")
+            root_router = getattr(mod, "root_router", None)
+            if isinstance(root_router, APIRouter) and _root_router_is_allowed(plugin, root_router):
+                app.include_router(root_router)
+            elif root_router is not None:
+                _log.warning("Plugin %s: refusing untrusted root API routes", plugin["name"])
             _log.info("Mounted plugin API routes: /api/plugins/%s/", plugin["name"])
         except Exception as exc:
             _log.warning("Failed to load plugin %s API routes: %s", plugin["name"], exc)
