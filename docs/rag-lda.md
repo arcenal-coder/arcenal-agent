@@ -1,7 +1,7 @@
 # Architecture du RAG, de la LDA et du wiki documentaire
 
-Statut : **cycle documentaire opérationnel, index sémantique à compléter**
-Date : 28 septembre 2026
+Statut : **cycle documentaire et connecteur SilverBullet opérationnels**
+Date : 30 septembre 2026
 
 ## 1. Objectif
 
@@ -147,20 +147,31 @@ publication de la LDA.
 
 ## 8. Base logicielle retenue
 
-Le socle est intégré à ARCenal Agent et repose sur des composants libres déjà
-présents dans le projet : fichiers Markdown, API FastAPI et interface React.
-Il reprend le modèle utile d'Obsidian — notes portables, liens `[[Wiki]]`, liens
-entrants, tags et historique — sans dépendre d'un format propriétaire ni d'un
-second service à administrer.
+SilverBullet est retenu comme interface libre de rédaction et coffre de
+connaissances. Son interface reste d’origine et n’est pas rebrandée. ARCenal
+Agent reste l’unique moteur RAG, l’autorité des ACL, de la LDA et du wiki.
+SilverBullet n’est donc jamais interrogé directement par un modèle.
+
+Le connecteur ARC utilise l’API `/.fs`, conserve les révisions `ETag` et copie
+les seules pages Markdown modifiées dans un miroir privé reconstruisible. Le
+jeton serveur reste dans le coffre de secrets d’ARC et n’est jamais transmis au
+navigateur. Les fichiers miroirs sont en lecture seule dans l’interface ARC :
+une correction s’effectue dans SilverBullet, puis une synchronisation actualise
+l’index central.
 
 Ce choix apporte :
 
-- une installation unique par le paquet YunoHost ;
+- une installation SilverBullet indépendante depuis YunoHost ;
 - des documents sauvegardables et exportables sans verrouillage ;
 - une séparation stricte entre l'administration et le wiki salarié ;
 - une API bornée que le chat ARC peut interroger avec traçabilité ;
 - la possibilité d'ajouter ultérieurement un moteur vectoriel sans migrer le
   corpus Markdown.
+
+Les pièces jointes TXT, Markdown, DOCX et ODT sont converties en texte par ARC
+sans dépendance Python supplémentaire. Les PDF utilisent `pdftotext` lorsqu’il
+est déjà disponible ; sinon le document reste conservé et l’état d’extraction
+est inscrit explicitement dans sa fiche.
 
 ## 9. Hors périmètre de cette décision
 

@@ -36,13 +36,32 @@
 
 ## TEST-001 — Suite Python historique indisponible localement
 
-- État : ouvert.
-- Preuve : aucun environnement existant ne contient `pytest`, FastAPI et les
-  dépendances de développement ; aucune installation n'a été autorisée.
-- Couverture disponible : les nouveaux domaines utilisent `unittest` et la
-  bibliothèque standard, les tests web et les tests shell du paquet passent.
-- Prochaine étape : exécuter le lanceur canonique dans l'environnement de CI ou
-  dans le paquet de recette disposant de ses dépendances verrouillées.
+- État : résolu pour le périmètre ARCenal le 2026-09-30.
+- Preuve : `.venv` Python 3.11.15 contient l'extra `dev` déclaré ; le lanceur
+  canonique exécute 118 tests ARCenal avec succès, dont les 108 du lot 0.
+- Limite amont : la suite exhaustive de 37 349 tests inclut des domaines
+  optionnels dont les extras `acp` et `anthropic` ne font pas partie de `dev`.
+  Son lancement a été interrompu à 3,2 % après confirmation de ces absences.
+- Prochaine étape : laisser la CI amont exécuter la matrice de tous les extras,
+  sans alourdir l'environnement local ARCenal avec des backends inutilisés.
+
+## UI-THEME-001 — Recette visuelle installée à compléter
+
+- État : correctif implémenté et validé statiquement.
+- Impact : le contrat de thème, le chat et la couleur dominante sont couverts
+  par TypeScript, Vitest et le build de production, mais les parcours complets
+  clair, sombre et système n'ont pas été rejoués sur une installation YunoHost
+  dans ce lot.
+- Prochaine étape : vérifier sur la recette les messages ARC et utilisateur,
+  Markdown, code, citations, défilement, formulaires, modales et notifications.
+
+## UI-MARKDOWN-001 — Rendu Markdown volontairement léger
+
+- État : ouvert, non bloquant.
+- Impact : le chat réutilise désormais le rendu sécurisé commun, mais celui-ci
+  ne couvre pas encore toute la spécification CommonMark.
+- Prochaine étape : compléter le composant partagé uniquement si les usages
+  métier du lot suivant nécessitent des constructions Markdown supplémentaires.
 
 ## UI-SETTINGS-001 — Onglets métier restants
 
@@ -50,3 +69,19 @@
 - Impact : Général, Apparence, Contexte, Directives, Mémoire et Outils disposent
   maintenant de parcours réels. Système et Sauvegardes restent à développer
   sans écran factice ; le centre de sécurité doit encore être approfondi.
+
+## RAG-EXTRACTION-001 — Pièces jointes non extraites
+
+- État : résolu au lot 03.
+- Résolution : TXT, Markdown, DOCX et ODT sont extraits sans dépendance Python
+  supplémentaire. Les PDF utilisent `pdftotext` lorsqu'il est disponible.
+- Limite résiduelle : sans `pdftotext`, le PDF reste conservé et la fiche
+  indique explicitement que son contenu n'a pas été extrait.
+
+## RAG-SILVERBULLET-001 — Écriture distante différée
+
+- État : limitation acceptée du lot 03.
+- Impact : les pages SilverBullet sont synchronisées et indexées en lecture
+  seule dans ARC. Leur modification s'effectue dans SilverBullet.
+- Suite : une écriture distante conditionnelle par `If-Match` pourra être
+  ajoutée après validation du modèle d'autorisations des responsables LDA.

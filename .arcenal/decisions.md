@@ -34,3 +34,42 @@
   puis supprimé au redémarrage du service de contrôle.
 - Conséquence : un booléen `confirmed=true` produit par le modèle ne constitue
   plus une autorisation.
+
+## ARC-CORE-001 — Registre et identité applicative
+
+- Date : 2026-09-30
+- Décision technique : les agents du lot 01 utilisent un contrat Pydantic
+  immuable et un registre JSON atomique sous `$HERMES_HOME/arcenal`. Cette
+  abstraction permet une migration SQLite ultérieure sans modifier ARC Core.
+- Décision de sécurité : chaque application présente un secret dédié d'au
+  moins 43 caractères ; l'identité utilisateur reste une dimension séparée.
+- Conséquence : aucun repli vers ARC, aucune permission et aucune instruction
+  système ne peuvent être demandés par le payload applicatif.
+
+## RAG-001 — Index dérivé et ACL avant récupération
+
+- Date : 2026-09-30
+- Décision technique : les Markdown restent canoniques ; l'index JSON central
+  est atomique, reconstructible et ne contient que leur projection normalisée.
+- Décision de sécurité : le `ContextPlan` est construit côté serveur et les
+  ACL filtrent les documents avant score, reranking et injection au modèle.
+- Conséquence : l'ajout futur d'embeddings devra compléter le score derrière
+  ce contrat sans contourner les ACL ni remplacer les sources originales.
+
+## RAG-002 — SilverBullet comme coffre documentaire
+
+- Date : 2026-09-30
+- Décision utilisateur : écarter Nextcloud du périmètre RAG et retenir
+  SilverBullet comme interface de rédaction et coffre de connaissances.
+- Décision technique proposée : ARC reste l'unique moteur RAG, l'autorité ACL
+  et le gestionnaire du workflow LDA. SilverBullet fournit les Markdown, les
+  liens, les métadonnées et les révisions au travers de son API de fichiers.
+- Conséquence : aucun second index RAG autonome n'est introduit. Le connecteur
+  SilverBullet devra synchroniser par identifiants stables et `ETag`, puis
+  alimenter l'index central dérivé sans exposer son jeton à l'interface.
+- Sécurité : l'écriture SilverBullet sera réservée aux responsables autorisés ;
+  le wiki salarié en lecture restera publié par ARC à partir des seules
+  versions `Applicable`.
+- Limite de présentation décidée par l'utilisateur : SilverBullet conserve son
+  interface et son identité visuelle d'origine. Aucun thème ARCenal, fork
+  graphique ou rebranding SilverBullet n'appartient au lot 03.

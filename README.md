@@ -53,6 +53,11 @@ traçables. Seules les versions au statut `Applicable` alimentent la LDA et le
 wiki. Son architecture et son workflow d'amélioration continue sont détaillés
 dans la [spécification RAG/LDA](docs/rag-lda.md).
 
+SilverBullet peut servir d’interface de rédaction externe sans devenir un
+second moteur RAG. Ajoutez son jeton dans **Paramètres > Accès** sous un accès
+API nommé `SilverBullet`, puis lancez la synchronisation depuis **RAG & LDA**.
+ARC conserve l’autorité sur l’index, les ACL, la LDA et le wiki salarié.
+
 <p align="right">
   <sub>Propulsé par <a href="https://github.com/NousResearch/hermes-agent">Hermes Agent</a> — Nous Research</sub>
 </p>

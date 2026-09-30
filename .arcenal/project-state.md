@@ -1,6 +1,6 @@
 # État du projet ARCenal Agent
 
-Dernière mise à jour : 2026-09-28
+Dernière mise à jour : 2026-09-30
 
 Branche : `arcenal`
 
@@ -34,6 +34,12 @@ achevés sans réintroduire le tableau de bord Hermes comme interface principale
 - Les applications tierces suivront AACP/1 lorsqu’un connecteur sera développé.
 - Le volet RAG repose sur un corpus Markdown portable, un wiki documentaire et
   une LDA calculée à partir des seules versions au statut `Applicable`.
+- SilverBullet est retenu comme coffre éditorial et interface de connaissances
+  liée ; Nextcloud est exclu du périmètre RAG. ARC conserve l'index, les ACL,
+  les citations, le workflow LDA et la publication du wiki salarié.
+- SilverBullet reste non rebrandé pour le moment ; son thème et son interface
+  d'origine sont conservés afin de limiter l'intégration à ses fonctions et à
+  son API.
 - Les révisions documentaires suivent le cycle Brouillon, En révision, À
   approuver, Applicable, Archivé ; ARC peut proposer une révision, mais le
   workflow d'approbation contrôle sa publication.
@@ -47,6 +53,15 @@ achevés sans réintroduire le tableau de bord Hermes comme interface principale
   que le service, le login, le périmètre et le nom de variable à utiliser.
 
 ## Travail en cours
+
+Le lot 03 est implémenté localement : ARC découvre un accès API nommé
+SilverBullet dans son coffre d'accès, synchronise les pages Markdown par
+révision `ETag`, les place dans un miroir privé en lecture seule et reconstruit
+le même index RAG central. Le volet RAG & LDA affiche l'état, le nombre de
+pages, l'accès à SilverBullet et la commande de synchronisation. Les pièces
+jointes TXT, Markdown, DOCX et ODT sont extraites sans nouvelle dépendance ;
+les PDF utilisent `pdftotext` lorsqu'il est disponible. Aucun rebranding de
+SilverBullet n'a été introduit et aucun commit ni push n'a été effectué.
 
 - L'architecture de sécurité a été validée par l'utilisateur le 2026-09-28 :
   YunoHost reste l'unique autorité d'identité et ARC ne crée pas de second mot
@@ -154,13 +169,84 @@ achevés sans réintroduire le tableau de bord Hermes comme interface principale
 - Un hook officiel `post_tool_call` journalise le nom, le résultat synthétique,
   la durée et le compteur d’utilisation de chaque outil. Aucun argument ni
   contenu de résultat n’est conservé ; l’écriture atomique est sérialisée.
+- Le lot 01 introduit ARC Core, un Agent Manager générique, un Context Builder
+  minimal et un registre atomique sauvegardable. ARC et Agent ATS partagent le
+  moteur Hermes, la politique globale, les contrôles et l'audit.
+- L'API `POST /api/v1/agents/{agent_id}/query` authentifie l'application par un
+  secret dédié, conserve séparément l'utilisateur éventuel et refuse les
+  agents inconnus, désactivés ou hors périmètre sans repli privilégié.
+- La page Agents affiche le registre ARC Core et ouvre une fiche persistante
+  permettant uniquement de modifier l'état, l'autonomie et la politique de
+  modèle. Les profils Hermes existants restent disponibles séparément.
+- Le lot 02 ajoute un index documentaire JSON dérivé et reconstructible, un
+  chunking par sections Markdown et un reranking lexical déterministe.
+- Le Context Builder construit un `ContextPlan` serveur et applique avant la
+  recherche les statuts, scopes, ACL applicatives, permissions et niveaux de
+  confidentialité. Les citations de l'API proviennent exclusivement des
+  chunks retenus.
+- Le volet RAG & LDA expose les documents et chunks indexés, la date, les
+  erreurs et une reconstruction confirmée réservée à l'identité YunoHost.
 
 ## Validation prévue
 
-1. Lint du projet.
-2. Vérification des types applicable.
-3. Tests unitaires ciblés du superviseur ARCenal.
-4. Relecture du diff et contrôle de compatibilité avec le moteur amont.
+## Lot 0 — audit, stabilisation et préparation (2026-09-30)
+
+- La cartographie factuelle du produit, du flux IA, des connaissances, des
+  agents, du RAG et de la LDA est consignée dans `docs/architecture/`.
+- Le contrat de thème ARC est centralisé dans `web/src/arcenal-theme.css` et
+  fournit les jetons sémantiques partagés par la façade et les plugins.
+- Le dashboard du superviseur ne conserve plus de palette autonome : sa feuille
+  source est versionnée, copiée pendant le build et consomme le contrat global.
+- Le chat utilise le composant Markdown sécurisé de la façade pour rendre les
+  réponses, les liens, le code et les citations selon le même thème.
+- Le changement de couleur dominante alimente les jetons primaire et action,
+  avec calcul d'une couleur de texte contrastée.
+- L'instrumentation existante des appels IA est jugée réutilisable : provider,
+  modèle, tokens normalisés, cache, durée, appels API et coût estimé sont déjà
+  persistés. Aucune seconde chaîne de mesure n'a été ajoutée.
+- La cible ARC Core, l'interface future de service d'agents, le plan de
+  migration, la baseline et la dette technique sont documentés sans amorcer
+  les lots fonctionnels suivants.
+- Validation web finale : ESLint sans erreur (28 avertissements historiques),
+  TypeScript réussi, 60 fichiers et 404 tests Vitest réussis, build de
+  production réussi.
+- La réserve Python est levée : `.venv` utilise Python 3.11.15 et les
+  dépendances de développement déclarées. Les 108 tests du lot 0 réussissent.
+
+## Lot 01 — ARC Core et Agent Manager (2026-09-30)
+
+- Ruff réussit ; ESLint réussit sans erreur avec 28 avertissements historiques.
+- ARC Core passe `ty` et l'interface passe TypeScript.
+- Les 118 tests Python ARCenal et les 406 tests Vitest réussissent.
+- Le build Vite de production, la compilation Python et `git diff --check`
+  réussissent.
+- La suite amont exhaustive a été lancée mais interrompue à 3,2 % : plusieurs
+  tests optionnels exigent les extras `acp` et `anthropic`, absents de l'extra
+  `dev`. Ce constat n'affecte pas les 118 tests canoniques ARCenal.
+
+## Lot 02 — RAG central (2026-09-30)
+
+- Réalisation locale terminée ; aucune publication distante.
+- Le `ContextPlan` est construit côté serveur, strict, profondément immuable
+  pour ses filtres, et borne statuts, sources, confidentialité et budget.
+- Les ACL cumulatives sont appliquées avant la recherche par application,
+  agent, utilisateur, permission, scope, statut et niveau de confidentialité.
+- L'index JSON dérivé est atomique, déterministe et reconstruisible depuis le
+  coffre Markdown ; la reconstruction est confirmée et réservée à un acteur
+  YunoHost authentifié.
+- La recherche lexicale, le reranking déterministe, les budgets, les citations
+  structurées, l'audit sans contenu documentaire et les métriques sont actifs.
+- La façade RAG affiche documents, fragments, erreurs et date d'indexation,
+  puis permet une reconstruction explicitement confirmée.
+- Le scénario ATS vérifie la version applicable, l'exclusion d'une version
+  archivée, le cloisonnement d'un document comptable restreint et l'absence de
+  citation quand la recherche est vide.
+- Validation finale : Ruff et ESLint réussissent sans erreur ; les 28
+  avertissements ESLint appartiennent au socle connu, dont le chargement
+  asynchrone déjà employé par les pages.
+- `ty` et TypeScript réussissent. Les 94 tests Python ARCenal et les 407 tests
+  Vitest réussissent. Le build Vite de production et `git diff --check`
+  réussissent.
 
 Résultats intermédiaires du 2026-09-28 : ESLint réussit sans erreur avec les
 29 avertissements déjà présents dans le socle ; TypeScript réussit. Les
@@ -238,5 +324,7 @@ activables.
 
 ## Étape suivante pressentie
 
-Achever le volet Agents de bout en bout : identité, mission, modèles,
-compétences, outils et mémoire isolée.
+Lot 03 : intégrer SilverBullet par son API de fichiers, synchroniser les pages
+Markdown avec leurs `ETag` et leurs métadonnées LDA, puis ajouter l'extraction
+contrôlée des pièces jointes et exécuter la recette YunoHost réelle sans
+modifier le contrat ACL central validé au lot 02.
