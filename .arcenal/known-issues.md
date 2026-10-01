@@ -18,6 +18,10 @@
 - Prochaine étape : installer ynh41 depuis le canal preview, vérifier le test
   Gemini et le modèle migré, puis valider une nouvelle conversation. Ne pas
   promouvoir stable avant cette preuve.
+- Dernière observation : le service serveur est actif et a redémarré à 16:38
+  UTC, mais la version n'est pas lisible sans droits d'administration ; la
+  confirmer dans YunoHost avant d'interpréter ce redémarrage comme une mise à
+  niveau réussie.
 
 ## CDC-GAP-001 — Conformité fonctionnelle incomplète
 

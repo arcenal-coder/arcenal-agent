@@ -22,6 +22,10 @@
 - Recette restante : mettre à niveau vers ynh41, tester Gemini, vérifier le
   modèle migré, ouvrir une nouvelle conversation et obtenir une réponse ARC
   réelle avant toute promotion stable.
+- Observation serveur ultérieure : `arcenal.service` est actif et son processus
+  a redémarré à 16:38 UTC. Le compte SSH non privilégié ne peut légitimement
+  lire ni le manifeste YunoHost ni l'API locale protégée (HTTP 401) ; ce
+  redémarrage ne prouve donc pas encore que ynh41 est installé.
 - Preuves serveur : `/arcenal/` redirige vers SSOwat ; un faux en-tête
   `Remote-User` ne contourne pas l'authentification ; dix requêtes simultanées
   répondent sans erreur entre 66,5 et 79,8 ms. Les services ARCenal sont actifs,
