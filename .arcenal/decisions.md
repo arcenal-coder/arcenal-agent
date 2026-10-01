@@ -84,3 +84,53 @@
 - Conséquence : le Context Builder peut fusionner les passages documentaires et
   mémoriels après contrôle des ACL, sans transformer une mémoire en référence
   documentaire officielle ni en entrée automatique de la LDA.
+
+## SEC-BKP-001 — Sauvegarde des secrets fournisseurs
+
+- Date : 2026-10-01
+- Décision : les secrets présents dans `/var/www/arcenal/data/.env` sont inclus
+  dans la sauvegarde applicative YunoHost afin qu'une restauration retrouve un
+  service autonome.
+- Sécurité : le fichier reste en `0600`, le répertoire de données en `0700` et
+  l'archive de sauvegarde doit être traitée comme un secret. Aucune valeur ne
+  figure dans les snapshots ou documents versionnés.
+- Conséquence : la recette de restauration vérifie le fonctionnement du secret
+  par un appel, sans jamais afficher sa valeur. Une rotation reste obligatoire
+  si la confidentialité de l'archive est douteuse.
+
+## YNH-BOUNDARY-001 — YunoHost standard comme plateforme
+
+- Date : 2026-10-01
+- Décision utilisateur : ARCenal Système compose des applications sur un
+  YunoHost standard ; il ne maintient ni fork obligatoire, ni patch du cœur, ni
+  image système propre.
+- Décision technique : les interactions passent par le packaging v2, les
+  helpers, SSOwat et un broker allowlisté. L’adhésion globale de `www-data` à un
+  groupe ARCenal a été supprimée au profit d’un socket directement groupé pour
+  Nginx.
+- Conséquence : toute nouvelle interaction YunoHost doit être classée et
+  documentée dans `YUNOHOST_INTEGRATION_BOUNDARIES.md`.
+
+## ARC-CONFIG-001 — Configuration native et adaptateur HERMES unique
+
+- Date : 2026-10-01
+- Décision : ARC dépend de `ArcConfigStore` et `ArcVault`. Le JSON natif et le
+  fichier `.env` sont des backends remplaçables, non des contrats métier.
+- Migration : l’adaptateur HERMES est en lecture seule ; une valeur native
+  existante gagne et tout conflit est signalé sans écrasement.
+- Sécurité : les secrets injectés au runtime ont priorité, les fichiers sont en
+  `0600`, leurs répertoires en `0700` et aucune API ne renvoie leur contenu.
+- Conséquence : tout nouvel import direct de `hermes_cli.config` hors de
+  `hermes_config_adapter.py` est interdit et testé comme une régression.
+
+## ARC-CONFIG-002 — ARC natif nominal et HERMES explicitement legacy
+
+- Date : 2026-10-01
+- Décision : l’absence de `ARCENAL_CONFIG_BACKEND` sélectionne ARC natif.
+  `hermes` reste uniquement un mode explicite, diagnostiqué et en lecture seule.
+- Migration : une ancienne configuration est copiée, vérifiée puis marquée une
+  seule fois. ARC gagne les conflits, qui sont journalisés sans valeur sensible.
+- Interface : les paramètres ARC utilisent `/configuration/v1` et les secrets
+  les routes du coffre ; les parcours documentaires restent séparés.
+- Conséquence : le prochain découplage concerne le runtime conversationnel,
+  sans réimplémenter le RAG, la mémoire, le routage ou le cache.

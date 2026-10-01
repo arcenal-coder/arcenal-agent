@@ -14,13 +14,17 @@
 
 ## SEC-YH-001 — Recette YunoHost réelle requise
 
-- État : ouvert.
+- État : recette non intrusive engagée sur le serveur principal ; la redirection
+  SSO anonyme est prouvée. Les essais destructifs restent bloqués par l'absence
+  d'une instance jetable.
 - Impact : le découpage en trois services et les permissions des sockets ont
   été vérifiés statiquement et unitairement, mais pas encore installés sur la
   machine YunoHost de recette.
-- Prochaine étape : construire un paquet de développement, tester la mise à
-  jour depuis ynh32, puis vérifier les identités, groupes, sockets, SSOwat,
-  sauvegarde, restauration et retour arrière.
+- Préparation : `docs/validation/YUNOHOST_ACCEPTANCE.md` contient la matrice et
+  toutes les cases réelles restent bloquées ou non exécutées.
+- Prochaine étape : poursuivre uniquement les essais `SAFE`, encadrer les
+  essais `RISKY` par sauvegarde et récupération, puis réserver réinstallation,
+  purge, restauration écrasante et corruption à une instance jetable.
 
 ## YNH-UPGRADE-001 — Relance de la mise à niveau ynh34 requise
 
@@ -85,3 +89,38 @@
   seule dans ARC. Leur modification s'effectue dans SilverBullet.
 - Suite : une écriture distante conditionnelle par `If-Match` pourra être
   ajoutée après validation du modèle d'autorisations des responsables LDA.
+
+## ARC-CONFIG-TRANSITION-001 — Adaptateur de migration HERMES
+
+- État : chemin nominal résolu au Lot 09 ; compatibilité temporaire conservée.
+- Impact : `HermesConfigAdapter` reste requis uniquement pour migrer une
+  installation antérieure ou diagnostiquer un mode legacy explicite.
+- Protection : aucun fallback silencieux ; l’adaptateur est en lecture seule et
+  ne remplace jamais une valeur ARC divergente.
+- Suite : le supprimer après preuve que le parc actif possède un marqueur de
+  migration natif et n’utilise plus le mode legacy.
+
+## ARC-RUNTIME-BOUNDARY-001 — Gateway conversationnel HERMES restant
+
+- État : ouvert et cartographié au Lot 09.
+- Impact : `_run_agent`, le streaming, les sessions et certains profils restent
+  fournis par le runtime/dashboard HERMES.
+- Protection : ARC contrôle déjà contexte, ACL, outils, RAG, mémoire, cache,
+  routing et fournisseurs derrière ses contrats.
+- Suite : Lot 10 proposé, limité à `ArcAgentRuntime` et à un adaptateur HERMES.
+
+## LOT09R-DEPLOY-001 — Lot 09 absent du serveur principal
+
+- État : ouvert et bloquant pour le verdict de recette, observé le 2026-10-01.
+- Symptôme : l'accès SSH sur le port 2403 fonctionne et les services ARCenal
+  sont actifs, mais le bundle servi ne contient aucun marqueur de l'API native
+  `/configuration/v1`. Les services ont été démarrés avant la création locale
+  du Lot 09.
+- Impact : backend ARC, absence de Hermes Config, restart, persistance, ARC et
+  ATS ne peuvent pas être validés sur cette version. Les UMask réels `0022`,
+  `0007`, `0022` sont également antérieurs au durcissement `0077` attendu.
+- Contrôles indépendants : SSOwat, anti-usurpation, état systemd et suites
+  locales passent. Les journaux et modes des fichiers sensibles nécessitent
+  encore une élévation non interactive indisponible.
+- Prochaine étape : déployer de manière contrôlée le Lot 09, puis reprendre les
+  seules preuves système manquantes avec une voie d'élévation autorisée.

@@ -38,3 +38,14 @@ synchronisation incrémentale fondée sur leur `ETag` ou, à défaut, leur date 
 leur taille. Ce miroir est une source reconstruisible et reste en lecture seule
 dans ARC. Il alimente le même index et le même filtrage ACL que les documents
 locaux.
+
+## Projection de la mémoire
+
+L’index projette aussi les mémoires actives du stockage SQLite. La source
+canonique reste SQLite ; une mémoire expirée, archivée ou supprimée est écartée
+avant le découpage.
+
+Les documents ont l’autorité `official`. Les mémoires ont l’autorité
+`enterprise_memory`, un type de source distinct et une provenance affichable.
+Les métriques comptent séparément les mémoires indexées et les fragments
+mémoire injectés dans les requêtes.

@@ -84,3 +84,9 @@ contexte effectif, récupère les connaissances autorisées et appelle `_run_age
 derrière `HermesAgentEngine`. La boucle provider et l'instrumentation
 historiques restent ainsi les seules implémentations de l'inférence et de la
 mesure.
+
+Depuis le Lot 05, `FrugalAgentEngine` précède cet adaptateur. Il classe la
+demande localement, tente le déterministe, le cache cloisonné et un workflow
+actif, puis utilise Model Router si l'inférence demeure nécessaire. Le choix
+et ses métriques sont ajoutés à l'usage audité, sans exposer de raisonnement
+interne du modèle.

@@ -1,5 +1,7 @@
 # Context Builder
 
+Le contexte effectif construit côté serveur alimente ARC Frugal. Les politiques de modèle appartiennent à la définition gouvernée de l'agent ; les données `request_context` restent non fiables et ne peuvent ni modifier les ACL, ni valider une entrée de cache, ni assouplir la confidentialité.
+
 ## Responsabilité
 
 Le Context Builder traduit une requête authentifiée en contexte minimal. Le
@@ -30,3 +32,13 @@ ne sont donc jamais injectés.
 Le contexte documentaire est placé dans le message comme donnée contrôlée,
 jamais comme nouvelle instruction système. Cette séparation conserve le prompt
 système stable et respecte le cache de conversation Hermes.
+
+## Mémoire d’entreprise
+
+Le résultat sépare `Official Knowledge` et `Enterprise Memory`. La mémoire
+n’entre dans le plan que si l’agent possède `memory.read`. Les scopes et le
+niveau de confidentialité sont filtrés avant la recherche.
+
+ARC reçoit la mémoire autorisée. ATS ne reçoit que les entrées compatibles
+avec ses scopes `ats`, `company`, `recruitment` et son plafond de
+confidentialité. Une source officielle contradictoire reste prioritaire.

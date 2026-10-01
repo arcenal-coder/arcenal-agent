@@ -1,15 +1,84 @@
 # État du projet ARCenal Agent
 
-Dernière mise à jour : 2026-09-30
+## LOT 09R — Recette de compatibilité de production
+
+- Date : 2026-10-01 ; branche `arcenal`, changements Lots 01 à 09 non commitées.
+- État : non-régression locale complète et contrôles SSO réels réussis ; accès
+  SSH établi sur le port 2403, mais version serveur antérieure au Lot 09.
+- Preuves serveur : `/arcenal/` redirige vers SSOwat ; un faux en-tête
+  `Remote-User` ne contourne pas l'authentification ; dix requêtes simultanées
+  répondent sans erreur entre 66,5 et 79,8 ms. Les services ARCenal sont actifs,
+  mais le bundle déployé ne contient pas l'API native `/configuration/v1` et les
+  UMask observés sont `0022`, `0007`, `0022` au lieu de `0077`.
+- Validation locale : Ruff, ESLint sans erreur, Bash, `ty` ciblé, TypeScript,
+  compilation Python et build réussis ; 216 tests Python ARC, 423 tests Web,
+  9 scénarios YunoHost et 16 tests broker réussissent.
+- Rapport : `docs/validation/LOT09R_PRODUCTION_COMPATIBILITY.md`.
+- Verdict courant : `LOT 09 HARDENING REQUIRED` ; le Lot 09 doit d'abord être
+  réellement déployé avant restart, persistance, coffre, logs, ARC et ATS.
+- Aucun commit Lot 09R : la condition « recette terminée » n'est pas remplie.
+- Le fichier utilisateur `contributors/emails/agent@Agents-Mac-mini.local`
+  reste explicitement exclu de tout futur commit.
+
+## LOT 07B — Frontières YunoHost et autonomie progressive
+
+- État : audit, simplification et contrôles locaux réalisés.
+- YunoHost reste standard : aucun patch du cœur, de SSOwat, de Nginx global ou
+  du catalogue officiel n’est requis par le paquet.
+- Une mutation globale évitable a été retirée : `www-data` n’est plus ajouté à
+  un groupe ARCenal ; le socket de contrôle utilise directement son groupe.
+- Les frontières YunoHost, dépendances Hermes et dépendances techniques sont
+  cartographiées. Une baseline locale mesure démarrage, RAM, CPU et tailles.
+- Validation : Ruff et ESLint passent sans erreur nouvelle, typage ciblé,
+  compilation Python, TypeScript et build passent ; 176 tests Python ARC, 421
+  tests web, 9 scénarios shell YunoHost et 16 tests broker réussissent.
+- Test principal sûr : l’accès HTTP anonyme à `/arcenal/` est redirigé par
+  SSOwat vers `/yunohost/sso` ; aucune mutation distante n’a été effectuée.
+- Les essais destructifs restent interdits sur le serveur principal ; leur
+  statut est `NON TESTÉ — INSTANCE JETABLE REQUISE`.
+- Publication GitHub : interdite sans autorisation explicite.
+
+## LOT 07 — Hardening et recette YunoHost
+
+- État : hardening local engagé ; recette YunoHost réelle bloquée par l'absence
+  d'une instance dédiée.
+- Défaut corrigé : les directives longues ne font plus disparaître une section
+  entière du prompt ARC ; les trois sections restent sous les budgets Hermes et
+  signalent explicitement les extraits bornés.
+- Paquet durci localement : headers secondaires d'identité neutralisés par
+  Nginx, permissions persistantes réappliquées, `UMask=0077`, remplacement
+  complet des sources et réenregistrement du service après restauration.
+- Livrables de recette créés : baseline préinstallation, jeu de données témoin,
+  runbook, réponse aux incidents et matrice YunoHost.
+- Validation locale : Ruff, typage ciblé, compilation Python, TypeScript et
+  build réussis ; 176 tests Python ARC, 421 tests web, 8 scénarios shell du
+  paquet et 16 tests du broker réussissent. La revue finale a aussi corrigé un
+  retrait qui omettait trois des quatre fichiers de directives dans le prompt.
+- Décision actuelle : `HARDENING REQUIRED` tant qu'installation, upgrade,
+  restart, reboot, SSO, backup et restore ne sont pas réellement éprouvés.
+- Publication GitHub : interdite sans autorisation explicite.
+
+## LOT 06 — Préproduction multi-fournisseurs
+
+- État : implémenté et validé localement ; intégré comme prérequis du lot 07.
+- Décision FRUGAL-001 : ordre déterministe, cache, workflow validé, modèle routé.
+- Décision FRUGAL-002 : aucune économie affichée sans baseline LLM mesurée.
+- Décision PROVIDER-001 : capacité, modèle et fournisseur restent trois contrats indépendants.
+- Décision PROVIDER-002 : OpenRouter reste interchangeable ; Ollama, OpenAI, Gemini, Anthropic, vLLM et les endpoints compatibles utilisent le même registre.
+- Preuve réelle : une génération `openrouter/free` via le Provider Adapter, 1 tentative, 13 888 tokens d'entrée, 2 tokens de sortie, coût rapporté nul, 5 287,29 ms.
+- YunoHost : packaging SSOwat et rotation des secrets préparé dans le dépôt séparé ; recette réelle non effectuée faute d'instance de test accessible pour cette révision locale.
+- Validation : Ruff, ESLint, ty ciblé, TypeScript, compilation Python et build réussis ; 173 tests Python ARCenal, 421 tests frontend, 7 scénarios shell YunoHost et 16 tests du broker réussis.
+- Publication GitHub : interdite sans autorisation explicite.
+
+Dernière mise à jour : 2026-10-01
 
 Branche : `arcenal`
 
 ## Objectif courant
 
-Mettre la version installée en conformité avec le CDC détaillé 2.0. La façade à
-trois volets et le socle YunoHost sont conservés, mais le centre Paramètres, le
-volet Agents, l'administration système et les parcours de sécurité doivent être
-achevés sans réintroduire le tableau de bord Hermes comme interface principale.
+Maintenir YunoHost standard, rendre le paquet ARC réversible et non intrusif,
+mesurer son empreinte puis préparer l’extraction incrémentale du runtime Hermes
+derrière les interfaces ARC existantes.
 
 ## État observé
 
@@ -54,15 +123,18 @@ achevés sans réintroduire le tableau de bord Hermes comme interface principale
 
 ## Travail en cours
 
-Le lot 03 est implémenté localement : ARC découvre un accès API nommé
-SilverBullet dans son coffre d'accès, synchronise les pages Markdown par
-révision `ETag`, les place dans un miroir privé en lecture seule et reconstruit
-le même index RAG central. Le volet RAG & LDA affiche l'état, le nombre de
-pages, l'accès à SilverBullet et la commande de synchronisation. Les pièces
-jointes TXT, Markdown, DOCX et ODT sont extraites sans nouvelle dépendance ;
-les PDF utilisent `pdftotext` lorsqu'il est disponible. Aucun rebranding de
-SilverBullet n'a été introduit. Les lots 01 à 03 sont figés dans trois commits
-locaux sur `arcenal` ; aucun push n'a été effectué.
+Le lot 07 durcit actuellement le paquet et la frontière de prompt avant recette
+réelle. ARC Frugal reste le socle validé du lot 06 : il arbitre entre exécution
+déterministe, cache, workflow gouverné et LLM routé au travers d'un registre de
+fournisseurs et d'un adaptateur commun. Le lot 04 reste intégré : la mémoire d'entreprise est une
+collection SQLite gouvernée, distincte du corpus officiel mais interrogée par
+le même RAG après contrôle des ACL. Les faits, décisions, personnes, projets,
+règles et préférences conservent provenance, confidentialité, scopes, durée de
+conservation, relations et historique de correction. Les mémoires expirées,
+archivées ou supprimées quittent l'index dérivé reconstruisible. La page
+Paramètres > Mémoire fournit recherche, filtres, fiche, métriques, création,
+correction, archivage, réactivation, expiration et droit à l'oubli. Les lots 01
+à 04 et leurs quatre commits restent inchangés ; aucun push n'a été effectué.
 
 - L'architecture de sécurité a été validée par l'utilisateur le 2026-09-28 :
   YunoHost reste l'unique autorité d'identité et ARC ne crée pas de second mot
@@ -249,6 +321,22 @@ locaux sur `arcenal` ; aucun push n'a été effectué.
   Vitest réussissent. Le build Vite de production et `git diff --check`
   réussissent.
 
+## Lot 04 — mémoire d'entreprise gouvernée (2026-09-30)
+
+- SQLite conserve la source canonique et l'historique ; l'index JSON reste
+  dérivé et est reconstruit après chaque mutation via l'API.
+- Le Context Builder distingue `Official Knowledge` et `Enterprise Memory` ;
+  les sources officielles restent prioritaires en cas de contradiction.
+- Les ACL cumulatives précèdent le retrieval. Le scénario ATS exclut une
+  mémoire comptable confidentielle et accepte une mémoire de recrutement.
+- Ruff et `ty` ciblé réussissent ; ESLint réussit sans erreur avec les 28
+  avertissements historiques du socle. TypeScript, compilation Python et build
+  Vite réussissent.
+- Les 117 tests Python ARCenal et les 416 tests Vitest réussissent. La page
+  Mémoire a été inspectée sur le build en thème sombre ; l'absence du backend
+  dans la prévisualisation statique produit uniquement les erreurs réseau
+  attendues. `git diff --check` réussit.
+
 Résultats intermédiaires du 2026-09-28 : ESLint réussit sans erreur avec les
 29 avertissements déjà présents dans le socle ; TypeScript réussit. Les
 19 tests unitaires de politique, identité, confirmation, audit et surface
@@ -325,7 +413,40 @@ activables.
 
 ## Étape suivante pressentie
 
-Lot 04 : introduire la mémoire d'entreprise comme une collection gouvernée du
-RAG central, distincte du corpus documentaire. Elle doit conserver provenance,
-confidentialité, durée de conservation, correction et oubli, puis être filtrée
-par les mêmes ACL avant toute injection dans le contexte d'un agent.
+## Lot 08 — ARC Native Runtime, tranche Configuration & Vault (2026-10-01)
+
+- `ArcConfigStore`, `ArcVault`, leurs backends natifs et
+  `ArcRuntimeConfiguration` constituent désormais la frontière de
+  configuration du produit.
+- La migration HERMES est en lecture seule, idempotente et conserve la valeur
+  ARC en cas de conflit explicite.
+- Les imports directs de `hermes_cli.config` dans ARC passent de sept à un,
+  localisé dans `HermesConfigAdapter`.
+- ARC Frugal, les fournisseurs, les accès métier, SilverBullet et le catalogue
+  du chat utilisent la nouvelle frontière sans ajouter de dépendance.
+- Validation : Ruff, typage ciblé, compilation Python, 194 tests Python, ESLint sans erreur,
+  TypeScript, 421 tests Vitest, build de production, 9 scénarios shell YunoHost
+  et 16 tests du broker réussissent.
+- Mesure locale : première réponse 1 s, repos 145 600 Kio, 145 808 Kio après
+  dix lectures ; environnement Python et build web stables.
+- Aucune publication, version ou release n’a été créée.
+
+## Lot 09 — ARC Native Configuration Cutover (2026-10-01)
+
+- ARC natif est le backend de configuration implicite ; HERMES n’est disponible
+  qu’en mode legacy explicite, en lecture seule et visible dans le diagnostic.
+- Général, Apparence, Fournisseurs, Accès, Autonomie et onboarding passent par
+  l’API ARC Config/Vault sans réécriture de leur interface.
+- La migration existante est non destructive, vérifiée, idempotente sur trois
+  passages, conserve ARC en cas de conflit et ne journalise aucune valeur.
+- Le paquet YunoHost déclenche cette migration pendant install, upgrade et
+  restore, puis resserre les permissions en `0700/0600`.
+- La frontière conversationnelle restante est documentée dans
+  `HERMES_RUNTIME_BOUNDARY.md`; aucun runtime de remplacement n’a été commencé.
+- Mesure locale : première réponse 1 s, 146 256 Kio au repos et 146 432 Kio
+  après dix lectures ; tailles Python, web et plugin stables face au Lot 08.
+- Aucune publication, version, release, dépendance, base ou service ajouté.
+
+Proposition uniquement : Lot 10 — placer `_run_agent`, le gateway de streaming
+et les sessions derrière l’interface minimale `ArcAgentRuntime`, en conservant
+un adaptateur HERMES temporaire et sans dupliquer les composants ARC existants.
