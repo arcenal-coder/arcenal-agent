@@ -2,9 +2,18 @@
 
 ## LOT 09R — Recette de compatibilité de production
 
-- Date : 2026-10-01 ; branche `arcenal`, changements Lots 01 à 09 non commitées.
-- État : non-régression locale complète et contrôles SSO réels réussis ; accès
-  SSH établi sur le port 2403, mais version serveur antérieure au Lot 09.
+- Date : 2026-10-01 ; branche `arcenal`, version corrective
+  `v0.21.0-arcenal22` publiée.
+- État : le paquet Lot 09 `0.21.0~ynh38` est installé sur le serveur principal.
+  Le chat a toutefois révélé une configuration Gemini incohérente : le
+  fournisseur était `gemini` et le modèle littéral `auto`.
+- Correctif publié : `arcenal22` synchronise le modèle choisi dans Paramètres
+  avec le moteur conversationnel, refuse `auto` comme identifiant direct et
+  couvre les parcours nominal, limite et erreur. Le paquet `0.21.0~ynh39`
+  expose aussi Gemini dans le panneau YunoHost et est disponible en preview.
+- Recette restante : mettre à niveau vers ynh39, sélectionner un modèle Gemini
+  retourné par le test de connexion, ouvrir une nouvelle conversation et
+  vérifier une réponse ARC réelle avant toute promotion stable.
 - Preuves serveur : `/arcenal/` redirige vers SSOwat ; un faux en-tête
   `Remote-User` ne contourne pas l'authentification ; dix requêtes simultanées
   répondent sans erreur entre 66,5 et 79,8 ms. Les services ARCenal sont actifs,

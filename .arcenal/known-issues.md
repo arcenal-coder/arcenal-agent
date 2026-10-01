@@ -1,5 +1,20 @@
 # Points ouverts
 
+## CHAT-MODEL-001 — Recette réelle du modèle Gemini
+
+- État : correctif `arcenal22` / `0.21.0~ynh39` publié en preview.
+- Cause confirmée : le serveur utilisait `provider: gemini` avec
+  `default: auto`, valeur qui n’est pas un identifiant de modèle Gemini.
+- Correctif : Paramètres synchronise désormais le modèle natif avec le moteur
+  conversationnel ; l’interface, l’API et le panneau YunoHost refusent le
+  pseudo-modèle `auto`.
+- Preuves locales : Ruff, ESLint sans erreur, TypeScript, build, 16 tests API,
+  37 tests web ciblés et 20 tests paquet réussissent. Les contrôles du
+  catalogue GitHub et sa publication passent.
+- Prochaine étape : installer ynh39 depuis le canal preview, choisir un modèle
+  Gemini proposé par « Tester la connexion », puis valider une nouvelle
+  conversation. Ne pas promouvoir stable avant cette preuve.
+
 ## CDC-GAP-001 — Conformité fonctionnelle incomplète
 
 - État : audit terminé, architecture validée et réalisation engagée.
