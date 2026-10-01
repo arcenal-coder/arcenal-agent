@@ -101,6 +101,8 @@ def _compatible_models_url(base_url: str) -> str:
 def _headers(provider: str, api_key: str) -> dict[str, str]:
     if provider == "anthropic":
         return {"accept": "application/json", "anthropic-version": "2023-06-01", "x-api-key": api_key}
+    if provider == "gemini":
+        return {"accept": "application/json"}
     if api_key:
         return {"accept": "application/json", "authorization": f"Bearer {api_key}"}
     return {"accept": "application/json"}

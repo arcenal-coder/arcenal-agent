@@ -39,6 +39,13 @@ class ProviderConnectionTests(TestCase):
         self.assertEqual(MODULE._models({"data": [{"id": "gpt-test"}]}), ["gpt-test"])
         self.assertEqual(MODULE._models({"models": [{"name": "models/gemini-test"}]}), ["gemini-test"])
 
+    def test_gemini_key_is_not_sent_as_an_oauth_bearer(self) -> None:
+        self.assertEqual(MODULE._headers("gemini", "secret"), {"accept": "application/json"})
+        self.assertEqual(
+            MODULE._headers("openai", "secret"),
+            {"accept": "application/json", "authorization": "Bearer secret"},
+        )
+
 
 class ProviderProbeTests(IsolatedAsyncioTestCase):
     async def test_missing_key_is_reported_without_network_call(self) -> None:
