@@ -118,6 +118,16 @@ def test_model_change_invalidates_only_previous_model(tmp_path: Path, monkeypatc
     assert runtime.config.get("models", "default") == "new-model"
 
 
+@pytest.mark.parametrize("model", ["auto", " AUTO "])
+def test_literal_auto_model_is_rejected(model: str, tmp_path: Path, monkeypatch) -> None:
+    client = _client(_runtime(tmp_path), monkeypatch)
+
+    response = client.put("/configuration/v1", json={"models": {"default": model, "provider": "gemini"}})
+
+    assert response.status_code == 422
+    assert "modèle précis" in response.text
+
+
 def test_legacy_mode_rejects_configuration_writes(tmp_path: Path, monkeypatch) -> None:
     legacy = CORE.HermesConfigAdapter(lambda: {"model": {"default": "legacy"}})
     runtime = CORE.ArcRuntimeConfiguration(legacy, CORE.ArcFileVault(tmp_path / ".env"), backend="hermes", migration_state="legacy")

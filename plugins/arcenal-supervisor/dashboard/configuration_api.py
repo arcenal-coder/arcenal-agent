@@ -122,6 +122,13 @@ class ModelSettings(StrictModel):
     default: str | None = Field(default=None, max_length=240)
     provider: str | None = Field(default=None, max_length=80)
 
+    @field_validator("default")
+    @classmethod
+    def validate_default_model(cls, value: str | None) -> str | None:
+        if value is not None and value.strip().casefold() == "auto":
+            raise ValueError("Choisissez un modèle précis ; « auto » n’est pas un identifiant de modèle.")
+        return value
+
 
 class ConfigurationPatch(StrictModel):
     approvals: ApprovalSettings | None = None

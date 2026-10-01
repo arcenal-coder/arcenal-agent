@@ -36,6 +36,13 @@ interface SettingsState {
 const EMPTY_OPTIONS: ModelOptionsResponse = { providers: [] };
 const INITIAL_STATE: SettingsState = { autonomy: "manual", busy: true, config: {}, customKey: "", customSecret: "", enabledProviders: {}, env: {}, error: "", models: EMPTY_OPTIONS, notice: "", providerStatuses: {}, providerUrls: {}, secrets: {}, selectedModels: {}, selectedSecondaryModels: {} };
 
+class ProviderModelSelectionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ProviderModelSelectionError";
+  }
+}
+
 export default function ArcenalSettingsPage(): ReactElement {
   const [state, setState] = useState<SettingsState>(INITIAL_STATE);
   const load = useCallback(async (): Promise<void> => {
@@ -152,12 +159,30 @@ async function saveProvider(provider: ProviderConnection, state: SettingsState, 
     const providerConfig = { providers: { [provider.id]: { base_url: baseUrl || undefined, enabled: state.enabledProviders[provider.id] !== false } } };
     const model = state.selectedModels[provider.id]?.trim();
     const secondary = state.selectedSecondaryModels[provider.id]?.trim();
+    validateMainModel(model);
+    await synchronizeConversationModel(provider.id, model, baseUrl);
     await api.saveArcenalConfiguration({ ...providerConfig, models: { auxiliary: secondary || undefined, default: model || undefined, provider: provider.id } });
     setState((current) => ({ ...current, notice: `${provider.label} est disponible pour ARC.`, secrets: { ...current.secrets, [provider.id]: "" } }));
     await reload();
   } catch (cause) {
     setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));
   }
+}
+
+function validateMainModel(model: string | undefined): asserts model is string {
+  if (!model) throw new ProviderModelSelectionError("Choisissez un modèle principal avant d’enregistrer.");
+  if (model.toLowerCase() === "auto") throw new ProviderModelSelectionError("Choisissez un modèle précis : « auto » ne peut pas être envoyé directement à un fournisseur.");
+}
+
+async function synchronizeConversationModel(provider: string, model: string, baseUrl?: string): Promise<void> {
+  const assignment = { base_url: baseUrl || undefined, model, provider, scope: "main" as const };
+  const result = await api.setModelAssignment(assignment);
+  if (!result.confirm_required && result.ok) return;
+  if (!result.confirm_required) throw new ProviderModelSelectionError("Le moteur conversationnel a refusé ce modèle.");
+  const message = result.confirm_message || "Ce modèle peut entraîner un coût important. Continuer ?";
+  if (!window.confirm(message)) throw new ProviderModelSelectionError("La sélection du modèle a été annulée.");
+  const confirmed = await api.setModelAssignment({ ...assignment, confirm_expensive_model: true });
+  if (!confirmed.ok) throw new ProviderModelSelectionError("Le moteur conversationnel a refusé ce modèle.");
 }
 
 async function testProvider(provider: ProviderConnection, state: SettingsState, setState: SetState): Promise<void> {
