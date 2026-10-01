@@ -8,6 +8,7 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .contracts import Permission, StrictModel
+from .frugal_models import CapabilityProfile
 from .knowledge_models import ContextPlan, RetrievalMetrics, SourceCitation
 
 
@@ -18,6 +19,12 @@ class AutonomyLevel(str, Enum):
     APPROVAL_REQUIRED = "approval_required"
 
 
+class UserIdentitySource(str, Enum):
+    YUNOHOST = "yunohost"
+    APPLICATION = "application"
+    NONE = "none"
+
+
 class InstructionBlock(StrictModel):
     id: str = Field(pattern=r"^[a-z][a-z0-9_.-]{0,63}$")
     content: str = Field(min_length=1, max_length=8_000)
@@ -25,9 +32,13 @@ class InstructionBlock(StrictModel):
 
 class ModelPolicy(StrictModel):
     mode: str = Field(default="auto", pattern=r"^(auto|fixed)$")
+    preferred_capability: CapabilityProfile = CapabilityProfile.STANDARD
     local_preferred: bool = True
     allowed_providers: tuple[str, ...] = ()
+    denied_providers: tuple[str, ...] = ()
     allowed_models: tuple[str, ...] = ()
+    local_only: bool = False
+    max_cost: float | None = Field(default=None, ge=0)
 
 
 class AgentDefinition(StrictModel):
@@ -68,6 +79,7 @@ class AgentUpdate(BaseModel):
 class ApplicationIdentity(StrictModel):
     application_id: str
     user_id: str | None = Field(default=None, max_length=128)
+    user_source: UserIdentitySource = UserIdentitySource.NONE
 
     @field_validator("application_id")
     @classmethod
@@ -80,6 +92,7 @@ class ApplicationIdentity(StrictModel):
 class RequestIdentity(StrictModel):
     request_id: str
     user_id: str | None
+    user_source: UserIdentitySource
     application_id: str
     agent_id: str
     session_id: str | None
@@ -97,6 +110,8 @@ class EffectiveContext(StrictModel):
     model_policy: ModelPolicy
     context_plan: ContextPlan
     knowledge_context: str
+    document_context: str
+    memory_context: str
     sources: tuple[SourceCitation, ...]
     retrieval_metrics: RetrievalMetrics
     request_context: dict[str, str] = Field(default_factory=dict)
@@ -106,7 +121,7 @@ class EngineOutput(StrictModel):
     response: str
     sources: tuple[dict[str, str], ...] = ()
     actions: tuple[dict[str, str], ...] = ()
-    usage: dict[str, int | float | str] = Field(default_factory=dict)
+    usage: dict[str, bool | int | float | str] = Field(default_factory=dict)
 
 
 class AgentQueryResponse(StrictModel):
@@ -117,4 +132,4 @@ class AgentQueryResponse(StrictModel):
     approval_required: bool
     sources: tuple[dict[str, str], ...] = ()
     actions: tuple[dict[str, str], ...] = ()
-    usage: dict[str, int | float | str] = Field(default_factory=dict)
+    usage: dict[str, bool | int | float | str] = Field(default_factory=dict)

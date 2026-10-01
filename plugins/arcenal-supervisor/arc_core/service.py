@@ -58,6 +58,7 @@ class ArcCore:
             "agent": context.agent.id,
             "application": context.identity.application_id,
             "user": context.identity.user_id,
+            "user_source": context.identity.user_source.value,
             "status": status,
             "duration_ms": duration_ms,
             "tools": list(context.tools),

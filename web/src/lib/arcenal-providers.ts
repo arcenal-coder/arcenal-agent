@@ -22,6 +22,7 @@ const PROVIDERS = [
   { configurableUrl: false, defaultBaseUrl: "https://api.mistral.ai/v1", envKey: "MISTRAL_API_KEY", id: "mistral", keyRequired: true, label: "Mistral", local: false },
   { configurableUrl: false, defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta", envKey: "GEMINI_API_KEY", id: "gemini", keyRequired: true, label: "Google Gemini", local: false },
   { configurableUrl: true, defaultBaseUrl: "http://127.0.0.1:11434/v1", envKey: "", id: "ollama", keyRequired: false, label: "Ollama", local: true },
+  { configurableUrl: true, defaultBaseUrl: "http://127.0.0.1:8000/v1", envKey: "VLLM_API_KEY", id: "vllm", keyRequired: false, label: "vLLM", local: true },
   { configurableUrl: true, defaultBaseUrl: "", envKey: "OPENAI_COMPATIBLE_API_KEY", id: "compatible", keyRequired: true, label: "API compatible OpenAI", local: false },
   { configurableUrl: true, defaultBaseUrl: "", envKey: "ARCENAL_INTERNAL_LLM_API_KEY", id: "internal", keyRequired: true, label: "Fournisseur interne", local: true },
 ] as const;

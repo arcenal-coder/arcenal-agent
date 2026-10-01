@@ -58,7 +58,7 @@ async function saveGeneral(settings: ArcenalGeneralSettings, setBusy: (value: bo
   setBusy(true);
   setStatus("");
   try {
-    await api.saveConfig(generalSettingsConfig(settings));
+    await api.saveArcenalConfiguration(generalSettingsConfig(settings));
     await reload();
     setStatus("Les paramètres généraux sont enregistrés.");
   } catch (cause) {

@@ -69,6 +69,27 @@ administrateur non développeur. Tu peux donner les détails techniques utiles,
 mais tu conduis d’abord vers un diagnostic, une décision et un résultat clair.
 """
 
+DIRECTIVES_PROMPT_MAX_CHARS = 2_600
+DIRECTIVE_EXCERPT_MAX_CHARS = 560
+MEMORY_PROMPT_MAX_CHARS = 2_000
+
+
+class PromptBudgetError(ValueError):
+    """Le budget ne peut pas préserver le marqueur de continuation."""
+
+
+def _bounded_excerpt(content: str, max_chars: int, continuation: str) -> str:
+    if max_chars <= len(continuation) + 1:
+        raise PromptBudgetError("Le budget du prompt est trop petit.")
+    normalized = content.strip()
+    if len(normalized) <= max_chars:
+        return normalized
+    available = max_chars - len(continuation) - 1
+    clipped = normalized[:available].rsplit("\n", 1)[0].rstrip()
+    if not clipped:
+        clipped = normalized[:available].rstrip()
+    return f"{clipped}\n{continuation}"
+
 
 def _directives_prompt(_session_info: Mapping[str, Any]) -> str:
     """Fige les directives administrées dans chaque nouvelle conversation."""
@@ -77,10 +98,21 @@ def _directives_prompt(_session_info: Mapping[str, Any]) -> str:
     sections: list[str] = []
     for file_id in ("agents", "rules", "security", "tools"):
         detail = _supervisor_module().managed_files.read_managed_file(file_id)
-        content = str(detail["content"]).strip()
+        content = _bounded_excerpt(
+            str(detail["content"]),
+            DIRECTIVE_EXCERPT_MAX_CHARS,
+            "[Suite disponible via arcenal_context_search]",
+        )
         if content:
-            sections.append(f"## {detail['file']['filename']}\n{content[:1400]}")
-    return "# Directives ARCenal administrées\n" + "\n\n".join(sections) if sections else ""
+            sections.append(f"## {detail['file']['filename']}\n{content}")
+    prompt = "# Directives ARCenal administrées\n" + "\n\n".join(sections)
+    if not sections:
+        return ""
+    return _bounded_excerpt(
+        prompt,
+        DIRECTIVES_PROMPT_MAX_CHARS,
+        "[Directives complètes accessibles par recherche]",
+    )
 
 
 def _memory_prompt(_session_info: Mapping[str, Any]) -> str:
@@ -89,7 +121,13 @@ def _memory_prompt(_session_info: Mapping[str, Any]) -> str:
 
     detail = _supervisor_module().managed_files.read_managed_file("memory")
     content = str(detail["content"]).strip()
-    return f"# Mémoire durable ARCenal\n{content[:2800]}" if content else ""
+    if not content:
+        return ""
+    return "# Mémoire durable ARCenal\n" + _bounded_excerpt(
+        content,
+        MEMORY_PROMPT_MAX_CHARS - 28,
+        "[Suite disponible via arcenal_memory_search]",
+    )
 
 
 def _record_tool_usage(
@@ -124,19 +162,19 @@ def register(ctx) -> None:
         id="arcenal.identity",
         content=ARC_SYSTEM_PROMPT,
         position="after_memory",
-        max_chars=4000,
+        max_chars=3000,
     )
     ctx.register_system_prompt_section(
         id="arcenal.directives",
         content=_directives_prompt,
         position="after_memory",
-        max_chars=6000,
+        max_chars=DIRECTIVES_PROMPT_MAX_CHARS,
     )
     ctx.register_system_prompt_section(
         id="arcenal.memory",
         content=_memory_prompt,
         position="after_memory",
-        max_chars=3000,
+        max_chars=MEMORY_PROMPT_MAX_CHARS,
     )
     ctx.register_hook("post_tool_call", _record_tool_usage)
     for name, schema, handler, emoji in (

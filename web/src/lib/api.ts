@@ -602,9 +602,75 @@ export const api = {
       `/api/plugins/arcenal-supervisor/managed-files/memory/entries/${encodeURIComponent(entryId)}/delete`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: true }) },
     ),
+  getEnterpriseMemories: (filters: EnterpriseMemoryFilters = {}) =>
+    fetchJSON<EnterpriseMemoryListResponse>(
+      `/api/plugins/arcenal-supervisor/memory/v1?${enterpriseMemoryQuery(filters)}`,
+    ),
+  getEnterpriseMemory: (memoryId: string) =>
+    fetchJSON<EnterpriseMemoryDetailResponse>(
+      `/api/plugins/arcenal-supervisor/memory/v1/${encodeURIComponent(memoryId)}`,
+    ),
+  getEnterpriseMemoryMetrics: () =>
+    fetchJSON<EnterpriseMemoryMetrics>("/api/plugins/arcenal-supervisor/memory/v1/metrics"),
+  createEnterpriseMemory: (payload: EnterpriseMemoryWrite) =>
+    fetchJSON<EnterpriseMemoryResponse>("/api/plugins/arcenal-supervisor/memory/v1", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    }),
+  correctEnterpriseMemory: (memoryId: string, payload: EnterpriseMemoryWrite & { reason: string }) =>
+    fetchJSON<EnterpriseMemoryResponse>(
+      `/api/plugins/arcenal-supervisor/memory/v1/${encodeURIComponent(memoryId)}`,
+      { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) },
+    ),
+  transitionEnterpriseMemory: (memoryId: string, status: EnterpriseMemoryStatus, reason: string) =>
+    fetchJSON<EnterpriseMemoryResponse>(
+      `/api/plugins/arcenal-supervisor/memory/v1/${encodeURIComponent(memoryId)}/status`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason, status }) },
+    ),
+  deleteEnterpriseMemory: (memoryId: string, physical: boolean, reason: string) =>
+    fetchJSON<{ deleted: boolean; physical: boolean }>(
+      `/api/plugins/arcenal-supervisor/memory/v1/${encodeURIComponent(memoryId)}`,
+      { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: true, physical, reason }) },
+    ),
+  getArcenalFrugalOverview: () =>
+    fetchJSON<ArcenalFrugalOverview>("/api/plugins/arcenal-supervisor/frugal/v1/overview"),
+  saveArcenalModel: (model: ArcenalModelDescriptor) =>
+    fetchJSON<ArcenalModelDescriptor>(
+      `/api/plugins/arcenal-supervisor/frugal/v1/models/${encodeURIComponent(model.id)}`,
+      { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(model) },
+    ),
+  saveArcenalProvider: (provider: ArcenalProviderDescriptor) =>
+    fetchJSON<ArcenalProviderDescriptor>(
+      `/api/plugins/arcenal-supervisor/frugal/v1/providers/${encodeURIComponent(provider.id)}`,
+      { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(provider) },
+    ),
+  getArcenalAutomations: () =>
+    fetchJSON<ArcenalAutomationsResponse>("/api/plugins/arcenal-supervisor/frugal/v1/automations"),
+  transitionArcenalWorkflow: (workflowId: string, status: ArcenalWorkflowStatus) =>
+    fetchJSON<ArcenalWorkflow>(
+      `/api/plugins/arcenal-supervisor/frugal/v1/workflows/${encodeURIComponent(workflowId)}/transition`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) },
+    ),
   getArcenalProviderStatuses: () =>
     fetchJSON<ArcenalProviderStatusesResponse>(
       "/api/plugins/arcenal-supervisor/providers/status",
+    ),
+  getArcenalConfiguration: () =>
+    fetchJSON<ArcenalConfigurationResponse>(
+      "/api/plugins/arcenal-supervisor/configuration/v1",
+    ),
+  saveArcenalConfiguration: (config: Record<string, unknown>) =>
+    fetchJSON<{ ok: boolean }>("/api/plugins/arcenal-supervisor/configuration/v1", {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(config),
+    }),
+  setArcenalSecret: (key: string, value: string) =>
+    fetchJSON<{ configured: boolean }>(
+      `/api/plugins/arcenal-supervisor/configuration/v1/secrets/${encodeURIComponent(key)}`,
+      { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ value }) },
+    ),
+  deleteArcenalSecret: (key: string) =>
+    fetchJSON<{ configured: boolean }>(
+      `/api/plugins/arcenal-supervisor/configuration/v1/secrets/${encodeURIComponent(key)}`,
+      { method: "DELETE" },
     ),
   testArcenalProvider: (provider: string, apiKey?: string, baseUrl?: string) =>
     fetchJSON<ArcenalProviderProbe>(
@@ -2442,7 +2508,14 @@ export interface ArcenalSystemOverview {
     hostname: string;
     kernel: string;
     name: string;
-    versions: { arc: string; debian: string; hermes: string; yunohost: string };
+    versions: {
+      arc: string;
+      debian: string;
+      hermes: string;
+      package: string;
+      source_revision: string;
+      yunohost: string;
+    };
     yunohost: boolean;
   };
   resources: {
@@ -2577,6 +2650,246 @@ export interface ArcenalMemoryEntryResponse {
   entry: ArcenalMemoryEntry;
 }
 
+export type EnterpriseMemoryType = "fact" | "decision" | "person" | "project" | "rule" | "preference";
+export type EnterpriseMemoryStatus = "active" | "pending_review" | "archived" | "expired" | "deleted";
+export type EnterpriseMemorySource = "manual" | "conversation" | "application" | "document" | "agent" | "import" | "api";
+export type EnterpriseMemoryConfidentiality = "public" | "internal" | "restricted" | "confidential" | "admin";
+
+export interface EnterpriseMemoryProvenance {
+  agent_id: string | null;
+  application_id: string | null;
+  author: string | null;
+  recorded_at: string;
+  request_id: string | null;
+  source_id: string;
+  source_type: EnterpriseMemorySource;
+}
+
+export interface EnterpriseMemoryEntry {
+  allowed_agents: string[];
+  allowed_applications: string[];
+  allowed_users: string[];
+  confidentiality: EnterpriseMemoryConfidentiality;
+  confidence: number;
+  content: string;
+  created_at: string;
+  created_by: string;
+  expires_at: string | null;
+  id: string;
+  knowledge_scopes: string[];
+  memory_type: EnterpriseMemoryType;
+  decision_context: string | null;
+  decision_maker: string | null;
+  decision_reason: string | null;
+  official_reference: string | null;
+  person: string | null;
+  person_role: string | null;
+  person_service: string | null;
+  preference_context: string | null;
+  preference_owner: string | null;
+  preference_scope: string | null;
+  project: string | null;
+  project_status: string | null;
+  provenance: EnterpriseMemoryProvenance;
+  retention_mode: "permanent" | "expiring";
+  responsibilities: string[];
+  review_date: string | null;
+  rule_kind: "observed" | "business" | "derived" | "official_reference" | null;
+  relations: Array<{ relation_type: string; target_id: string; target_kind: string }>;
+  status: EnterpriseMemoryStatus;
+  summary: string;
+  updated_at: string;
+  version: number;
+}
+
+export interface EnterpriseMemoryWrite {
+  allowed_agents?: string[];
+  allowed_applications?: string[];
+  allowed_users?: string[];
+  confidentiality: EnterpriseMemoryConfidentiality;
+  confidence: number;
+  content: string;
+  decision_context?: string | null;
+  decision_maker?: string | null;
+  decision_reason?: string | null;
+  expires_at: string | null;
+  knowledge_scopes: string[];
+  memory_type: EnterpriseMemoryType;
+  person: string | null;
+  person_role?: string | null;
+  person_service?: string | null;
+  preference_context?: string | null;
+  preference_owner?: string | null;
+  preference_scope?: string | null;
+  project: string | null;
+  project_status?: string | null;
+  official_reference?: string | null;
+  relations?: Array<{ relation_type: string; target_id: string; target_kind: string }>;
+  retention_mode: "permanent" | "expiring";
+  responsibilities?: string[];
+  review_date?: string | null;
+  source_id: string;
+  source_author?: string | null;
+  source_recorded_at?: string | null;
+  source_type: EnterpriseMemorySource;
+  status: EnterpriseMemoryStatus;
+  summary: string;
+  rule_kind?: "observed" | "business" | "derived" | "official_reference" | null;
+}
+
+export interface EnterpriseMemoryFilters {
+  created_from?: string;
+  created_to?: string;
+  confidentiality?: EnterpriseMemoryConfidentiality | "";
+  memory_type?: EnterpriseMemoryType | "";
+  project?: string;
+  query?: string;
+  scope?: string;
+  source_type?: EnterpriseMemorySource | "";
+  status?: EnterpriseMemoryStatus | "";
+}
+
+export interface EnterpriseMemoryMetrics {
+  active: number;
+  archived: number;
+  by_scope: Record<string, number>;
+  by_type: Record<string, number>;
+  deleted: number;
+  expired: number;
+  pending_review: number;
+  total: number;
+  used_by_rag: number;
+}
+
+export interface EnterpriseMemoryRevision {
+  corrected_at: string;
+  corrected_by: string;
+  id: string;
+  reason: string;
+  version: number;
+}
+
+export interface EnterpriseMemoryListResponse { entries: EnterpriseMemoryEntry[] }
+export interface EnterpriseMemoryResponse { entry: EnterpriseMemoryEntry }
+export interface EnterpriseMemoryDetailResponse extends EnterpriseMemoryResponse { history: EnterpriseMemoryRevision[] }
+
+export type ArcenalModelCapability = "deterministic" | "light" | "standard" | "advanced" | "specialized";
+export type ArcenalExecutionMode = "deterministic" | "cache" | "llm" | "workflow";
+export type ArcenalWorkflowStatus = "draft" | "testing" | "active" | "disabled" | "archived";
+
+export interface ArcenalModelDescriptor {
+  id: string;
+  provider: string;
+  model_name: string;
+  enabled: boolean;
+  capabilities: ArcenalModelCapability[];
+  context_window: number;
+  supports_tools: boolean;
+  supports_structured_output: boolean;
+  supports_vision: boolean;
+  privacy_class: "public" | "internal" | "restricted" | "confidential" | "admin";
+  location: "local" | "remote";
+  hosting_region: string | null;
+  input_cost: number;
+  output_cost: number;
+  priority: number;
+}
+
+export interface ArcenalFrugalMetrics {
+  total_requests: number;
+  llm_requests: number;
+  non_llm_requests: number;
+  cache_hits: number;
+  deterministic_hits: number;
+  workflow_hits: number;
+  input_tokens: number;
+  output_tokens: number;
+  tokens_avoided_estimate: number;
+  actual_estimated_cost: number;
+  estimated_cost_avoided: number;
+  average_routing_latency_ms: number;
+  average_total_latency_ms: number;
+  average_rag_latency_ms: number;
+  average_context_tokens: number;
+  provider_failures: number;
+  by_provider: Record<string, number>;
+  by_model: Record<string, number>;
+}
+
+export interface ArcenalExecutionTrace {
+  request_id: string;
+  execution_mode: ArcenalExecutionMode;
+  provider: string | null;
+  model: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost: number;
+  duration_ms: number;
+  rag_duration_ms: number;
+  context_tokens: number;
+  provider_attempts: number;
+  provider_failures: number;
+}
+
+export type ArcenalProviderCapability = "chat" | "streaming" | "structured_output" | "tool_calling" | "vision" | "embeddings" | "token_usage" | "cost_reporting";
+
+export interface ArcenalProviderDescriptor {
+  id: string;
+  name: string;
+  type: string;
+  enabled: boolean;
+  base_url: string | null;
+  authentication_type: "none" | "bearer" | "api_key";
+  secret_reference: string | null;
+  location: "local" | "remote";
+  jurisdiction: string | null;
+  capabilities: ArcenalProviderCapability[];
+  priority: number;
+  health: "unknown" | "healthy" | "degraded" | "unavailable";
+}
+
+export interface ArcenalFrugalOverview {
+  metrics: ArcenalFrugalMetrics;
+  models: ArcenalModelDescriptor[];
+  providers: ArcenalProviderDescriptor[];
+  traces: ArcenalExecutionTrace[];
+}
+
+export interface ArcenalWorkflow {
+  id: string;
+  name: string;
+  description: string;
+  version: number;
+  status: ArcenalWorkflowStatus;
+  agent_id: string;
+  trigger: string;
+  autonomy: "automatic" | "controlled" | "approval_required";
+  approved_by: string | null;
+  executions: number;
+  exceptions: number;
+}
+
+export interface ArcenalAutomationCandidate {
+  id: string;
+  name: string;
+  description: string;
+  observations: number;
+  confidence: number;
+  estimated_savings: number;
+  risk_level: "low" | "medium" | "high";
+  reviewed: boolean;
+}
+
+export interface ArcenalAutomationsResponse {
+  workflows: ArcenalWorkflow[];
+  candidates: ArcenalAutomationCandidate[];
+}
+
+function enterpriseMemoryQuery(filters: EnterpriseMemoryFilters): string {
+  const entries = Object.entries(filters).filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].length > 0);
+  return new URLSearchParams(entries).toString();
+}
+
 export interface ArcenalProviderProbe {
   configured: boolean;
   connection: "connected" | "invalid" | "missing" | "unreachable";
@@ -2588,6 +2901,19 @@ export interface ArcenalProviderProbe {
 
 export interface ArcenalProviderStatusesResponse {
   providers: Record<string, ArcenalProviderProbe>;
+}
+
+export interface ArcenalConfigurationResponse {
+  backend: "arc" | "hermes";
+  config: Record<string, unknown>;
+  migration: {
+    conflicts: string[];
+    copied: number;
+    state: "complete" | "legacy" | "not_required";
+    unchanged: number;
+  };
+  secrets: Record<string, boolean>;
+  vault: "ready";
 }
 
 export interface ArcenalAccessProbe {

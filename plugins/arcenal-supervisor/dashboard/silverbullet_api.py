@@ -55,12 +55,9 @@ def _home() -> Path:
 
 
 def _credential() -> tuple[str, str] | None:
-    from hermes_cli.config import load_config_readonly, load_env
-
-    config = load_config_readonly()
-    arcenal = _record(config.get("arcenal"))
-    credentials = arcenal.get("access_credentials") if arcenal is not None else []
-    match = next((item for item in credentials if _is_silverbullet(item)), None) if isinstance(credentials, list) else None
+    runtime = _core().runtime_configuration()
+    credentials = runtime.access_credentials()
+    match = next((item for item in credentials if _is_silverbullet(item)), None)
     item = _record(match)
     if item is None:
         return None
@@ -68,7 +65,8 @@ def _credential() -> tuple[str, str] | None:
     service_url = item.get("serviceUrl")
     if not isinstance(secret_env, str) or not isinstance(service_url, str):
         return None
-    token = load_env().get(secret_env, "").strip()
+    token = runtime.vault.get_secret(secret_env)
+    token = token.strip() if isinstance(token, str) else ""
     return (service_url, token) if token else None
 
 

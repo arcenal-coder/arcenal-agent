@@ -11,6 +11,7 @@ import importlib.util
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -24,6 +25,14 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 router = APIRouter()
+
+ARCENAL_RELEASE_PATTERN = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+-arcenal[0-9]+(?:-rc[0-9]+)?$")
+ARCENAL_PACKAGE_PATTERN = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+~ynh[0-9]+$")
+ARCENAL_REVISION_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+
+
+class ReleaseMetadataError(ValueError):
+    """Signale une métadonnée de livraison ARCenal invalide."""
 
 
 def _load_knowledge_api() -> ModuleType:
@@ -134,10 +143,49 @@ def _load_branding_api() -> ModuleType:
     return module
 
 
+def _load_enterprise_memory_api() -> ModuleType:
+    """Charge la mémoire gouvernée sans l’intégrer au cœur Hermes."""
+    source = Path(__file__).with_name("enterprise_memory_api.py")
+    spec = importlib.util.spec_from_file_location("arcenal_enterprise_memory_api", source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Le module de mémoire d’entreprise est introuvable.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_frugal_api() -> ModuleType:
+    """Charge ARC Frugal sans coupler l'API au fournisseur de modèles."""
+    source = Path(__file__).with_name("frugal_api.py")
+    spec = importlib.util.spec_from_file_location("arcenal_frugal_api", source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Le module ARC Frugal est introuvable.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_configuration_api() -> ModuleType:
+    """Charge la frontière native Config/Vault d’ARC."""
+    source = Path(__file__).with_name("configuration_api.py")
+    spec = importlib.util.spec_from_file_location("arcenal_configuration_api", source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Le module de configuration ARCenal est introuvable.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 knowledge = _load_knowledge_api()
 router.include_router(knowledge.router)
 managed_files = _load_managed_files_api()
 router.include_router(managed_files.router)
+agents = _load_agents_api()
+router.include_router(agents.router)
+root_router = agents.root_router
 provider_connections = _load_provider_connections_api()
 router.include_router(provider_connections.router)
 access_connections = _load_access_connections_api()
@@ -146,13 +194,16 @@ silverbullet = _load_silverbullet_api()
 router.include_router(silverbullet.router)
 capabilities = _load_capabilities_api()
 router.include_router(capabilities.router)
-agents = _load_agents_api()
-router.include_router(agents.router)
-root_router = agents.root_router
 system = _load_system_api()
 router.include_router(system.router)
 branding = _load_branding_api()
 router.include_router(branding.router)
+enterprise_memory = _load_enterprise_memory_api()
+router.include_router(enterprise_memory.router)
+frugal = _load_frugal_api()
+router.include_router(frugal.router)
+configuration = _load_configuration_api()
+router.include_router(configuration.router)
 
 SERVICES = (
     ("arcenal", "ARCenal Agent"),
@@ -214,10 +265,9 @@ class OpenRouterProbeResponse(BaseModel):
 
 
 def _configured_openrouter_key() -> str:
-    """Lit la clé gérée par Hermes depuis le magasin privé de l'application."""
-    from hermes_cli.config import load_env
-
-    return load_env().get("OPENROUTER_API_KEY", "").strip()
+    """Lit la clé depuis le coffre privé d’ARC sans l’exposer."""
+    value = agents.CORE.runtime_configuration().vault.get_secret("OPENROUTER_API_KEY")
+    return value.strip() if isinstance(value, str) else ""
 
 
 def _openrouter_probe_result(status_code: int) -> OpenRouterProbeResponse:
@@ -294,13 +344,27 @@ def _cpu(load: tuple[float, float, float]) -> dict[str, float | int]:
     return {"cores": cores, "load_percent": round(min(load[0] / cores * 100, 100), 1)}
 
 
-def _installed_version() -> str:
+def _release_environment(name: str, pattern: re.Pattern[str]) -> str:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        return "Non vérifié"
+    if pattern.fullmatch(value):
+        return value
+    raise ReleaseMetadataError(f"{name} contient une valeur invalide.")
+
+
+def _installed_distribution_version() -> str:
     try:
         return version("hermes-agent")
     except PackageNotFoundError:
         from hermes_cli import __version__
 
         return f"{__version__}+arcenal"
+
+
+def _installed_version() -> str:
+    release = _release_environment("ARCENAL_RELEASE", ARCENAL_RELEASE_PATTERN)
+    return _installed_distribution_version() if release == "Non vérifié" else release
 
 
 def _os_release_name(path: Path = Path("/etc/os-release")) -> str:
@@ -332,6 +396,8 @@ def _platform_versions() -> dict[str, str]:
         "arc": _installed_version(),
         "debian": _os_release_name(),
         "hermes": __version__,
+        "package": _release_environment("ARCENAL_PACKAGE_VERSION", ARCENAL_PACKAGE_PATTERN),
+        "source_revision": _release_environment("ARCENAL_SOURCE_REVISION", ARCENAL_REVISION_PATTERN),
         "yunohost": _yunohost_version(),
     }
 

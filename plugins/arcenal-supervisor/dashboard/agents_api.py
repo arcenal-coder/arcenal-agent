@@ -93,9 +93,9 @@ def _arc_core():
 
     retriever = CORE.create_retriever(get_hermes_home(), _audit_writer)
     builder = CORE.ContextBuilder(policy, retriever)
-    from arcenal_arc_core.hermes_engine import HermesAgentEngine
-
-    return CORE.ArcCore(_manager(), builder, HermesAgentEngine(), _audit_writer)
+    runtime = CORE.FrugalRuntime(get_hermes_home() / "arcenal" / "frugal")
+    runtime.ensure_configured_model()
+    return CORE.ArcCore(_manager(), builder, runtime.engine, _audit_writer)
 
 
 def _translate_error(exc: Exception) -> HTTPException:
@@ -198,11 +198,18 @@ def query_agent(
     application_id: Annotated[str, Header(alias="X-ARCenal-Application")],
     authorization: Annotated[str | None, Header()] = None,
     user_id: Annotated[str | None, Header(alias="X-ARCenal-User")] = None,
+    remote_user: Annotated[str | None, Header(alias="Remote-User")] = None,
+    x_remote_user: Annotated[str | None, Header(alias="X-Remote-User")] = None,
 ) -> AgentQueryResponseModel:
     from arcenal_arc_core.auth import ApplicationAuthenticator
 
     try:
-        caller = ApplicationAuthenticator().authenticate(application_id, authorization, user_id)
+        platform_user = remote_user or x_remote_user
+        if platform_user and user_id and platform_user != user_id:
+            raise CORE.ApplicationAuthenticationError("L’identité utilisateur transmise ne correspond pas à la session YunoHost.")
+        resolved_user = platform_user or user_id
+        source = CORE.UserIdentitySource.YUNOHOST if platform_user else CORE.UserIdentitySource.APPLICATION
+        caller = ApplicationAuthenticator().authenticate(application_id, authorization, resolved_user, source)
         return _arc_core().query(
             agent_id,
             caller,

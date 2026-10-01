@@ -1,5 +1,6 @@
 """Contrats et orchestration interne d’ARCenal Agent."""
 
+from .audit_adapter import append_agent_event
 from .catalog import default_agents
 from .context import ContextBuilder, GlobalAgentPolicy
 from .manager import AgentManager
@@ -16,8 +17,24 @@ from .knowledge_models import (
     SourceType,
 )
 from .knowledge_search import KnowledgeRetriever
-from .knowledge_source import MarkdownKnowledgeSource
-from .knowledge_runtime import create_retriever, index_status, rebuild_index
+from .knowledge_source import CompositeKnowledgeSource, MarkdownKnowledgeSource
+from .knowledge_runtime import create_retriever, index_status, memory_database_path, rebuild_index
+from .memory_models import (
+    EnterpriseMemory,
+    MemoryDraft,
+    MemoryMetrics,
+    MemoryProvenance,
+    MemoryRelation,
+    MemoryRevision,
+    MemorySearchFilters,
+    MemorySourceType,
+    MemoryStatus,
+    MemoryType,
+    RetentionMode,
+    RuleKind,
+)
+from .memory_repository import EnterpriseMemoryRepository, MemoryConflictError, MemoryNotFoundError, MemoryRepositoryError
+from .memory_source import EnterpriseMemoryKnowledgeSource
 from .document_extraction import (
     DocumentExtractionError,
     DocumentExtractionUnavailable,
@@ -45,9 +62,64 @@ from .models import (
     InstructionBlock,
     ModelPolicy,
     RequestIdentity,
+    UserIdentitySource,
 )
 from .repository import AgentRepository
 from .service import ArcCore
+from .automation_engine import AutomationStore, ProcessObserver, WorkflowEngine, transition_workflow
+from .deterministic_engine import DeterministicEngine, DeterministicRule, default_rules
+from .frugal_cache import FrugalCache
+from .frugal_engine import FrugalAgentEngine
+from .frugal_metrics import FrugalMetricsRepository
+from .frugal_models import (
+    AutomationCandidate,
+    AutomationWorkflow,
+    CapabilityProfile,
+    CacheDependency,
+    CachedResponse,
+    CacheValidation,
+    ExecutionMeasurement,
+    ExecutionMode,
+    FrugalExecutionPlan,
+    FrugalMetrics,
+    ModelDescriptor,
+    ModelLocation,
+    ProcessObservation,
+    RoutingDecision,
+    RoutingNeed,
+    TaskType,
+    WorkflowStatus,
+    WorkflowStep,
+)
+from .frugal_runtime import FrugalRuntime
+from .model_router import ModelRegistry, ModelRouter
+from .provider_adapter import HermesProviderAdapter, ProviderAdapter, ProviderExecutor
+from .provider_models import AuthenticationType, ProviderAttempt, ProviderCapability, ProviderDescriptor, ProviderHealth
+from .provider_registry import ProviderRegistry
+from .task_classifier import classify_task, required_capability
+from .errors import ApplicationAuthenticationError, ProviderExecutionError
+from .auth import ApplicationAuthenticator
+from .configuration import (
+    ArcConfigStore,
+    ArcConfigurationError,
+    ArcConfigurationKeyError,
+    ArcConfigurationReadOnlyError,
+    ArcConfigurationValueError,
+    ArcMigrationReport,
+    ArcNativeConfigStore,
+    ConfigValue,
+    migrate_hermes_configuration,
+)
+from .configuration_runtime import ArcRuntimeConfiguration, migration_status, runtime_configuration
+from .hermes_config_adapter import HermesConfigAdapter
+from .vault import (
+    ArcFileVault,
+    ArcSecretKeyError,
+    ArcSecretMissingError,
+    ArcSecretValueError,
+    ArcVault,
+    ArcVaultError,
+)
 
 __all__ = [
     "AgentDefinition",
@@ -56,9 +128,34 @@ __all__ = [
     "AgentRepository",
     "AgentUpdate",
     "ApplicationIdentity",
+    "ApplicationAuthenticationError",
+    "ApplicationAuthenticator",
     "ArcCore",
+    "ArcConfigStore",
+    "ArcConfigurationError",
+    "ArcConfigurationKeyError",
+    "ArcConfigurationReadOnlyError",
+    "ArcConfigurationValueError",
+    "ArcFileVault",
+    "ArcMigrationReport",
+    "ArcNativeConfigStore",
+    "ArcRuntimeConfiguration",
+    "ArcSecretKeyError",
+    "ArcSecretMissingError",
+    "ArcSecretValueError",
+    "ArcVault",
+    "ArcVaultError",
+    "AutomationCandidate",
+    "AutomationStore",
+    "AutomationWorkflow",
     "AutonomyLevel",
+    "CapabilityProfile",
+    "CacheDependency",
+    "CachedResponse",
+    "CacheValidation",
     "ContextBuilder",
+    "ConfigValue",
+    "CompositeKnowledgeSource",
     "ConfidentialityLevel",
     "ContextBudget",
     "ContextPlan",
@@ -67,6 +164,14 @@ __all__ = [
     "DocumentExtractionUnavailable",
     "EffectiveContext",
     "EngineOutput",
+    "ExecutionMeasurement",
+    "ExecutionMode",
+    "FrugalAgentEngine",
+    "FrugalCache",
+    "FrugalExecutionPlan",
+    "FrugalMetrics",
+    "FrugalMetricsRepository",
+    "FrugalRuntime",
     "GlobalAgentPolicy",
     "InstructionBlock",
     "KnowledgeIndexer",
@@ -76,10 +181,48 @@ __all__ = [
     "KnowledgeMetricsRepository",
     "KnowledgeRetriever",
     "MarkdownKnowledgeSource",
+    "EnterpriseMemory",
+    "EnterpriseMemoryRepository",
+    "EnterpriseMemoryKnowledgeSource",
+    "MemoryConflictError",
+    "MemoryDraft",
+    "MemoryMetrics",
+    "MemoryNotFoundError",
+    "MemoryProvenance",
+    "MemoryRelation",
+    "MemoryRepositoryError",
+    "MemoryRevision",
+    "MemorySearchFilters",
+    "MemorySourceType",
+    "MemoryStatus",
+    "MemoryType",
     "ModelPolicy",
+    "ModelDescriptor",
+    "ModelLocation",
+    "ModelRegistry",
+    "ModelRouter",
+    "ProviderAdapter",
+    "ProviderAttempt",
+    "ProviderCapability",
+    "ProviderDescriptor",
+    "ProviderExecutor",
+    "ProviderExecutionError",
+    "ProviderHealth",
+    "ProviderRegistry",
+    "AuthenticationType",
+    "HermesProviderAdapter",
+    "HermesConfigAdapter",
+    "ProcessObservation",
+    "ProcessObserver",
     "RequestIdentity",
+    "UserIdentitySource",
+    "RoutingDecision",
+    "RoutingNeed",
     "SourceCitation",
     "SourceType",
+    "TaskType",
+    "RetentionMode",
+    "RuleKind",
     "HttpxSilverBulletTransport",
     "SilverBulletAuthenticationError",
     "SilverBulletError",
@@ -89,9 +232,23 @@ __all__ = [
     "SilverBulletStateRepository",
     "SilverBulletSyncResult",
     "SilverBulletSynchronizer",
+    "WorkflowEngine",
+    "WorkflowStatus",
+    "WorkflowStep",
+    "DeterministicEngine",
+    "DeterministicRule",
+    "classify_task",
+    "default_rules",
     "default_agents",
+    "append_agent_event",
     "create_retriever",
     "extract_attachment_text",
     "index_status",
+    "memory_database_path",
+    "migrate_hermes_configuration",
+    "migration_status",
     "rebuild_index",
+    "required_capability",
+    "runtime_configuration",
+    "transition_workflow",
 ]

@@ -32,6 +32,7 @@ class SourceType(str, Enum):
     LDA = "lda"
     DOCUMENT = "document"
     MEMORY = "memory"
+    ENTERPRISE_MEMORY = "enterprise_memory"
 
 
 class ContextBudget(StrictModel):
@@ -81,6 +82,8 @@ class KnowledgeDocument(StrictModel):
     allowed_agents: tuple[str, ...] = ()
     allowed_users: tuple[str, ...] = ()
     required_permissions: tuple[Permission, ...] = ()
+    authority: str = Field(default="official", pattern=r"^(official|enterprise_memory)$")
+    provenance_label: str = ""
 
 
 class KnowledgeChunk(StrictModel):
@@ -113,6 +116,9 @@ class SourceCitation(StrictModel):
     section: str
     url_or_path: str
     status: DocumentStatus
+    source_type: SourceType = SourceType.MARKDOWN
+    authority: str = Field(default="official", pattern=r"^(official|enterprise_memory)$")
+    provenance: str = ""
 
 
 class RetrievedChunk(StrictModel):
@@ -129,12 +135,15 @@ class RetrievalMetrics(StrictModel):
     context_characters: int = Field(ge=0)
     context_tokens_estimated: int = Field(ge=0)
     duration_ms: int = Field(ge=0)
+    memory_chunks_selected: int = Field(default=0, ge=0)
 
 
 class RetrievalResult(StrictModel):
     chunks: tuple[RetrievedChunk, ...]
     sources: tuple[SourceCitation, ...]
     context: str
+    document_context: str = ""
+    memory_context: str = ""
     metrics: RetrievalMetrics
 
 
@@ -151,6 +160,9 @@ class KnowledgeIndexStatus(StrictModel):
     average_context_characters: float = Field(ge=0)
     average_context_tokens_estimated: float = Field(ge=0)
     sources_by_agent: dict[str, int] = Field(default_factory=dict)
+    memories: int = Field(default=0, ge=0)
+    memory_chunks_selected: int = Field(default=0, ge=0)
+    average_memory_chunks_per_search: float = Field(default=0, ge=0)
 
 
 class KnowledgeMetricsState(StrictModel):
@@ -162,3 +174,4 @@ class KnowledgeMetricsState(StrictModel):
     context_characters_total: int = Field(default=0, ge=0)
     context_tokens_total: int = Field(default=0, ge=0)
     sources_by_agent: dict[str, int] = Field(default_factory=dict)
+    memory_chunks_selected_total: int = Field(default=0, ge=0)

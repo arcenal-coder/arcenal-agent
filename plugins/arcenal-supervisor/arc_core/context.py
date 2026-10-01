@@ -66,13 +66,15 @@ class ContextBuilder:
             model_policy=agent.model_policy,
             context_plan=plan,
             knowledge_context=retrieval.context,
+            document_context=retrieval.document_context,
+            memory_context=retrieval.memory_context,
             sources=retrieval.sources,
             retrieval_metrics=retrieval.metrics,
             request_context=request_context or {},
         )
 
     def _identity(self, agent: AgentDefinition, caller: ApplicationIdentity, session_id: str | None, permissions: tuple[str, ...]) -> RequestIdentity:
-        return RequestIdentity(request_id=str(uuid4()), user_id=caller.user_id, application_id=caller.application_id, agent_id=agent.id, session_id=session_id, permissions=permissions, timestamp=datetime.now(timezone.utc))
+        return RequestIdentity(request_id=str(uuid4()), user_id=caller.user_id, user_source=caller.user_source, application_id=caller.application_id, agent_id=agent.id, session_id=session_id, permissions=permissions, timestamp=datetime.now(timezone.utc))
 
     def _prompt(self, agent: AgentDefinition) -> str:
         sections = ("# Politique globale ARCenal", *self._policy.instructions, "# Politique de l’agent", *(item.content for item in agent.system_instructions))
@@ -87,17 +89,21 @@ class ContextBuilder:
             knowledge_scopes=agent.knowledge_scopes,
             permissions=identity.permissions,
             document_statuses=self._statuses(message, identity.permissions),
-            source_types=(SourceType.LDA, SourceType.WIKI, SourceType.DOCUMENT, SourceType.MARKDOWN),
+            source_types=self._source_types(identity.permissions),
             confidentiality_level=self._confidentiality(identity.permissions),
             query=message.strip() or "contexte général",
             max_context_size=ContextBudget(),
         )
 
+    def _source_types(self, permissions: tuple[str, ...]) -> tuple[SourceType, ...]:
+        official = (SourceType.LDA, SourceType.WIKI, SourceType.DOCUMENT, SourceType.MARKDOWN)
+        return (*official, SourceType.ENTERPRISE_MEMORY) if "memory.read" in permissions else official
+
     def _retrieve(self, plan: ContextPlan) -> RetrievalResult:
         if self._retriever is not None:
             return self._retriever.retrieve(plan)
         metrics = RetrievalMetrics(documents_considered=0, documents_selected=0, chunks_selected=0, context_characters=0, context_tokens_estimated=0, duration_ms=0)
-        return RetrievalResult(chunks=(), sources=(), context="Aucune source documentaire applicable trouvée.", metrics=metrics)
+        return RetrievalResult(chunks=(), sources=(), context="Aucune source documentaire applicable trouvée.", document_context="", memory_context="", metrics=metrics)
 
     def _statuses(self, message: str, permissions: tuple[str, ...]) -> tuple[DocumentStatus, ...]:
         history_requested = any(term in message.casefold() for term in ("historique", "ancienne version", "obsolète"))

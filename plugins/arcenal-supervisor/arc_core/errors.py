@@ -1,5 +1,12 @@
 """Erreurs métier stables exposées par ARC Core."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .provider_models import ProviderAttempt
+
 
 class AgentContractError(ValueError):
     """Signale une définition ou une requête d’agent invalide."""
@@ -23,3 +30,28 @@ class ApplicationAuthenticationError(PermissionError):
 
 class AgentExecutionError(RuntimeError):
     """Signale un échec contrôlé du moteur IA interne."""
+
+
+class FrugalConfigurationError(ValueError):
+    """Signale une configuration ARC Frugal incohérente."""
+
+
+class ModelRoutingError(RuntimeError):
+    """Signale qu'aucun modèle autorisé ne peut traiter la demande."""
+
+
+class AutomationPolicyError(PermissionError):
+    """Signale qu'un workflow tente de dépasser son contrat."""
+
+
+class FrugalStorageError(RuntimeError):
+    """Signale une persistance ARC Frugal indisponible ou invalide."""
+
+
+class ProviderExecutionError(RuntimeError):
+    """Signale un échec fournisseur expurgé et exploitable par le fallback."""
+
+    def __init__(self, message: str, code: str, attempts: tuple[ProviderAttempt, ...] = ()) -> None:
+        super().__init__(message)
+        self.code = code
+        self.attempts = attempts

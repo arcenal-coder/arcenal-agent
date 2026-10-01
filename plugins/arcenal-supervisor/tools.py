@@ -8,11 +8,11 @@ from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
 from types import ModuleType
-from typing import Any, TypedDict
+from typing import Any, Protocol, TypedDict
 
-from hermes_cli.config import load_config_readonly, load_env
 from tools.registry import tool_error, tool_result
 
+from .arc_core import runtime_configuration
 from .security.broker_client import BrokerUnavailableError, execute_readonly
 
 
@@ -32,6 +32,10 @@ class AccessRecord(TypedDict):
     secretAvailable: bool
     secretEnv: str
     serviceUrl: str
+
+
+class SecretAvailability(Protocol):
+    def has_secret(self, key: str) -> bool: ...
 
 
 @lru_cache(maxsize=1)
@@ -112,7 +116,7 @@ def memory_search(args: dict[str, Any], **_: Any) -> str:
 def access_catalog(args: dict[str, Any], **_: Any) -> str:
     """Liste les accès autorisés sans jamais exposer leurs secrets."""
     try:
-        return tool_result(accesses=_access_records(load_config_readonly(), load_env()))
+        return tool_result(accesses=_runtime_access_records())
     except Exception as exc:
         return tool_error(f"Lecture du coffre d’accès impossible : {exc}")
 
@@ -141,6 +145,18 @@ def _access_records(config: Mapping[str, object], environment: Mapping[str, str]
         return []
     active = [item for item in credentials if not isinstance(item, Mapping) or item.get("enabled") is not False]
     return [record for item in active if (record := _safe_access_record(item, environment))]
+
+
+def _runtime_access_records() -> list[AccessRecord]:
+    runtime = runtime_configuration()
+    credentials = list(runtime.access_credentials())
+    environment = _secret_availability(credentials, runtime.vault)
+    return _access_records({"arcenal": {"access_credentials": credentials}}, environment)
+
+
+def _secret_availability(credentials: list[object], vault: SecretAvailability) -> dict[str, str]:
+    references = [item.get("secretEnv") for item in credentials if isinstance(item, Mapping)]
+    return {item: "configured" for item in references if isinstance(item, str) and ACCESS_ENV_PATTERN.fullmatch(item) and vault.has_secret(item)}
 
 
 def _safe_access_record(item: object, environment: Mapping[str, str]) -> AccessRecord | None:

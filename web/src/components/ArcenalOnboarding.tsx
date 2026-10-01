@@ -32,7 +32,7 @@ function useOnboardingState(): { state: OnboardingState; setState: React.Dispatc
     if (window.sessionStorage.getItem(SESSION_KEY) === "true") return setState((current) => ({ ...current, busy: false, hidden: true }));
     setState((current) => ({ ...current, busy: true, error: "" }));
     try {
-      const config = await api.getConfig();
+      const { config } = await api.getArcenalConfiguration();
       if (onboardingCompleted(config)) return setState((current) => ({ ...current, busy: false, needed: false }));
       const values = await loadOnboardingValues();
       setState((current) => ({ ...current, busy: false, checks: onboardingChecks(...values), needed: true }));
@@ -71,7 +71,7 @@ async function runDiagnosis(setState: SetOnboardingState, reload: () => Promise<
 async function completeOnboarding(setState: SetOnboardingState): Promise<void> {
   setState((current) => ({ ...current, busy: true, error: "" }));
   try {
-    await api.saveConfig({ arcenal: { onboarding: { completed: true, completed_at: new Date().toISOString(), version: 1 } } });
+    await api.saveArcenalConfiguration({ arcenal: { onboarding: { completed: true, completed_at: new Date().toISOString(), version: 1 } } });
     setState((current) => ({ ...current, busy: false, hidden: true, needed: false }));
   } catch (cause) {
     setState((current) => ({ ...current, busy: false, error: message(cause) }));

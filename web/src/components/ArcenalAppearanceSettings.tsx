@@ -66,7 +66,7 @@ async function saveAppearance(settings: ArcenalAppearanceSettings, setBusy: (val
   setBusy(true);
   setStatus("");
   try {
-    await api.saveConfig(appearanceSettingsConfig(settings));
+    await api.saveArcenalConfiguration(appearanceSettingsConfig(settings));
     await reload();
     window.dispatchEvent(new CustomEvent(ARCENAL_BRANDING_EVENT));
     setStatus("L’apparence d’ARC est enregistrée.");

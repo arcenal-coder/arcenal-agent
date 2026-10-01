@@ -5,10 +5,12 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Mapping
+from types import ModuleType
+from typing import Mapping, Protocol, cast
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException
@@ -27,24 +29,49 @@ class AccessProbeResponse(BaseModel):
     tested_at: str
 
 
-def _credentials() -> tuple[list[object], Mapping[str, str]]:
-    from hermes_cli.config import load_config_readonly, load_env
+class SecretReader(Protocol):
+    def get_secret(self, key: str) -> str | None: ...
 
-    config = load_config_readonly()
-    arcenal = config.get("arcenal")
-    credentials = arcenal.get("access_credentials") if isinstance(arcenal, Mapping) else []
-    return (credentials if isinstance(credentials, list) else []), load_env()
+
+def _credentials() -> tuple[list[object], Mapping[str, str]]:
+    runtime = _core().runtime_configuration()
+    credentials = list(runtime.access_credentials())
+    environment = _credential_secrets(credentials, runtime.vault)
+    return credentials, environment
+
+
+def _core() -> ModuleType:
+    module = sys.modules.get("arcenal_arc_core")
+    if not isinstance(module, ModuleType):
+        raise RuntimeError("Le cœur de configuration ARC est indisponible.")
+    return module
+
+
+def _credential_secrets(credentials: list[object], vault: SecretReader) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for item in credentials:
+        record = _mapping(item)
+        secret = record.get("secretEnv") if record is not None else None
+        if isinstance(secret, str) and SECRET_ENV_RE.fullmatch(secret) and (value := vault.get_secret(secret)):
+            result[secret] = str(value)
+    return result
 
 
 def _credential(access_id: str) -> tuple[Mapping[str, object], str]:
     credentials, environment = _credentials()
-    item = next((value for value in credentials if isinstance(value, Mapping) and value.get("id") == access_id), None)
+    item = next((record for value in credentials if (record := _mapping(value)) and record.get("id") == access_id), None)
     if item is None:
         raise HTTPException(status_code=404, detail="Accès métier introuvable.")
     secret_env = item.get("secretEnv")
     if not isinstance(secret_env, str) or not SECRET_ENV_RE.fullmatch(secret_env):
         raise HTTPException(status_code=422, detail="Référence de secret invalide.")
     return item, environment.get(secret_env, "").strip()
+
+
+def _mapping(value: object) -> Mapping[str, object] | None:
+    if not isinstance(value, Mapping):
+        return None
+    return cast(Mapping[str, object], value)
 
 
 def _service_url(item: Mapping[str, object]) -> str:

@@ -133,6 +133,37 @@ describe("api.getArcenalCapabilities", () => {
   });
 });
 
+describe("configuration native ARC", () => {
+  it("charge les paramètres sans appeler le backend générique Hermes", async () => {
+    const fetchMock = jsonFetchMock({ backend: "arc", config: {}, migration: {}, secrets: {}, vault: "ready" });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.getArcenalConfiguration();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/configuration/v1",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("écrit les paramètres et le coffre sur les routes ARC", async () => {
+    const fetchMock = jsonFetchMock({ ok: true });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.saveArcenalConfiguration({ approvals: { mode: "smart" } });
+    await api.setArcenalSecret("OPENROUTER_API_KEY", "secret-never-returned");
+    await api.deleteArcenalSecret("OPENROUTER_API_KEY");
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/api/plugins/arcenal-supervisor/configuration/v1",
+      "/api/plugins/arcenal-supervisor/configuration/v1/secrets/OPENROUTER_API_KEY",
+      "/api/plugins/arcenal-supervisor/configuration/v1/secrets/OPENROUTER_API_KEY",
+    ]);
+    expect(fetchMock.mock.calls[1][1]).toEqual(expect.objectContaining({ body: JSON.stringify({ value: "secret-never-returned" }), method: "PUT" }));
+    expect(fetchMock.mock.calls[2][1]).toEqual(expect.objectContaining({ method: "DELETE" }));
+  });
+});
+
 describe("api.saveArcenalAgentMemory", () => {
   it("cible uniquement le profil demandé", async () => {
     const fetchMock = jsonFetchMock({ content: "Mémoire", profile: "veille", updated_at: null });
@@ -292,6 +323,38 @@ describe("api mémoire ARCenal", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/plugins/arcenal-supervisor/managed-files/memory/entries/m%C3%A9moire%2F1/delete",
       expect.objectContaining({ body: JSON.stringify({ confirmed: true }), method: "POST" }),
+    );
+  });
+});
+
+describe("api mémoire d’entreprise", () => {
+  it("transmet les filtres gouvernés", async () => {
+    const fetchMock = jsonFetchMock({ entries: [] });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.getEnterpriseMemories({ memory_type: "decision", query: "Silver Bullet", scope: "company" });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/memory/v1?memory_type=decision&query=Silver+Bullet&scope=company",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+
+  it("confirme le droit à l’oubli physique", async () => {
+    const fetchMock = jsonFetchMock({ deleted: true, physical: true });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.deleteEnterpriseMemory("mémoire/1", true, "Demande de la direction");
+    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(options.method).toBe("DELETE");
+    expect(options.body).toBe(JSON.stringify({ confirmed: true, physical: true, reason: "Demande de la direction" }));
+  });
+
+  it("envoie une correction motivée", async () => {
+    const fetchMock = jsonFetchMock({ entry: {} });
+    vi.stubGlobal("fetch", fetchMock);
+    const payload = { confidentiality: "internal" as const, confidence: 1, content: "Valeur corrigée", expires_at: null, knowledge_scopes: ["company"], memory_type: "fact" as const, person: null, project: null, reason: "Source mise à jour", retention_mode: "permanent" as const, source_id: "source-1", source_type: "manual" as const, status: "active" as const, summary: "Fait" };
+    await api.correctEnterpriseMemory("memory-1", payload);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/memory/v1/memory-1",
+      expect.objectContaining({ body: JSON.stringify(payload), method: "PATCH" }),
     );
   });
 });

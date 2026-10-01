@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type Dispatch, type ReactElement, type SetStateAction } from "react";
 import { Bot, CheckCircle2, KeyRound, LoaderCircle, Network, Plus, ShieldCheck } from "lucide-react";
-import { api, type ArcenalProviderProbe, type EnvVarInfo, type ModelOptionsResponse } from "@/lib/api";
+import { api, type ArcenalProviderProbe, type ModelOptionsResponse } from "@/lib/api";
 import { autonomyFromConfig, buildProviderConnections, normalizeCustomEnvKey, type AutonomyLevel, type ProviderConnection } from "@/lib/arcenal-providers";
 import { ArcenalAccessManager } from "@/components/ArcenalAccessManager";
 import { ArcenalCapabilitiesSettings } from "@/components/ArcenalCapabilitiesSettings";
@@ -8,6 +8,8 @@ import { ArcenalAppearanceSettingsPanel } from "@/components/ArcenalAppearanceSe
 import { ArcenalGeneralSettingsPanel } from "@/components/ArcenalGeneralSettings";
 import { ArcenalManagedFilesSettingsPanel } from "@/components/ArcenalManagedFilesSettings";
 import { ArcenalMemorySettingsPanel } from "@/components/ArcenalMemorySettings";
+import { ArcenalFrugalSettingsPanel } from "@/components/ArcenalFrugalSettings";
+import { ArcenalAutomationsSettingsPanel } from "@/components/ArcenalAutomationsSettings";
 import { ArcenalBackupSettingsPanel, ArcenalSystemSettingsPanel } from "@/components/ArcenalSystemSettings";
 import { ArcenalSecuritySettingsPanel } from "@/components/ArcenalSecuritySettings";
 import { isProviderStatusesResponse } from "@/lib/arcenal-provider-status";
@@ -19,7 +21,7 @@ interface SettingsState {
   config: Record<string, unknown>;
   customKey: string;
   customSecret: string;
-  env: Record<string, EnvVarInfo>;
+  env: Record<string, { is_set: boolean }>;
   error: string;
   models: ModelOptionsResponse;
   notice: string;
@@ -38,9 +40,9 @@ export default function ArcenalSettingsPage(): ReactElement {
   const [state, setState] = useState<SettingsState>(INITIAL_STATE);
   const load = useCallback(async (): Promise<void> => {
     try {
-      const [env, config, models, statuses] = await Promise.all([api.getEnvVars(), api.getConfig(), api.getModelOptions(), api.getArcenalProviderStatuses().catch(() => ({ providers: {} }))]);
+      const [native, models, statuses] = await Promise.all([api.getArcenalConfiguration(), api.getModelOptions(), api.getArcenalProviderStatuses().catch(() => ({ providers: {} }))]);
       const providerStatuses = isProviderStatusesResponse(statuses) ? statuses.providers : {};
-      setState((current) => loadedState(current, env, config, models, providerStatuses));
+      setState((current) => loadedState(current, secretStates(native.secrets), native.config, models, providerStatuses));
     } catch (cause) {
       setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));
     }
@@ -49,14 +51,27 @@ export default function ArcenalSettingsPage(): ReactElement {
   return <SettingsView state={state} setState={setState} reload={load} />;
 }
 
-function loadedState(current: SettingsState, env: Record<string, EnvVarInfo>, config: Record<string, unknown>, models: ModelOptionsResponse, providerStatuses: Record<string, ArcenalProviderProbe>): SettingsState {
+function loadedState(current: SettingsState, env: Record<string, { is_set: boolean }>, config: Record<string, unknown>, models: ModelOptionsResponse, providerStatuses: Record<string, ArcenalProviderProbe>): SettingsState {
   const providers = config.providers as Record<string, { base_url?: string; enabled?: boolean }> | undefined;
   const connections = buildProviderConnections(env, providers);
-  return { ...current, autonomy: autonomyFromConfig(config), busy: false, config, enabledProviders: Object.fromEntries(connections.map((item) => [item.id, item.enabled])), env, models, providerStatuses, providerUrls: Object.fromEntries(connections.map((item) => [item.id, providers?.[item.id]?.base_url || item.defaultBaseUrl])), selectedModels: modelDefaults(models) };
+  return { ...current, autonomy: autonomyFromConfig(config), busy: false, config, enabledProviders: Object.fromEntries(connections.map((item) => [item.id, item.enabled])), env, models, providerStatuses, providerUrls: Object.fromEntries(connections.map((item) => [item.id, providers?.[item.id]?.base_url || item.defaultBaseUrl])), selectedModels: nativeModelDefaults(config, models) };
+}
+
+function secretStates(values: Record<string, boolean>): Record<string, { is_set: boolean }> {
+  return Object.fromEntries(Object.entries(values).map(([key, configured]) => [key, { is_set: configured }]));
 }
 
 function modelDefaults(options: ModelOptionsResponse): Record<string, string> {
   return Object.fromEntries((options.providers ?? []).map((provider) => [provider.slug, provider.slug === options.provider ? options.model ?? provider.models?.[0] ?? "" : provider.models?.[0] ?? ""]));
+}
+
+function nativeModelDefaults(config: Record<string, unknown>, options: ModelOptionsResponse): Record<string, string> {
+  const defaults = modelDefaults(options);
+  const model = config.model;
+  if (typeof model !== "object" || model === null || Array.isArray(model)) return defaults;
+  const values = model as Record<string, unknown>;
+  if (typeof values.provider !== "string" || typeof values.default !== "string") return defaults;
+  return { ...defaults, [values.provider]: values.default };
 }
 
 function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
@@ -77,6 +92,8 @@ function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
       <div className="arc-provider-grid">{connections.map((provider) => <ProviderCard key={provider.id} provider={provider} state={state} setState={setState} reload={reload} />)}</div>
       <CustomConnection state={state} setState={setState} reload={reload} />
     </section>}
+    {activeTab === "frugal" && <ArcenalFrugalSettingsPanel />}
+    {activeTab === "automations" && <ArcenalAutomationsSettingsPanel />}
     {activeTab === "access" && <ArcenalAccessManager config={state.config} env={state.env} reload={reload} />}
     {activeTab === "tools" && <ArcenalCapabilitiesSettings />}
     {activeTab === "system" && <ArcenalSystemSettingsPanel />}
@@ -130,27 +147,17 @@ async function saveProvider(provider: ProviderConnection, state: SettingsState, 
   setState((current) => ({ ...current, busy: true, error: "", notice: "" }));
   try {
     const secret = state.secrets[provider.id]?.trim();
-    if (provider.envKey && secret) await api.setEnvVar(provider.envKey, secret);
+    if (provider.envKey && secret) await api.setArcenalSecret(provider.envKey, secret);
     const baseUrl = state.providerUrls[provider.id]?.trim();
-    await api.saveConfig({ providers: { [provider.id]: { base_url: baseUrl || undefined, enabled: state.enabledProviders[provider.id] !== false } } });
-    const runtimeProvider = provider.id === "compatible" || provider.id === "internal" ? "custom" : provider.id;
+    const providerConfig = { providers: { [provider.id]: { base_url: baseUrl || undefined, enabled: state.enabledProviders[provider.id] !== false } } };
     const model = state.selectedModels[provider.id]?.trim();
-    if (model) await activateModel("main", runtimeProvider, model, baseUrl);
     const secondary = state.selectedSecondaryModels[provider.id]?.trim();
-    if (secondary) await activateModel("auxiliary", runtimeProvider, secondary, baseUrl);
+    await api.saveArcenalConfiguration({ ...providerConfig, models: { auxiliary: secondary || undefined, default: model || undefined, provider: provider.id } });
     setState((current) => ({ ...current, notice: `${provider.label} est disponible pour ARC.`, secrets: { ...current.secrets, [provider.id]: "" } }));
     await reload();
   } catch (cause) {
     setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));
   }
-}
-
-async function activateModel(scope: "main" | "auxiliary", provider: string, model: string, baseUrl = ""): Promise<void> {
-  const request = { scope, provider, model, base_url: baseUrl || undefined, task: scope === "auxiliary" ? "" : undefined } as const;
-  const response = await api.setModelAssignment(request);
-  if (!response.confirm_required) return;
-  if (!window.confirm(response.confirm_message ?? "Ce modèle peut entraîner un coût. Continuer ?")) return;
-  await api.setModelAssignment({ ...request, confirm_expensive_model: true });
 }
 
 async function testProvider(provider: ProviderConnection, state: SettingsState, setState: SetState): Promise<void> {
@@ -187,7 +194,7 @@ async function saveCustomConnection(state: SettingsState, setState: SetState, re
   if (!key) { setState((current) => ({ ...current, error: "Le nom de cette connexion n’est pas autorisé." })); return; }
   try {
     setState((current) => ({ ...current, busy: true, error: "" }));
-    await api.setEnvVar(key, state.customSecret.trim());
+    await api.setArcenalSecret(key, state.customSecret.trim());
     setState((current) => ({ ...current, customKey: "", customSecret: "", notice: "La connexion personnalisée est enregistrée." }));
     await reload();
   } catch (cause) {
@@ -208,7 +215,7 @@ function AutonomySettings({ state, setState }: { state: SettingsState; setState:
 async function saveAutonomy(level: AutonomyLevel, setState: SetState): Promise<void> {
   try {
     setState((current) => ({ ...current, busy: true, error: "", notice: "" }));
-    await api.saveConfig({ approvals: { mode: level } });
+    await api.saveArcenalConfiguration({ approvals: { mode: level } });
     setState((current) => ({ ...current, busy: false, notice: "Le niveau d’autonomie d’ARC est enregistré." }));
   } catch (cause) {
     setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));

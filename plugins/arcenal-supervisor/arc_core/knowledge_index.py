@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 from .knowledge_chunking import chunk_document
 from .knowledge_models import KnowledgeDocument, KnowledgeIndex
-from .knowledge_source import MarkdownKnowledgeSource
+from .knowledge_source import KnowledgeSource
 
 
 _INDEX_LOCK = threading.Lock()
@@ -55,7 +55,7 @@ class KnowledgeIndexRepository:
 
 
 class KnowledgeIndexer:
-    def __init__(self, source: MarkdownKnowledgeSource, repository: KnowledgeIndexRepository) -> None:
+    def __init__(self, source: KnowledgeSource, repository: KnowledgeIndexRepository) -> None:
         self._source = source
         self._repository = repository
 

@@ -8,7 +8,7 @@ import re
 from collections.abc import Callable
 
 from .errors import ApplicationAuthenticationError
-from .models import ApplicationIdentity
+from .models import ApplicationIdentity, UserIdentitySource
 
 
 USER_PATTERN = re.compile(r"^[A-Za-z0-9_.@-]{1,128}$")
@@ -30,14 +30,15 @@ class ApplicationAuthenticator:
     def __init__(self, token_resolver: TokenResolver = environment_token) -> None:
         self._token_resolver = token_resolver
 
-    def authenticate(self, application_id: str, authorization: str | None, user_id: str | None) -> ApplicationIdentity:
+    def authenticate(self, application_id: str, authorization: str | None, user_id: str | None, user_source: UserIdentitySource = UserIdentitySource.APPLICATION) -> ApplicationIdentity:
         supplied = self._bearer_token(authorization)
         expected = self._token_resolver(application_id)
         if not is_strong_secret(expected) or not hmac.compare_digest(supplied, expected):
             raise ApplicationAuthenticationError("Preuve d’identité applicative invalide.")
         if user_id is not None and not USER_PATTERN.fullmatch(user_id):
             raise ApplicationAuthenticationError("Identité utilisateur invalide.")
-        return ApplicationIdentity(application_id=application_id, user_id=user_id)
+        source = user_source if user_id else UserIdentitySource.NONE
+        return ApplicationIdentity(application_id=application_id, user_id=user_id, user_source=source)
 
     def _bearer_token(self, authorization: str | None) -> str:
         if authorization is None:

@@ -80,6 +80,8 @@ class KnowledgeRetriever:
 
     def _result(self, allowed: tuple[KnowledgeDocument, ...], selected: tuple[RetrievedChunk, ...], started: float) -> RetrievalResult:
         context = _context(selected)
+        official = tuple(item for item in selected if item.document.authority == "official")
+        memory = tuple(item for item in selected if item.document.authority == "enterprise_memory")
         metrics = RetrievalMetrics(
             documents_considered=len(allowed),
             documents_selected=len({item.document.document_id for item in selected}),
@@ -87,8 +89,9 @@ class KnowledgeRetriever:
             context_characters=len(context),
             context_tokens_estimated=(len(context) + 3) // 4,
             duration_ms=max(0, round((perf_counter() - started) * 1_000)),
+            memory_chunks_selected=sum(item.document.source_type.value == "enterprise_memory" for item in selected),
         )
-        return RetrievalResult(chunks=selected, sources=_unique_sources(selected), context=context, metrics=metrics)
+        return RetrievalResult(chunks=selected, sources=_unique_sources(selected), context=context, document_context=_context_section("Official Knowledge", official), memory_context=_context_section("Enterprise Memory", memory), metrics=metrics)
 
     def _write_audit(self, plan: ContextPlan, result: RetrievalResult) -> None:
         if self._audit is None:
@@ -104,6 +107,9 @@ class KnowledgeRetriever:
             **result.metrics.model_dump(mode="json"),
         }
         self._audit("rag.search", plan.application_id, details)
+        memory_ids = [item.document.document_id.removeprefix("memory:") for item in result.chunks if item.document.authority == "enterprise_memory"]
+        if memory_ids:
+            self._audit("memory.retrieve", plan.application_id, {"request_id": plan.request_id, "agent_id": plan.agent_id, "memory_ids": memory_ids})
 
 
 def _terms(query: str) -> frozenset[str]:
@@ -132,23 +138,37 @@ def _citation(chunk: KnowledgeChunk, document: KnowledgeDocument) -> SourceCitat
         section=chunk.section,
         url_or_path=document.source_path,
         status=document.status,
+        source_type=document.source_type,
+        authority=document.authority,
+        provenance=document.provenance_label,
     )
 
 
-def _ranking_key(result: RetrievedChunk) -> tuple[int, str, int, str]:
-    return (-result.score, result.document.reference, result.chunk.position, result.chunk.chunk_id)
+def _ranking_key(result: RetrievedChunk) -> tuple[int, int, str, int, str]:
+    authority = 1 if result.document.authority == "enterprise_memory" else 0
+    return (authority, -result.score, result.document.reference, result.chunk.position, result.chunk.chunk_id)
 
 
 def _context(selected: tuple[RetrievedChunk, ...]) -> str:
     if not selected:
         return "Aucune source documentaire applicable trouvée. Ne fabriquez aucune référence."
-    return "\n\n".join(_context_fragment(result) for result in selected)
+    official = tuple(item for item in selected if item.document.authority == "official")
+    memory = tuple(item for item in selected if item.document.authority == "enterprise_memory")
+    sections = tuple(section for section in (_context_section("Official Knowledge", official), _context_section("Enterprise Memory", memory)) if section)
+    return "\n\n".join(sections)
+
+
+def _context_section(title: str, selected: tuple[RetrievedChunk, ...]) -> str:
+    if not selected:
+        return ""
+    return f"## {title}\n\n" + "\n\n".join(_context_fragment(result) for result in selected)
 
 
 def _context_fragment(result: RetrievedChunk) -> str:
     source = result.citation
     label = f"{source.source_id} | {source.reference} V{source.version} | {source.section} | {source.status.value}"
-    return f"[{label}]\n{result.chunk.content}"
+    provenance = f" | {source.provenance}" if source.provenance else ""
+    return f"[{label}{provenance}]\n{result.chunk.content}"
 
 
 def _unique_sources(selected: tuple[RetrievedChunk, ...]) -> tuple[SourceCitation, ...]:

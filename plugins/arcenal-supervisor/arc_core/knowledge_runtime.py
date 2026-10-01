@@ -8,7 +8,9 @@ from .knowledge_index import KnowledgeIndexer, KnowledgeIndexError, KnowledgeInd
 from .knowledge_metrics import KnowledgeMetricsError, KnowledgeMetricsRepository
 from .knowledge_models import KnowledgeIndex, KnowledgeIndexStatus, KnowledgeMetricsState
 from .knowledge_search import KnowledgeRetriever, RagAuditWriter
-from .knowledge_source import MarkdownKnowledgeSource
+from .knowledge_source import CompositeKnowledgeSource, MarkdownKnowledgeSource
+from .memory_repository import EnterpriseMemoryRepository
+from .memory_source import EnterpriseMemoryKnowledgeSource
 
 
 def create_retriever(home: Path, audit: RagAuditWriter | None = None) -> KnowledgeRetriever:
@@ -18,7 +20,11 @@ def create_retriever(home: Path, audit: RagAuditWriter | None = None) -> Knowled
 
 
 def create_indexer(home: Path) -> KnowledgeIndexer:
-    source = MarkdownKnowledgeSource(home / "knowledge")
+    memory_repository = EnterpriseMemoryRepository(memory_database_path(home))
+    source = CompositeKnowledgeSource((
+        MarkdownKnowledgeSource(home / "knowledge"),
+        EnterpriseMemoryKnowledgeSource(memory_repository),
+    ))
     repository = KnowledgeIndexRepository(_index_path(home))
     return KnowledgeIndexer(source, repository)
 
@@ -44,6 +50,9 @@ def index_status(home: Path) -> KnowledgeIndexStatus:
         average_context_characters=_average(metrics.context_characters_total, searches),
         average_context_tokens_estimated=_average(metrics.context_tokens_total, searches),
         sources_by_agent=metrics.sources_by_agent,
+        memories=sum(document.source_type.value == "enterprise_memory" for document in index.documents) if index else 0,
+        memory_chunks_selected=metrics.memory_chunks_selected_total,
+        average_memory_chunks_per_search=_average(metrics.memory_chunks_selected_total, searches),
     )
 
 
@@ -71,3 +80,7 @@ def _index_path(home: Path) -> Path:
 
 def _metrics_path(home: Path) -> Path:
     return home / "arcenal" / "knowledge-metrics.json"
+
+
+def memory_database_path(home: Path) -> Path:
+    return home / "arcenal" / "enterprise-memory.sqlite3"

@@ -47,7 +47,7 @@ export function ArcenalPrimaryHeader(): ReactElement {
 async function loadProductBranding(fallback: ArcenalBranding): Promise<ArcenalBranding> {
   const [yunohost, config] = await Promise.all([
     loadYunoHostBranding(window.fetch.bind(window), fallback.logoUrl).catch(() => fallback),
-    api.getConfig().catch(() => ({})),
+    api.getArcenalConfiguration().then((response) => response.config).catch(() => ({})),
   ]);
   const branding = productBranding(config, { ...fallback, ...yunohost });
   applyAppearance(appearanceSettingsFromConfig(config), appearanceRoot());

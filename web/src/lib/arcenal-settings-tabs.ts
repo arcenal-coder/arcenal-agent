@@ -5,6 +5,8 @@ export const ARCENAL_SETTINGS_TABS = [
   { id: "memory", label: "Mémoire" },
   { id: "directives", label: "Directives" },
   { id: "providers", label: "Fournisseurs IA" },
+  { id: "frugal", label: "IA & consommation" },
+  { id: "automations", label: "Automatisations" },
   { id: "access", label: "Accès" },
   { id: "tools", label: "Outils" },
   { id: "system", label: "Système" },

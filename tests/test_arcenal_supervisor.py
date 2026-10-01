@@ -139,6 +139,7 @@ def test_plugin_specializes_the_agent_as_arc() -> None:
     plugin.register(context)
 
     assert len(context.prompt_sections) == 3
+    assert all(int(item["max_chars"]) <= 4000 for item in context.prompt_sections)
     section = next(item for item in context.prompt_sections if item["id"] == "arcenal.identity")
     assert section["id"] == "arcenal.identity"
     assert section["position"] == "after_memory"

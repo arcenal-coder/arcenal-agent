@@ -1,12 +1,12 @@
 import { useEffect, useState, type Dispatch, type ReactElement, type SetStateAction } from "react";
 import { Activity, CheckCircle2, KeyRound, Power, Trash2, UserRound } from "lucide-react";
-import { api, type ArcenalAccessProbe, type EnvVarInfo } from "@/lib/api";
+import { api, type ArcenalAccessProbe } from "@/lib/api";
 import { accessCredentialsFromConfig, createAccessCredential, isAccessStatusesResponse, type AccessCredential, type AccessCredentialDraft, type AccessCredentialKind } from "@/lib/arcenal-access";
 import type { AutonomyLevel } from "@/lib/arcenal-providers";
 
 interface AccessManagerProps {
   config: Record<string, unknown>;
-  env: Record<string, EnvVarInfo>;
+  env: Record<string, { is_set?: boolean }>;
   reload: () => Promise<void>;
 }
 
@@ -50,8 +50,8 @@ async function saveCredential(draft: AccessCredentialDraft, credentials: AccessC
   let metadataSaved = false;
   try {
     credential = createAccessCredential(draft, credentials);
-    await api.setEnvVar(credential.secretEnv, draft.secret.trim());
-    await api.saveConfig({ arcenal: { access_credentials: [...credentials, credential] } });
+    await api.setArcenalSecret(credential.secretEnv, draft.secret.trim());
+    await api.saveArcenalConfiguration({ arcenal: { access_credentials: [...credentials, credential] } });
     metadataSaved = true;
     setDraft(EMPTY_DRAFT);
     setMessage(`${credential.label} est maintenant disponible pour ARC.`);
@@ -66,7 +66,7 @@ async function saveCredential(draft: AccessCredentialDraft, credentials: AccessC
 
 async function cleanupSecret(secretEnv: string): Promise<string> {
   try {
-    await api.deleteEnvVar(secretEnv);
+    await api.deleteArcenalSecret(secretEnv);
     return "";
   } catch (cause) {
     return ` Le secret temporaire doit être supprimé manuellement : ${errorMessage(cause)}`;
@@ -77,8 +77,8 @@ async function removeCredential(credential: AccessCredential, credentials: Acces
   if (!window.confirm(`Retirer l’accès « ${credential.label} » ?`)) return;
   setBusy(true);
   try {
-    await api.saveConfig({ arcenal: { access_credentials: credentials.filter((item) => item.id !== credential.id) } });
-    await api.deleteEnvVar(credential.secretEnv);
+    await api.saveArcenalConfiguration({ arcenal: { access_credentials: credentials.filter((item) => item.id !== credential.id) } });
+    await api.deleteArcenalSecret(credential.secretEnv);
     setMessage(`${credential.label} a été retiré du coffre d’ARC.`);
     await reload();
   } catch (cause) {
@@ -117,7 +117,7 @@ async function toggleCredential(credential: AccessCredential, credentials: Acces
   setBusy(true);
   try {
     const updated = credentials.map((item) => item.id === credential.id ? { ...item, enabled: !item.enabled } : item);
-    await api.saveConfig({ arcenal: { access_credentials: updated } });
+    await api.saveArcenalConfiguration({ arcenal: { access_credentials: updated } });
     setMessage(`${credential.label} est ${credential.enabled ? "désactivé" : "activé"}.`);
     await reload();
   } catch (cause) {
@@ -146,5 +146,5 @@ type DraftSetter = Dispatch<SetStateAction<AccessCredentialDraft>>;
 type MessageSetter = Dispatch<SetStateAction<string>>;
 type BusySetter = Dispatch<SetStateAction<boolean>>;
 type StatusSetter = Dispatch<SetStateAction<Record<string, ArcenalAccessProbe>>>;
-interface AccessListProps { busy: boolean; credentials: AccessCredential[]; env: Record<string, EnvVarInfo>; reload: () => Promise<void>; setBusy: BusySetter; setMessage: MessageSetter; setStatuses: StatusSetter; statuses: Record<string, ArcenalAccessProbe> }
+interface AccessListProps { busy: boolean; credentials: AccessCredential[]; env: Record<string, { is_set?: boolean }>; reload: () => Promise<void>; setBusy: BusySetter; setMessage: MessageSetter; setStatuses: StatusSetter; statuses: Record<string, ArcenalAccessProbe> }
 interface AccessCardProps { allCredentials: AccessCredential[]; busy: boolean; configured: boolean; credential: AccessCredential; reload: () => Promise<void>; setBusy: BusySetter; setMessage: MessageSetter; setStatuses: StatusSetter; status?: ArcenalAccessProbe }

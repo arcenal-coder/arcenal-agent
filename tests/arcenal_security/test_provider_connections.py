@@ -28,6 +28,7 @@ class ProviderConnectionTests(TestCase):
     def test_compatible_url_targets_the_models_endpoint(self) -> None:
         self.assertEqual(MODULE._compatible_models_url("https://llm.example.test/v1"), "https://llm.example.test/v1/models")
         self.assertEqual(MODULE._compatible_models_url("http://ollama.test"), "http://ollama.test/v1/models")
+        self.assertEqual(MODULE._probe_url("vllm", None), "http://127.0.0.1:8000/v1/models")
 
     def test_provider_url_rejects_credentials(self) -> None:
         with self.assertRaises(HTTPException) as raised:

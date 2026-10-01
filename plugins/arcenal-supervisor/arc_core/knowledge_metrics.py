@@ -47,6 +47,7 @@ class KnowledgeMetricsRepository:
             context_characters_total=current.context_characters_total + metrics.context_characters,
             context_tokens_total=current.context_tokens_total + metrics.context_tokens_estimated,
             sources_by_agent=agents,
+            memory_chunks_selected_total=current.memory_chunks_selected_total + metrics.memory_chunks_selected,
         )
         self._save(updated)
         return updated

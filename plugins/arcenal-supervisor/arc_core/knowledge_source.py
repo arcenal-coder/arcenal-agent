@@ -6,6 +6,7 @@ import re
 from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Protocol
 
 from .knowledge_models import ConfidentialityLevel, DocumentStatus, KnowledgeDocument, SourceType
 
@@ -16,6 +17,24 @@ LIST_VALUE_RE = re.compile(r"[,;]")
 
 class KnowledgeSourceError(RuntimeError):
     """Signale une source documentaire impossible à normaliser."""
+
+
+class KnowledgeSource(Protocol):
+    def load(self) -> tuple[tuple[tuple[KnowledgeDocument, str], ...], tuple[str, ...]]: ...
+
+
+class CompositeKnowledgeSource:
+    def __init__(self, sources: tuple[KnowledgeSource, ...]) -> None:
+        self._sources = sources
+
+    def load(self) -> tuple[tuple[tuple[KnowledgeDocument, str], ...], tuple[str, ...]]:
+        loaded: list[tuple[KnowledgeDocument, str]] = []
+        errors: list[str] = []
+        for source in self._sources:
+            documents, source_errors = source.load()
+            loaded.extend(documents)
+            errors.extend(source_errors)
+        return tuple(loaded), tuple(errors)
 
 
 class MarkdownKnowledgeSource:

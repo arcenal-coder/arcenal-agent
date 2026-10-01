@@ -105,6 +105,7 @@ class AgentRegistryApiTests(TestCase):
             unknown = client.post("/api/v1/agents/inconnu/query", headers=_headers(), json={"message": "Bonjour"})
             client.patch("/api/plugins/arcenal-supervisor/agents/registry/ats", json={"enabled": False})
             disabled = client.post("/api/v1/agents/ats/query", headers=_headers(), json={"message": "Bonjour"})
+            forged = client.post("/api/v1/agents/ats/query", headers={**_headers(), "Remote-User": "other@example.org"}, json={"message": "Bonjour"})
 
         self.assertEqual(missing.status_code, 401)
         self.assertEqual(wrong_app.status_code, 403)
@@ -112,3 +113,14 @@ class AgentRegistryApiTests(TestCase):
         self.assertEqual(prompt.status_code, 422)
         self.assertEqual(unknown.status_code, 404)
         self.assertEqual(disabled.status_code, 409)
+        self.assertEqual(forged.status_code, 401)
+
+    def test_application_token_rotation_invalidates_previous_secret(self) -> None:
+        previous = "arcenal-ABCDEFGHIJKLMNOPQRSTUVWXYZ-previous-0123456789"
+        rotated = "arcenal-ABCDEFGHIJKLMNOPQRSTUVWXYZ-rotated-9876543210"
+        authenticator = MODULE.CORE.ApplicationAuthenticator(lambda _application: rotated)
+
+        with self.assertRaises(Exception, msg="L’ancien secret doit être refusé après rotation."):
+            authenticator.authenticate("arcenal-ats", f"Bearer {previous}", None)
+        identity = authenticator.authenticate("arcenal-ats", f"Bearer {rotated}", "admin@example.org")
+        self.assertEqual(identity.application_id, "arcenal-ats")

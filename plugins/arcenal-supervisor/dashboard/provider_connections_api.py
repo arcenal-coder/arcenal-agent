@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Protocol
+from types import ModuleType
+from typing import Protocol, cast
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException
@@ -22,6 +24,7 @@ PROVIDERS: dict[str, dict[str, str]] = {
     "mistral": {"env": "MISTRAL_API_KEY", "url": "https://api.mistral.ai/v1/models"},
     "gemini": {"env": "GEMINI_API_KEY", "url": "https://generativelanguage.googleapis.com/v1beta/models"},
     "ollama": {"env": "", "url": "http://127.0.0.1:11434/v1/models"},
+    "vllm": {"env": "", "url": "http://127.0.0.1:8000/v1/models"},
     "compatible": {"env": "OPENAI_COMPATIBLE_API_KEY", "url": ""},
     "internal": {"env": "ARCENAL_INTERNAL_LLM_API_KEY", "url": ""},
 }
@@ -62,9 +65,15 @@ def _definition(provider: str) -> dict[str, str]:
 def _configured_key(env_name: str) -> str:
     if not env_name:
         return ""
-    from hermes_cli.config import load_env
+    value = _core().runtime_configuration().vault.get_secret(env_name)
+    return value.strip() if isinstance(value, str) else ""
 
-    return load_env().get(env_name, "").strip()
+
+def _core() -> ModuleType:
+    module = sys.modules.get("arcenal_arc_core")
+    if not isinstance(module, ModuleType):
+        raise RuntimeError("Le cœur de configuration ARC est indisponible.")
+    return module
 
 
 def _probe_url(provider: str, requested: str | None) -> str:
@@ -77,7 +86,7 @@ def _probe_url(provider: str, requested: str | None) -> str:
         raise HTTPException(status_code=422, detail="L’adresse du fournisseur est invalide.")
     if parsed.username or parsed.password:
         raise HTTPException(status_code=422, detail="L’adresse ne doit pas contenir d’identifiants.")
-    if provider in {"compatible", "internal", "ollama"}:
+    if provider in {"compatible", "internal", "ollama", "vllm"}:
         return _compatible_models_url(raw)
     return definition["url"]
 
@@ -98,21 +107,25 @@ def _headers(provider: str, api_key: str) -> dict[str, str]:
 
 
 def _models(payload: object) -> list[str]:
-    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+    record = cast(dict[str, object], payload) if isinstance(payload, dict) else {}
+    data = record.get("data")
+    if not isinstance(data, list):
         return _gemini_models(payload)
-    identifiers = [item.get("id") for item in payload["data"] if isinstance(item, dict)]
+    identifiers = [cast(dict[str, object], item).get("id") for item in data if isinstance(item, dict)]
     return sorted({str(identifier) for identifier in identifiers if identifier})[:100]
 
 
 def _gemini_models(payload: object) -> list[str]:
-    if not isinstance(payload, dict) or not isinstance(payload.get("models"), list):
+    record = cast(dict[str, object], payload) if isinstance(payload, dict) else {}
+    models = record.get("models")
+    if not isinstance(models, list):
         return []
-    names = [item.get("name") for item in payload["models"] if isinstance(item, dict)]
+    names = [cast(dict[str, object], item).get("name") for item in models if isinstance(item, dict)]
     return sorted({str(name).removeprefix("models/") for name in names if name})[:100]
 
 
 def _status_root() -> Path:
-    home = Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
+    home = Path(os.environ.get("ARCENAL_HOME") or os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
     root = home / "arcenal"
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     return root
