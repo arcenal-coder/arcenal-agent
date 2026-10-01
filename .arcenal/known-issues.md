@@ -2,7 +2,7 @@
 
 ## CHAT-MODEL-001 — Recette réelle du modèle Gemini
 
-- État : correctifs `arcenal23` / `0.21.0~ynh40` publiés en preview ; le
+- État : correctifs `arcenal23` / `0.21.0~ynh41` publiés en preview ; le
   serveur exécute encore `arcenal21` / `0.21.0~ynh38`.
 - Cause confirmée : le serveur utilisait `provider: gemini` avec
   `default: auto`, valeur qui n’est pas un identifiant de modèle Gemini.
@@ -10,12 +10,14 @@
   conversationnel ; l’interface, l’API et le panneau YunoHost refusent le
   pseudo-modèle `auto`. Le test Gemini n’envoie plus la clé comme un jeton
   OAuth Bearer et conserve uniquement le paramètre d’API attendu par Google.
+  La mise à niveau remplace l'ancienne combinaison Gemini / `auto` par l'alias
+  officiel `gemini-flash-latest` avant la migration vers le backend ARC.
 - Preuves locales : Ruff, ESLint sans erreur, TypeScript, build, 16 tests API,
   37 tests web ciblés et 20 tests paquet réussissent. Les contrôles du
   catalogue GitHub et sa publication passent.
-- Prochaine étape : installer ynh40 depuis le canal preview, choisir un modèle
-  Gemini proposé par « Tester la connexion », puis valider une nouvelle
-  conversation. Ne pas promouvoir stable avant cette preuve.
+- Prochaine étape : installer ynh41 depuis le canal preview, vérifier le test
+  Gemini et le modèle migré, puis valider une nouvelle conversation. Ne pas
+  promouvoir stable avant cette preuve.
 
 ## CDC-GAP-001 — Conformité fonctionnelle incomplète
 

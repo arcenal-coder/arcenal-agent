@@ -11,15 +11,17 @@
   avec le moteur conversationnel, refuse `auto` comme identifiant direct et
   couvre les parcours nominal, limite et erreur. `arcenal23` corrige également
   le test de connexion Gemini, qui envoyait à tort la clé comme jeton OAuth
-  Bearer en plus du paramètre Google. Le paquet `0.21.0~ynh40` est publié en
+  Bearer en plus du paramètre Google. Le paquet `0.21.0~ynh41` migre aussi
+  l'ancienne combinaison `Gemini / auto` vers l'alias officiel
+  `gemini-flash-latest` avant la copie vers le backend ARC. Il est publié en
   preview ; les validations et la publication GitHub sont réussies.
 - État serveur prouvé par systemd : `0.21.0~ynh38`, `arcenal21`, révision
   `09214e609e8c20e8f998f911166a82b23c322c76`, service actif sur le port 9121.
   Le backend natif répond `arc`, mais le moteur reste sur Gemini / `auto` et le
   dernier test Gemini installé est `invalid` à cause du défaut désormais corrigé.
-- Recette restante : mettre à niveau vers ynh40, tester Gemini, sélectionner
-  un modèle retourné par le test de connexion, ouvrir une nouvelle conversation
-  et vérifier une réponse ARC réelle avant toute promotion stable.
+- Recette restante : mettre à niveau vers ynh41, tester Gemini, vérifier le
+  modèle migré, ouvrir une nouvelle conversation et obtenir une réponse ARC
+  réelle avant toute promotion stable.
 - Preuves serveur : `/arcenal/` redirige vers SSOwat ; un faux en-tête
   `Remote-User` ne contourne pas l'authentification ; dix requêtes simultanées
   répondent sans erreur entre 66,5 et 79,8 ms. Les services ARCenal sont actifs,
