@@ -4,7 +4,6 @@ import {
   canSubmitMessage,
   chatMessagePresentation,
   completeMaintenance,
-  gatewaySessionParams,
   normalizeHistory,
   synchronizeChat,
   type ArcenalChatState,
@@ -204,12 +203,6 @@ describe("état du chat ARC", () => {
       color: "var(--arc-primary-text)",
     });
     expect(chatMessagePresentation("assistant")).toBeUndefined();
-  });
-
-  it("crée le chat avec le modèle de l’agent ARC sans suivre Hermes", () => {
-    const params = gatewaySessionParams({ agent_id: "arc", mode: "auto", model: "openai/gpt-4.1-mini", provider: "openrouter", registry_id: "openrouter-model" });
-
-    expect(params).toMatchObject({ follow_profile_config: false, model: "openai/gpt-4.1-mini", provider: "openrouter" });
   });
 
   it("ignore une resynchronisation tardive après la réponse finale", () => {

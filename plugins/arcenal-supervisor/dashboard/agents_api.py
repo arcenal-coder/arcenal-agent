@@ -260,6 +260,16 @@ def _arc_core():
     return CORE.ArcCore(_manager(), builder, runtime.engine, _audit_writer)
 
 
+def query_dashboard_agent(agent_id: str, message: str, session_id: str, user_id: str) -> object:
+    if not re.fullmatch(r"[A-Za-z0-9_.@-]{1,128}", user_id):
+        raise CORE.ApplicationAuthenticationError("Identité administrateur YunoHost invalide.")
+    caller = CORE.ApplicationIdentity(
+        application_id="arcenal-system", user_id=user_id,
+        user_source=CORE.UserIdentitySource.YUNOHOST,
+    )
+    return _arc_core().query(agent_id, caller, message, session_id)
+
+
 def _translate_error(exc: Exception) -> HTTPException:
     from arcenal_arc_core.errors import AgentAccessDeniedError, AgentContractError, AgentDisabledError, AgentExecutionError, AgentNotFoundError, ApplicationAuthenticationError
 

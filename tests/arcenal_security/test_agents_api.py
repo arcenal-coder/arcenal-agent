@@ -5,9 +5,9 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -164,6 +164,24 @@ class AgentRegistryApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["provider"], "openrouter")
         self.assertEqual(response.json()["model"], "openai/gpt-4.1-mini")
+
+    def test_dashboard_query_uses_arc_core_with_yunohost_identity(self) -> None:
+        expected = SimpleNamespace(response="Réponse ARC")
+        core = SimpleNamespace(query=Mock(return_value=expected))
+
+        with patch.object(MODULE, "_arc_core", return_value=core):
+            result = MODULE.query_dashboard_agent("arc", "État du serveur", "session-1", "admin@example.org")
+
+        self.assertIs(result, expected)
+        agent_id, caller, message, session_id = core.query.call_args.args
+        self.assertEqual((agent_id, message, session_id), ("arc", "État du serveur", "session-1"))
+        self.assertEqual(caller.application_id, "arcenal-system")
+        self.assertEqual(caller.user_id, "admin@example.org")
+        self.assertEqual(caller.user_source.value, "yunohost")
+
+    def test_dashboard_query_rejects_an_invalid_yunohost_identity(self) -> None:
+        with self.assertRaises(Exception):
+            MODULE.query_dashboard_agent("arc", "Bonjour", "session-1", "../root")
 
     def test_query_route_executes_arc_core_with_application_identity(self) -> None:
         output = MODULE.CORE.EngineOutput(response="Réponse ATS", usage={"input_tokens": 2})

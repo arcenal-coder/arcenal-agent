@@ -1,19 +1,10 @@
-import { applyGatewayEvent, canSubmitMessage, chatMessagePresentation, completeMaintenance, gatewaySessionParams, normalizeHistory, providerErrorMessage, synchronizeChat, type AgentRuntimeSelection, type ArcenalChatMessage, type ArcenalChatState, type ChatConnectionState, type GatewayEventLike, type PendingApproval, type PendingMaintenance } from "./chat-state";
-import { archiveConversation } from "./session-actions";
+import { canSubmitMessage, chatMessagePresentation, completeMaintenance, providerErrorMessage, type ArcenalChatMessage, type ArcenalChatState, type ChatConnectionState, type PendingApproval, type PendingMaintenance } from "./chat-state";
 
-type UnknownRecord = Record<string, unknown>;
-type GatewayClient = {
-  close(): void;
-  connect(): Promise<void>;
-  on(type: string, handler: (event: GatewayEventLike) => void): () => void;
-  onState(handler: (state: ChatConnectionState) => void): () => void;
-  request<Result>(method: string, params?: UnknownRecord): Promise<Result>;
-};
 type ReactApi = typeof import("react");
 
-interface SessionSummary { id: string; preview?: string; title?: string }
-interface SessionListResponse { sessions?: SessionSummary[] }
-interface SessionResponse { inflight?: unknown; messages?: unknown[]; running?: boolean; session_id: string; session_key?: string; stored_session_id?: string }
+interface SessionSummary { id: string; title: string }
+interface ChatSession extends SessionSummary { messages: ArcenalChatMessage[] }
+interface ChatQueryResponse { session: ChatSession }
 interface Overview { health?: string; incidents?: unknown[]; platform?: { hostname?: string }; services?: Array<{ healthy?: boolean }> }
 interface ControlAction { consequence: string; description: string; rollback: string }
 interface PrepareResponse { action: ControlAction; approval_id?: string; status: "confirmation_required" | "ready" }
@@ -37,7 +28,7 @@ function errorMessage(cause: unknown): string {
 }
 
 function conversationTitle(session: SessionSummary): string {
-  return session.title?.trim() || session.preview?.trim() || "Conversation sans titre";
+  return session.title.trim() || "Conversation sans titre";
 }
 
 function ConnectionBadge({ state }: { state: ChatConnectionState }): ReturnType<typeof h> {
@@ -107,14 +98,14 @@ async function executeMaintenance(maintenance: PendingMaintenance): Promise<bool
   return true;
 }
 
-function Composer({ busy, connection, onSend, onStop }: { busy: boolean; connection: ChatConnectionState; onSend: (text: string) => void; onStop: () => void }): ReturnType<typeof h> {
+function Composer({ busy, connection, onSend }: { busy: boolean; connection: ChatConnectionState; onSend: (text: string) => void }): ReturnType<typeof h> {
   const [text, setText] = React.useState("");
   const submit = (): void => { if (!canSubmitMessage(text, connection, busy)) return; onSend(text.trim()); setText(""); };
   const keyDown = (event: KeyboardEvent): void => { if (event.key !== "Enter" || event.shiftKey) return; event.preventDefault(); submit(); };
   const change = (event: Event): void => setText((event.target as HTMLTextAreaElement).value);
   return h("div", { className: "arc-chat-composer" },
     h("textarea", { "aria-label": "Message à ARC", disabled: connection !== "open", onChange: change, onKeyDown: keyDown, placeholder: "Demandez à ARC d’analyser, configurer ou réparer…", rows: 2, value: text }),
-    busy ? h("button", { className: "is-stop", onClick: onStop, type: "button" }, "Arrêter") : h("button", { disabled: !canSubmitMessage(text, connection, busy), onClick: submit, type: "button" }, "Envoyer"),
+    busy ? h("button", { className: "is-stop", disabled: true, type: "button" }, "ARC travaille…") : h("button", { disabled: !canSubmitMessage(text, connection, busy), onClick: submit, type: "button" }, "Envoyer"),
   );
 }
 
@@ -135,80 +126,75 @@ function SystemSummary({ overview }: { overview: Overview | null }): ReturnType<
     h("dl", null, h("div", null, h("dt", null, "Services"), h("dd", null, `${serviceCount}/${total}`)), h("div", null, h("dt", null, "Incidents"), h("dd", null, String(overview?.incidents?.length ?? 0)))));
 }
 
-function useGateway(): { chat: ArcenalChatState; connection: ChatConnectionState; client: GatewayClient | null; setChat: React.Dispatch<React.SetStateAction<ArcenalChatState>> } {
-  const [chat, setChat] = React.useState<ArcenalChatState>(INITIAL_CHAT);
-  const [connection, setConnection] = React.useState<ChatConnectionState>("idle");
-  const [client, setClient] = React.useState<GatewayClient | null>(null);
-  React.useEffect(() => {
-    const gateway = SDK.gateway.createClient() as GatewayClient;
-    const offState = gateway.onState(setConnection);
-    const eventNames = ["message.start", "message.delta", "message.complete", "status.update", "tool.start", "tool.complete", "approval.request", "error"];
-    const offEvents = eventNames.map((type) => gateway.on(type, (event) => setChat((current) => applyGatewayEvent(current, event))));
-    setClient(gateway);
-    void gateway.connect().catch((cause) => setChat((current) => ({ ...current, error: errorMessage(cause) })));
-    return () => { offState(); offEvents.forEach((off) => off()); gateway.close(); };
-  }, []);
-  return { chat, connection, client, setChat };
+function sessionChat(session: ChatSession): ArcenalChatState {
+  return { ...INITIAL_CHAT, messages: session.messages, sessionId: session.id, storedSessionId: session.id };
 }
 
 function ArcenalChatPage(): ReturnType<typeof h> {
-  const { chat, connection, client, setChat } = useGateway();
+  const [chat, setChat] = React.useState<ArcenalChatState>(INITIAL_CHAT);
+  const [connection, setConnection] = React.useState<ChatConnectionState>("connecting");
   const [sessions, setSessions] = React.useState<SessionSummary[]>([]);
   const [overview, setOverview] = React.useState<Overview | null>(null);
   const [maintenanceBusy, setMaintenanceBusy] = React.useState(false);
-  const refreshSessions = React.useCallback(async (): Promise<void> => {
-    if (!client) return;
-    const response = await client.request<SessionListResponse>("session.list", { limit: 20 });
-    setSessions(response.sessions ?? []);
-  }, [client]);
+  const refreshSessions = React.useCallback(async (): Promise<SessionSummary[]> => {
+    const available = await api<SessionSummary[]>("/chat/sessions");
+    setSessions(available);
+    return available;
+  }, []);
   const createSession = React.useCallback(async (): Promise<void> => {
-    if (!client || connection !== "open") return;
     try {
-      const runtime = await api<AgentRuntimeSelection>("/agents/registry/arc/runtime", requestOptions({ message: "" }));
-      const response = await client.request<SessionResponse>("session.create", gatewaySessionParams(runtime));
-      setChat({ ...INITIAL_CHAT, sessionId: response.session_id, storedSessionId: response.stored_session_id ?? response.session_key ?? response.session_id });
+      const session = await api<ChatSession>("/chat/sessions", { method: "POST" });
+      setChat(sessionChat(session));
+      setConnection("open");
       await refreshSessions();
     } catch (cause) {
+      setConnection("error");
       setChat((current) => ({ ...current, error: errorMessage(cause) }));
     }
-  }, [client, connection, refreshSessions, setChat]);
-  React.useEffect(() => { if (connection === "open" && !chat.sessionId) void createSession(); }, [chat.sessionId, connection, createSession]);
+  }, [refreshSessions]);
+  const initializeChat = React.useCallback(async (): Promise<void> => {
+    try {
+      const available = await refreshSessions();
+      if (!available[0]) return await createSession();
+      const session = await api<ChatSession>(`/chat/sessions/${encodeURIComponent(available[0].id)}`);
+      setChat(sessionChat(session));
+      setConnection("open");
+    } catch (cause) {
+      setConnection("error");
+      setChat((current) => ({ ...current, error: errorMessage(cause) }));
+    }
+  }, [createSession, refreshSessions]);
+  React.useEffect(() => { void initializeChat(); }, [initializeChat]);
   React.useEffect(() => { void api<Overview>("/overview").then(setOverview).catch(() => setOverview(null)); }, []);
   const resume = async (storedId: string): Promise<void> => {
-    if (!client) return;
     try {
-      const response = await client.request<SessionResponse>("session.resume", { session_id: storedId, source: "desktop" });
-      setChat({ ...INITIAL_CHAT, messages: normalizeHistory(response.messages ?? []), sessionId: response.session_id, storedSessionId: response.session_key ?? response.stored_session_id ?? storedId });
+      const session = await api<ChatSession>(`/chat/sessions/${encodeURIComponent(storedId)}`);
+      setChat(sessionChat(session));
     } catch (cause) {
       setChat((current) => ({ ...current, error: errorMessage(cause) }));
     }
   };
   const send = async (text: string): Promise<void> => {
-    if (!client || !chat.sessionId) return;
+    if (!chat.sessionId) return;
     const message: ArcenalChatMessage = { id: `user-${Date.now()}`, role: "user", text };
     setChat((current) => ({ ...current, activity: "ARC analyse votre demande…", busy: true, error: "", messages: [...current.messages, message] }));
-    await client.request("prompt.submit", { session_id: chat.sessionId, text }).catch((cause) => setChat((current) => ({ ...current, activity: "", busy: false, error: providerErrorMessage(errorMessage(cause)), streamingText: "" })));
+    try {
+      const response = await api<ChatQueryResponse>(`/chat/sessions/${encodeURIComponent(chat.sessionId)}/messages`, requestOptions({ text }));
+      setChat(sessionChat(response.session));
+      await refreshSessions();
+    } catch (cause) {
+      setChat((current) => ({ ...current, activity: "", busy: false, error: providerErrorMessage(errorMessage(cause)), streamingText: "" }));
+    }
   };
-  React.useEffect(() => {
-    if (!client || !chat.busy || !chat.storedSessionId) return;
-    const timer = window.setInterval(() => {
-      void client.request<SessionResponse>("session.resume", { session_id: chat.storedSessionId, source: "desktop" })
-        .then((snapshot) => setChat((current) => synchronizeChat(current, snapshot)))
-        .catch((cause) => setChat((current) => ({ ...current, error: errorMessage(cause) })));
-    }, 5000);
-    return () => window.clearInterval(timer);
-  }, [chat.busy, chat.storedSessionId, client, setChat]);
-  const stop = (): void => { if (client && chat.sessionId) void client.request("session.interrupt", { session_id: chat.sessionId }); };
-  const answerApproval = async (choice: string): Promise<void> => {
-    if (!client || !chat.pendingApproval) return;
-    await client.request("approval.respond", { choice, request_id: chat.pendingApproval.requestId, session_id: chat.sessionId });
+  const answerApproval = async (_choice: string): Promise<void> => {
+    if (!chat.pendingApproval) return;
     setChat((current) => ({ ...current, pendingApproval: null }));
   };
   const archiveActive = async (): Promise<void> => {
     if (!chat.storedSessionId || chat.busy) return;
     if (!window.confirm("Archiver cette conversation et en démarrer une nouvelle ?")) return;
     try {
-      await archiveConversation((url, init) => SDK.fetchJSON(url, init), chat.storedSessionId);
+      await api(`/chat/sessions/${encodeURIComponent(chat.storedSessionId)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archived: true }) });
       await createSession();
     } catch (cause) {
       setChat((current) => ({ ...current, error: errorMessage(cause) }));
@@ -230,7 +216,7 @@ function ArcenalChatPage(): ReturnType<typeof h> {
   return h("main", { className: "arc-chat-page" },
     h("header", { className: "arc-chat-heading" }, h("div", null, h("small", null, "ARC · ARCHITECTE D’ARCENAL SYSTÈME"), h("h1", null, "Centre de commande")), h(ConnectionBadge, { state: connection })),
     chat.error && h("p", { className: "arc-chat-error", role: "alert" }, chat.error),
-    h("div", { className: "arc-chat-layout" }, h(SessionPanel, { active: chat.storedSessionId, canArchive: Boolean(chat.storedSessionId) && !chat.busy, onArchive: () => void archiveActive(), onNew: () => void createSession(), onResume: (id) => void resume(id), sessions }), h("section", { className: "arc-chat-main" }, h(Transcript, { chat, onPrompt: send }), chat.pendingMaintenance && h(MaintenanceCard, { busy: maintenanceBusy, maintenance: chat.pendingMaintenance, onExecute: () => void runMaintenance() }), chat.pendingApproval && h(ApprovalCard, { approval: chat.pendingApproval, onAnswer: (choice) => void answerApproval(choice) }), h(Composer, { busy: chat.busy, connection, onSend: (text) => void send(text), onStop: stop })), h(SystemSummary, { overview })),
+    h("div", { className: "arc-chat-layout" }, h(SessionPanel, { active: chat.storedSessionId, canArchive: Boolean(chat.storedSessionId) && !chat.busy, onArchive: () => void archiveActive(), onNew: () => void createSession(), onResume: (id) => void resume(id), sessions }), h("section", { className: "arc-chat-main" }, h(Transcript, { chat, onPrompt: send }), chat.pendingMaintenance && h(MaintenanceCard, { busy: maintenanceBusy, maintenance: chat.pendingMaintenance, onExecute: () => void runMaintenance() }), chat.pendingApproval && h(ApprovalCard, { approval: chat.pendingApproval, onAnswer: (choice) => void answerApproval(choice) }), h(Composer, { busy: chat.busy, connection, onSend: (text) => void send(text) })), h(SystemSummary, { overview })),
   );
 }
 

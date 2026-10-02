@@ -44,4 +44,10 @@ describe("ARC Frugal", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Désactiver le modèle small" }));
     await waitFor(() => expect(apiMocks.saveArcenalModel).toHaveBeenCalledWith(expect.objectContaining({ id: "small", enabled: false })));
   });
+
+  it("autorise explicitement un modèle à traiter les données d’administration", async () => {
+    render(<ArcenalFrugalSettingsPanel />);
+    fireEvent.change(await screen.findByRole("combobox", { name: "Données autorisées small" }), { target: { value: "admin" } });
+    await waitFor(() => expect(apiMocks.saveArcenalModel).toHaveBeenCalledWith(expect.objectContaining({ id: "small", privacy_class: "admin" })));
+  });
 });

@@ -107,6 +107,18 @@ def _load_agents_api() -> ModuleType:
     return module
 
 
+def _load_chat_api() -> ModuleType:
+    """Charge les conversations ARC qui traversent le runtime natif."""
+    source = Path(__file__).with_name("chat_api.py")
+    spec = importlib.util.spec_from_file_location("arcenal_chat_api", source)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Le module de conversation ARCenal est introuvable.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def _load_system_api() -> ModuleType:
     """Charge l’inventaire YunoHost étendu en lecture seule."""
     source = Path(__file__).with_name("system_api.py")
@@ -172,6 +184,8 @@ router.include_router(knowledge.router)
 agents = _load_agents_api()
 router.include_router(agents.router)
 root_router = agents.root_router
+chat = _load_chat_api()
+router.include_router(chat.router)
 provider_connections = _load_provider_connections_api()
 router.include_router(provider_connections.router)
 access_connections = _load_access_connections_api()
