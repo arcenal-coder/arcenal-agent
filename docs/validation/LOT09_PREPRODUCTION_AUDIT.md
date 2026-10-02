@@ -2,7 +2,7 @@
 
 Date : 2026-10-02  
 Branche : `arcenal`  
-Candidate publiée : `v0.21.0-arcenal32` / `0.21.0~ynh50`, canal `preview`
+Candidate publiée : `v0.21.0-arcenal33` / `0.21.0~ynh51`, canal `preview`
 
 ## Objet
 
@@ -75,6 +75,15 @@ puis synchronisation du catalogue. Un échec laisse la configuration intacte
 ou restaure l'état précédent. ARC n'annonce plus un fournisseur disponible si
 le test ou la synchronisation échoue.
 
+La resynchronisation conserve les décisions administratives attachées aux
+modèles déjà découverts, notamment leur activation, leur priorité, leurs coûts
+et le niveau de confidentialité autorisé. Les capacités techniques proviennent
+des métadonnées du modèle ou d'un contrat fournisseur explicite et borné. Un
+modèle générique reste `standard` ; en l'absence de modèle `advanced`, le
+routeur peut annoncer explicitement un repli `standard`. Les outils ne sont
+déduits sans métadonnée que pour Codex, Gemini, Anthropic et les familles de
+chat OpenAI connues ; vision et sorties structurées ne sont jamais inventées.
+
 ## Preuves locales
 
 ```yaml
@@ -95,6 +104,9 @@ Politique FIXED incompatible refusée : PASS
 Aperçu et exécution utilisent la même confidentialité : PASS
 Connexion fournisseur avec synchronisation des modèles : PASS
 Annonce de disponibilité après test réussi uniquement : PASS
+Politique modèle conservée après resynchronisation : PASS
+Capacités techniques par modèle respectées : PASS
+Repli avancé vers standard explicite : PASS
 Secret inclus dans le registre : NON
 ```
 
@@ -106,7 +118,7 @@ Secret inclus dans le registre : NON
 | Ruff ciblé | PASS |
 | TypeScript Web et Dashboard | PASS |
 | Compilation Python | PASS |
-| Tests Python impactés | 65 réussis |
+| Tests Python impactés | 51 réussis |
 | Tests frontend | 456 réussis |
 | Build de production | PASS |
 | Tests paquet YunoHost | 9 scripts et 20 tests Python réussis |
@@ -125,8 +137,8 @@ en `preview`, la recette réelle doit encore confirmer sur YunoHost :
   redémarrage du seul service ARCenal.
 
 Le flux brut preview référence le paquet
-`240d687e8952e3885a36bc6ef1b1302ea35c1d9b` et annonce la version
-`0.21.0~ynh50`. Cette candidate intègre les corrections de l'audit et doit
+`82a6dbfedd194b35e8bb292e17898eb194f980d2` et annonce la version
+`0.21.0~ynh51`. Cette candidate intègre les corrections de l'audit et doit
 maintenant être validée sur le serveur YunoHost réel. Le canal stable reste
 inchangé.
 
