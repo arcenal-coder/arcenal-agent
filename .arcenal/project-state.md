@@ -2,8 +2,8 @@
 
 ## Correctif — chat ARC natif et repli multi-fournisseurs
 
-- Date : 2026-10-02 ; branche `arcenal`, candidate cible
-  `v0.21.0-arcenal28` / paquet YunoHost cible `0.21.0~ynh46`.
+- Date : 2026-10-02 ; branche `arcenal`, source
+  `v0.21.0-arcenal28` / paquet YunoHost `0.21.0~ynh46` publié en preview.
 - Le chat ne passe plus directement par une session Hermes : il traverse ARC
   Core, l'Agent Manager, le Context Builder, le RAG, la mémoire d'entreprise et
   ARC Frugal avec le message courant.
@@ -19,6 +19,9 @@
   Python réussis, 217 tests Python ARCenal, 22 tests frontend impactés, build
   de production, 9 scripts YunoHost et 20 tests Python du paquet réussis.
 - Rapport : `docs/validation/LOT09_PREPRODUCTION_AUDIT.md`.
+- Publication vérifiée : source `f5166ac3c32389c726aae61b0741dc20e5af376b`,
+  paquet `e7c4fd58868bb6cd788d7550e9e8a4f66f14f3f9`, catalogue preview
+  `b1b94da`. Le flux brut annonce bien `0.21.0~ynh46`.
 - La promotion stable reste bloquée jusqu'à la recette réelle de cette candidate
   installée depuis le canal preview.
 - Le fichier utilisateur `contributors/emails/agent@Agents-Mac-mini.local`

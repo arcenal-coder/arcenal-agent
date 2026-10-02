@@ -2,7 +2,7 @@
 
 Date : 2026-10-02  
 Branche : `arcenal`  
-Candidate cible : `v0.21.0-arcenal28`
+Candidate publiée : `v0.21.0-arcenal28` / `0.21.0~ynh46`, canal `preview`
 
 ## Objet
 
@@ -100,6 +100,10 @@ en `preview`, la recette réelle doit encore confirmer sur YunoHost :
 - le repli après une indisponibilité Gemini ;
 - la conservation des fournisseurs, agents, secrets, RAG et mémoire après
   redémarrage du seul service ARCenal.
+
+Le flux brut preview référence le paquet
+`e7c4fd58868bb6cd788d7550e9e8a4f66f14f3f9` et annonce la version
+`0.21.0~ynh46`. Le canal stable reste inchangé.
 
 ## Verdict
 
