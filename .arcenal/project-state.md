@@ -1,5 +1,29 @@
 # État du projet ARCenal Agent
 
+## Correctif — chat ARC natif et repli multi-fournisseurs
+
+- Date : 2026-10-02 ; branche `arcenal`, candidate cible
+  `v0.21.0-arcenal28` / paquet YunoHost cible `0.21.0~ynh46`.
+- Le chat ne passe plus directement par une session Hermes : il traverse ARC
+  Core, l'Agent Manager, le Context Builder, le RAG, la mémoire d'entreprise et
+  ARC Frugal avec le message courant.
+- Le repli AUTO après une indisponibilité Gemini 503 est couvert jusqu'à
+  OpenRouter. Le chat persiste ses conversations et reste utilisable après une
+  erreur fournisseur.
+- Le catalogue permet de déclarer le niveau de données autorisé par modèle ; un
+  contexte d'administration n'est pas envoyé à un modèle limité aux données
+  internes.
+- Le paquet YunoHost cible ne demande plus de fournisseur, clé ou modèle global
+  à l'installation. Le choix AUTO ou FIXED appartient à chaque agent.
+- Validation locale : ESLint et Ruff sans erreur, TypeScript et compilation
+  Python réussis, 217 tests Python ARCenal, 22 tests frontend impactés, build
+  de production, 9 scripts YunoHost et 20 tests Python du paquet réussis.
+- Rapport : `docs/validation/LOT09_PREPRODUCTION_AUDIT.md`.
+- La promotion stable reste bloquée jusqu'à la recette réelle de cette candidate
+  installée depuis le canal preview.
+- Le fichier utilisateur `contributors/emails/agent@Agents-Mac-mini.local`
+  reste exclu du lot.
+
 ## Correctif — saturation temporaire des fournisseurs IA
 
 - Date : 2026-10-02 ; branche `arcenal`, source `v0.21.0-arcenal26`, paquet
