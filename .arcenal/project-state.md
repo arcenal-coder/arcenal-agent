@@ -1,5 +1,32 @@
 # État du projet ARCenal Agent
 
+## Lot — Harnais par agent et tâches planifiées
+
+- Date : 2026-10-02 ; branche `arcenal`, source `v0.21.0-arcenal25`, paquet
+  YunoHost `0.21.0~ynh43` publié dans le canal `preview`.
+- Les fournisseurs ne portent plus de modèle par défaut : ils conservent
+  uniquement leur connexion, leur activation, leur URL et leur secret. Le
+  choix AUTO ou FIXED appartient désormais à chaque agent.
+- Chaque agent ARC Core dispose d’un harnais isolé : contexte, directives,
+  mémoire, politique modèle, portées RAG, permissions, outils et autonomie.
+  Les profils spécialisés disposent des mêmes paramètres dans leur répertoire.
+- Les anciens fichiers Markdown globaux sont migrés une seule fois vers le
+  harnais d’ARC. Les sources historiques sont conservées sans rester injectées
+  globalement ; un fichier trop long est borné dans le paramètre sans perte de
+  sa source complète. L’ancienne API globale `managed-files` n’est plus montée.
+- Les onglets globaux Contexte, Mémoire et Directives sont retirés des
+  paramètres. Un espace `Tâches planifiées` est ajouté entre ARC et Agents pour
+  créer, lister, suspendre, reprendre, archiver ou supprimer des automatisations
+  planifiées ou déclenchées, formulées en langage naturel.
+- Validation : Ruff et ESLint sans erreur, `ty` ciblé, TypeScript, compilation
+  Python et build de production réussis ; les 241 tests Python ARCenal et les
+  445 tests frontend passent.
+- Publication vérifiée : source `3e97eed68bb882a56f0450d52250553a5b1f8da2`,
+  paquet `39bc4e8e746df95f324b565e98a5fba400e942c2`, catalogue preview
+  `f14b6a0`. Aucun déploiement serveur n’a été déclenché.
+- Le fichier utilisateur `contributors/emails/agent@Agents-Mac-mini.local`
+  reste exclu du lot.
+
 ## LOT 09.1 — Catalogue modèles et contraste du chat
 
 - Date : 2026-10-02 ; branche `arcenal`, candidate
@@ -116,7 +143,7 @@
 - Validation : Ruff, ESLint, ty ciblé, TypeScript, compilation Python et build réussis ; 173 tests Python ARCenal, 421 tests frontend, 7 scénarios shell YunoHost et 16 tests du broker réussis.
 - Publication GitHub : interdite sans autorisation explicite.
 
-Dernière mise à jour : 2026-10-01
+Dernière mise à jour : 2026-10-02
 
 Branche : `arcenal`
 
