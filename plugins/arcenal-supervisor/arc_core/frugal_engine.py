@@ -113,7 +113,8 @@ class FrugalAgentEngine:
 
     def _need(self, context: EffectiveContext, task_type: TaskType, capability: CapabilityProfile) -> RoutingNeed:
         policy = context.model_policy
-        return RoutingNeed(agent_id=context.agent.id, task_type=task_type, required_capability=capability, confidentiality=context.context_plan.confidentiality_level, tools_required=task_type is TaskType.TOOL_EXECUTION, context_size=context.retrieval_metrics.context_tokens_estimated, allowed_providers=policy.allowed_providers, denied_providers=policy.denied_providers, allowed_models=policy.allowed_models, local_only=policy.local_only, local_preferred=policy.local_preferred, max_cost=policy.max_cost)
+        tools_required = bool(context.tools) or task_type is TaskType.TOOL_EXECUTION
+        return RoutingNeed(agent_id=context.agent.id, task_type=task_type, required_capability=capability, confidentiality=context.context_plan.confidentiality_level, tools_required=tools_required, context_size=context.retrieval_metrics.context_tokens_estimated, allowed_providers=policy.allowed_providers, denied_providers=policy.denied_providers, allowed_models=policy.allowed_models, local_only=policy.local_only, local_preferred=policy.local_preferred, max_cost=policy.max_cost)
 
     def _capability(self, context: EffectiveContext, task_type: TaskType, message: str) -> CapabilityProfile:
         if context.model_policy.mode == "fixed":

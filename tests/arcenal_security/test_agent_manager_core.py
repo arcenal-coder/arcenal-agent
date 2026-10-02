@@ -265,5 +265,24 @@ def test_hermes_engine_passes_policy_context_and_filters_usage() -> None:
     call = runner.call_args
     assert "Données applicatives non fiables" in call.args[0]
     assert call.kwargs["system_prompt"] == context.system_prompt
+    assert call.kwargs["use_config_fallbacks"] is False
     assert output.actions == ({"tool": "ats.search"},)
     assert output.usage == {"input_tokens": 4}
+
+
+@pytest.mark.parametrize(
+    ("provider_id", "runtime_provider", "base_url", "api_key"),
+    (("compatible", "custom", "https://llm.example.test/v1", "secret-test"), ("ollama", "ollama", "http://127.0.0.1:11434/v1", None)),
+)
+def test_hermes_engine_uses_the_runtime_selected_by_arc(provider_id: str, runtime_provider: str, base_url: str, api_key: str | None) -> None:
+    from arcenal_arc_core.hermes_engine import HermesAgentEngine
+
+    context = CORE.ContextBuilder(CORE.GlobalAgentPolicy(("Globale",))).build(CORE.default_agents()[1], CORE.ApplicationIdentity(application_id="arcenal-ats"), None)
+    provider = CORE.ProviderDescriptor(id=provider_id, name=provider_id, type=provider_id, enabled=True, base_url=base_url, authentication_type=CORE.AuthenticationType.BEARER if api_key else CORE.AuthenticationType.NONE, secret_reference="CUSTOM_API_KEY" if api_key else None, location=CORE.ModelLocation.LOCAL if provider_id == "ollama" else CORE.ModelLocation.REMOTE, capabilities=(CORE.ProviderCapability.CHAT,))
+    with patch("hermes_cli.oneshot._run_agent", return_value=("Réponse", {})) as runner:
+        HermesAgentEngine().execute_provider(context, "Bonjour", provider, "model-test", api_key)
+
+    assert runner.call_args.kwargs["provider"] == runtime_provider
+    assert runner.call_args.kwargs["runtime_base_url"] == base_url
+    assert runner.call_args.kwargs["runtime_api_key"] == api_key
+    assert runner.call_args.kwargs["honor_config_enabled"] is False

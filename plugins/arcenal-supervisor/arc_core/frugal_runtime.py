@@ -28,7 +28,8 @@ class FrugalRuntime:
         self.automations = AutomationStore(root)
         hermes = HermesAgentEngine()
         router = ModelRouter(self.registry, providers=self.providers)
-        executor = ProviderExecutor(HermesProviderAdapter(hermes), registry=self.providers)
+        adapter = HermesProviderAdapter(hermes, self.configuration.vault.get_secret)
+        executor = ProviderExecutor(adapter, registry=self.providers)
         self.engine = FrugalAgentEngine(hermes, DeterministicEngine(), self.cache, WorkflowEngine(self.automations), router, self.metrics, ProcessObserver(self.automations), self.providers, executor)
 
     def ensure_configured_model(self) -> None:

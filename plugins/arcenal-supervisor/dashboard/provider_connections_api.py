@@ -131,7 +131,8 @@ class ProviderSnapshot:
     config_exists: bool
     config_value: object
     models: tuple[ModelDescriptorLike, ...]
-    secret_value: str | None
+    runtime_secret_value: str | None
+    stored_secret_value: str | None
 
 
 class ProviderActivationError(RuntimeError):
@@ -388,7 +389,8 @@ def _provider_snapshot(provider_id: str, env_name: str) -> ProviderSnapshot:
         config_exists=configuration.config.exists("providers", provider_id),
         config_value=configuration.config.get("providers", provider_id),
         models=models,
-        secret_value=configuration.vault.get_secret(env_name) if env_name else None,
+        runtime_secret_value=os.environ.get(env_name) if env_name else None,
+        stored_secret_value=configuration.vault.get_stored_secret(env_name) if env_name else None,
     )
 
 
@@ -414,11 +416,21 @@ def _restore_provider(provider_id: str, env_name: str, snapshot: ProviderSnapsho
         runtime.config.set("providers", provider_id, snapshot.config_value)
     else:
         runtime.config.delete("providers", provider_id)
-    if env_name and snapshot.secret_value is not None:
-        runtime.vault.set_secret(env_name, snapshot.secret_value)
+    if env_name and snapshot.stored_secret_value is not None:
+        runtime.vault.set_secret(env_name, snapshot.stored_secret_value)
     elif env_name:
         runtime.vault.delete_secret(env_name)
+    _apply_runtime_secret(env_name, snapshot.runtime_secret_value)
     _restore_models(provider_id, snapshot.models)
+
+
+def _apply_runtime_secret(env_name: str, value: str | None) -> None:
+    if not env_name:
+        return
+    if value is None:
+        os.environ.pop(env_name, None)
+        return
+    os.environ[env_name] = value
 
 
 def _activate_provider(request: ProviderConnectRequest, response: ProviderProbeResponse, env_name: str) -> None:
@@ -430,6 +442,8 @@ def _activate_provider(request: ProviderConnectRequest, response: ProviderProbeR
     if env_name and api_key:
         runtime.vault.set_secret(env_name, api_key)
     _sync_models(request.provider, response.models, response.model_capabilities)
+    effective_secret = api_key or (runtime.vault.get_secret(env_name) if env_name else None)
+    _apply_runtime_secret(env_name, effective_secret)
 
 
 def _require_connectable(response: ProviderProbeResponse) -> None:

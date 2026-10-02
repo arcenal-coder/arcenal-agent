@@ -362,6 +362,11 @@ def _run_agent(
     use_config_toolsets: bool = True,
     skills: object = None,
     system_prompt: str | None = None,
+    use_config_fallbacks: bool = True,
+    runtime_base_url: str | None = None,
+    runtime_api_key: str | None = None,
+    platform: str = "cli",
+    honor_config_enabled: bool = True,
 ) -> tuple[str, dict]:
     """Build an AIAgent exactly like a normal CLI chat turn would, then
     run a single conversation.  Returns ``(final_response, run_result)``."""
@@ -451,8 +456,9 @@ def _run_agent(
     runtime = resolve_runtime_provider(
         requested=effective_provider,
         target_model=effective_model or None,
-        explicit_base_url=explicit_base_url_from_alias,
-        explicit_api_key=explicit_api_key_from_alias,
+        explicit_base_url=runtime_base_url or explicit_base_url_from_alias,
+        explicit_api_key=runtime_api_key or explicit_api_key_from_alias,
+        honor_config_enabled=honor_config_enabled,
     )
 
     # Pull in explicit toolsets when provided; otherwise use whatever the user
@@ -488,10 +494,9 @@ def _run_agent(
     # os._exit and skips finalizers, so an un-closed connection here would leak.
     agent = None
     try:
-        # Read the effective fallback chain from profile config so oneshot
-        # workers honour the same merge semantics as interactive CLI and
-        # gateway sessions.
-        _fb = get_fallback_chain(cfg)
+        # ARC gouverne ses replis dans ProviderExecutor. Réutiliser ici les
+        # replis globaux Hermes ferait sortir l'exécution du fournisseur choisi.
+        _fb = get_fallback_chain(cfg) if use_config_fallbacks else []
 
         agent = AIAgent(
             api_key=runtime.get("api_key"),
@@ -502,7 +507,7 @@ def _run_agent(
             model=effective_model,
             enabled_toolsets=toolsets_list,
             quiet_mode=True,
-            platform="cli",
+            platform=platform,
             session_db=session_db,
             credential_pool=runtime.get("credential_pool"),
             fallback_model=_fb or None,

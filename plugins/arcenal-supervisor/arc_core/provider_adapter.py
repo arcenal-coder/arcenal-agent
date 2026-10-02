@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from time import perf_counter, sleep
 from typing import Protocol
 
@@ -9,23 +10,26 @@ from .errors import ProviderExecutionError
 from .models import EffectiveContext, EngineOutput
 from .provider_models import ProviderAttempt, ProviderDescriptor, ProviderHealth
 from .provider_registry import ProviderRegistry
-from .service import AgentEngine
 
 
 class ProviderAdapter(Protocol):
     def execute(self, context: EffectiveContext, message: str, provider: ProviderDescriptor, model: str) -> EngineOutput: ...
 
 
+class ProviderAwareAgentEngine(Protocol):
+    def execute_provider(self, context: EffectiveContext, message: str, provider: ProviderDescriptor, model: str, api_key: str | None) -> EngineOutput: ...
+
+
 class HermesProviderAdapter:
     """Traduit un choix ARC en paramètres Hermes, sans décision métier."""
 
-    def __init__(self, engine: AgentEngine) -> None:
+    def __init__(self, engine: ProviderAwareAgentEngine, secret_resolver: Callable[[str], str | None]) -> None:
         self._engine = engine
+        self._secret_resolver = secret_resolver
 
     def execute(self, context: EffectiveContext, message: str, provider: ProviderDescriptor, model: str) -> EngineOutput:
-        policy = context.model_policy.model_copy(update={"allowed_providers": (provider.id,), "allowed_models": (model,)})
-        routed = context.model_copy(update={"model_policy": policy})
-        output = self._engine.execute(routed, message)
+        api_key = self._secret_resolver(provider.secret_reference) if provider.secret_reference else None
+        output = self._engine.execute_provider(context, message, provider, model, api_key)
         if not output.response.strip():
             raise ProviderExecutionError("Le fournisseur a retourné une réponse vide.", "invalid_response")
         return output

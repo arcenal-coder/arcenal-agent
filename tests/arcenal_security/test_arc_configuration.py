@@ -99,6 +99,7 @@ def test_runtime_secret_has_priority_without_being_persisted(tmp_path: Path, mon
     monkeypatch.setenv("OPENAI_API_KEY", "runtime")
 
     assert vault.get_secret("OPENAI_API_KEY") == "runtime"
+    assert vault.get_stored_secret("OPENAI_API_KEY") == "persistant"
     assert "runtime" not in (tmp_path / ".env").read_text(encoding="utf-8")
 
 

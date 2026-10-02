@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -224,7 +225,9 @@ def _validated_secret_key(key: str) -> str:
 @router.put("/secrets/{key}")
 def write_secret(key: str, payload: SecretWrite) -> dict[str, bool]:
     checked = _validated_secret_key(key)
-    _runtime().vault.set_secret(checked, payload.value.get_secret_value())
+    value = payload.value.get_secret_value()
+    _runtime().vault.set_secret(checked, value)
+    os.environ[checked] = value
     return {"configured": True}
 
 
@@ -233,4 +236,5 @@ def delete_secret(key: str) -> dict[str, bool]:
     checked = _validated_secret_key(key)
     vault = _runtime().vault
     vault.delete_secret(checked)
+    os.environ.pop(checked, None)
     return {"configured": vault.has_secret(checked)}

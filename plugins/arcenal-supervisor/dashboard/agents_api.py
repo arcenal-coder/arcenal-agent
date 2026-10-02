@@ -273,7 +273,7 @@ def query_dashboard_agent(agent_id: str, message: str, session_id: str, user_id:
 
 
 def _translate_error(exc: Exception) -> HTTPException:
-    from arcenal_arc_core.errors import AgentAccessDeniedError, AgentContractError, AgentDisabledError, AgentExecutionError, AgentNotFoundError, ApplicationAuthenticationError, ModelRoutingError
+    from arcenal_arc_core.errors import AgentAccessDeniedError, AgentContractError, AgentDisabledError, AgentExecutionError, AgentNotFoundError, ApplicationAuthenticationError, ModelRoutingError, ProviderExecutionError
 
     if isinstance(exc, AgentNotFoundError):
         return HTTPException(status_code=404, detail=str(exc))
@@ -287,7 +287,7 @@ def _translate_error(exc: Exception) -> HTTPException:
         return HTTPException(status_code=422, detail=str(exc))
     if isinstance(exc, ModelRoutingError):
         return HTTPException(status_code=422, detail=str(exc))
-    if isinstance(exc, AgentExecutionError):
+    if isinstance(exc, (AgentExecutionError, ProviderExecutionError)):
         return HTTPException(status_code=503, detail=str(exc))
     return HTTPException(status_code=500, detail="ARC Core a rencontré une erreur interne.")
 

@@ -7,6 +7,7 @@ from typing import cast
 
 from .errors import AgentExecutionError
 from .models import EffectiveContext, EngineOutput
+from .provider_models import ProviderDescriptor
 
 
 USAGE_KEYS = frozenset({"api_calls", "cache_read_tokens", "cache_write_tokens", "cost", "input_tokens", "model", "output_tokens", "provider", "reasoning_tokens"})
@@ -14,10 +15,19 @@ USAGE_KEYS = frozenset({"api_calls", "cache_read_tokens", "cache_write_tokens", 
 
 class HermesAgentEngine:
     def execute(self, context: EffectiveContext, message: str) -> EngineOutput:
-        from hermes_cli.oneshot import _run_agent
-
         model = self._first(context.model_policy.allowed_models)
         provider = self._first(context.model_policy.allowed_providers)
+        return self._execute(context, message, model, provider, None, None)
+
+    def execute_provider(self, context: EffectiveContext, message: str, provider: ProviderDescriptor, model: str, api_key: str | None) -> EngineOutput:
+        return self._execute(context, message, model, self._runtime_provider(provider), provider.base_url, api_key)
+
+    def _runtime_provider(self, provider: ProviderDescriptor) -> str:
+        return "custom" if provider.id in {"compatible", "internal"} else provider.id
+
+    def _execute(self, context: EffectiveContext, message: str, model: str | None, provider: str | None, base_url: str | None, api_key: str | None) -> EngineOutput:
+        from hermes_cli.oneshot import _run_agent
+
         try:
             response, result = _run_agent(
                 self._message(context, message),
@@ -25,6 +35,11 @@ class HermesAgentEngine:
                 provider=provider,
                 toolsets=list(context.tools),
                 system_prompt=context.system_prompt,
+                use_config_fallbacks=False,
+                runtime_base_url=base_url,
+                runtime_api_key=api_key,
+                platform="arcenal",
+                honor_config_enabled=False,
             )
         except Exception as exc:
             raise AgentExecutionError("Le moteur IA interne n’a pas pu répondre.") from exc

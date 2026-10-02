@@ -231,6 +231,7 @@ class ProviderProbeTests(IsolatedAsyncioTestCase):
         request = MODULE.ProviderConnectRequest(provider="gemini", api_key="secret", enabled=True)
         expected = MODULE._result("gemini", 200, ["gemini-flash"])
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"ARCENAL_HOME": directory, "ARCENAL_CONFIG_BACKEND": "arc"}, clear=False):
+            os.environ["GEMINI_API_KEY"] = "old-secret"
             with patch.object(MODULE, "_probe", new=AsyncMock(return_value=expected)):
                 response = await MODULE.connect_provider(request)
             configuration = MODULE._core().runtime_configuration()
@@ -238,9 +239,12 @@ class ProviderProbeTests(IsolatedAsyncioTestCase):
             persisted_provider = configuration.config.get("providers", "gemini")
             persisted_status = MODULE._read_statuses()["gemini"]
             models = MODULE._frugal_runtime().registry.list()
+            runtime_secret = os.environ.get("GEMINI_API_KEY")
 
         self.assertEqual(response.models, ["gemini-flash"])
         self.assertEqual(persisted_secret, "secret")
+        self.assertEqual(runtime_secret, "secret")
+        self.assertIsNone(os.environ.get("GEMINI_API_KEY"))
         self.assertEqual(persisted_provider, {"enabled": True})
         self.assertEqual(persisted_status["connection"], "connected")
         self.assertTrue(any(model.model_name == "gemini-flash" for model in models))
@@ -283,6 +287,7 @@ class ProviderProbeTests(IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"ARCENAL_HOME": directory, "ARCENAL_CONFIG_BACKEND": "arc"}, clear=False):
             configuration = MODULE._core().runtime_configuration()
             configuration.vault.set_secret("MISTRAL_API_KEY", "old-secret")
+            os.environ["MISTRAL_API_KEY"] = "old-secret"
             configuration.config.set("providers", "mistral", {"enabled": False})
             MODULE._sync_models("mistral", ["old-model"])
             MODULE._write_status(MODULE._result("mistral", 401, []))
@@ -293,8 +298,10 @@ class ProviderProbeTests(IsolatedAsyncioTestCase):
             persisted_provider = configuration.config.get("providers", "mistral")
             persisted_status = MODULE._read_statuses()["mistral"]
             models = MODULE._frugal_runtime().registry.list()
+            runtime_secret = os.environ.get("MISTRAL_API_KEY")
 
         self.assertEqual(persisted_secret, "old-secret")
+        self.assertEqual(runtime_secret, "old-secret")
         self.assertEqual(persisted_provider, {"enabled": False})
         self.assertEqual([model.model_name for model in models if model.provider == "mistral"], ["old-model"])
         self.assertEqual(persisted_status["connection"], "invalid")

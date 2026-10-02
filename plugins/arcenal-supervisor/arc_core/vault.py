@@ -34,6 +34,8 @@ class ArcVault(Protocol):
 
     def get_secret(self, key: str) -> str | None: ...
 
+    def get_stored_secret(self, key: str) -> str | None: ...
+
     def require_secret(self, key: str) -> str: ...
 
     def set_secret(self, key: str, value: str) -> None: ...
@@ -52,7 +54,12 @@ class ArcFileVault:
     def get_secret(self, key: str) -> str | None:
         _validate_key(key)
         runtime = os.environ.get(key)
-        value = runtime if runtime is not None else self._read().get(key)
+        value = runtime if runtime is not None else self.get_stored_secret(key)
+        return value if value and value.strip() else None
+
+    def get_stored_secret(self, key: str) -> str | None:
+        _validate_key(key)
+        value = self._read().get(key)
         return value if value and value.strip() else None
 
     def require_secret(self, key: str) -> str:

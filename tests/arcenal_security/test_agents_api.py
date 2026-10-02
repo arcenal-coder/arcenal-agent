@@ -147,6 +147,14 @@ class AgentRegistryApiTests(TestCase):
         self.assertEqual(translated.status_code, 422)
         self.assertEqual(translated.detail, "Aucun modèle ARC configuré.")
 
+    def test_provider_execution_error_is_exposed_as_temporary_failure(self) -> None:
+        error = MODULE.CORE.ProviderExecutionError("Aucun fournisseur autorisé n’a répondu.", "unavailable")
+
+        translated = MODULE._translate_error(error)
+
+        self.assertEqual(translated.status_code, 503)
+        self.assertEqual(translated.detail, "Aucun fournisseur autorisé n’a répondu.")
+
     def test_runtime_preview_uses_each_agent_confidentiality(self) -> None:
         arc, ats = MODULE.CORE.default_agents()
 
@@ -202,7 +210,7 @@ class AgentRegistryApiTests(TestCase):
 
     def test_query_route_executes_arc_core_with_application_identity(self) -> None:
         output = MODULE.CORE.EngineOutput(response="Réponse ATS", usage={"input_tokens": 2})
-        engine_path = "arcenal_arc_core.hermes_engine.HermesAgentEngine.execute"
+        engine_path = "arcenal_arc_core.hermes_engine.HermesAgentEngine.execute_provider"
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
             knowledge = home / "knowledge"

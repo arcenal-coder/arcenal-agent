@@ -1885,6 +1885,7 @@ def resolve_runtime_provider(
     explicit_api_key: Optional[str] = None,
     explicit_base_url: Optional[str] = None,
     target_model: Optional[str] = None,
+    honor_config_enabled: bool = True,
 ) -> Dict[str, Any]:
     """Resolve runtime provider credentials for agent execution.
 
@@ -1911,7 +1912,7 @@ def resolve_runtime_provider(
     from hermes_cli.config import is_provider_enabled, load_config
     _full_cfg = load_config()
     _provs_cfg = _full_cfg.get("providers") if isinstance(_full_cfg, dict) else None
-    if isinstance(_provs_cfg, dict):
+    if honor_config_enabled and isinstance(_provs_cfg, dict):
         _block = _provs_cfg.get(requested_provider)
         if isinstance(_block, dict) and not is_provider_enabled(_block):
             raise ValueError(

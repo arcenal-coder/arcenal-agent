@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -72,6 +73,7 @@ def test_configuration_round_trip_uses_native_namespaces(tmp_path: Path, monkeyp
 
 def test_secret_rotation_and_deletion_never_return_values(tmp_path: Path, monkeypatch) -> None:
     client = _client(_runtime(tmp_path), monkeypatch)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "secret-herite")
 
     first = client.put("/configuration/v1/secrets/OPENROUTER_API_KEY", json={"value": "secret-a"})
     second = client.put("/configuration/v1/secrets/OPENROUTER_API_KEY", json={"value": "secret-b"})
@@ -83,6 +85,7 @@ def test_secret_rotation_and_deletion_never_return_values(tmp_path: Path, monkey
     assert status.json()["secrets"]["OPENROUTER_API_KEY"] is True
     assert "secret-a" not in status.text and "secret-b" not in status.text
     assert deleted.json() == {"configured": False}
+    assert "OPENROUTER_API_KEY" not in os.environ
 
 
 def test_invalid_provider_and_secret_are_rejected(tmp_path: Path, monkeypatch) -> None:

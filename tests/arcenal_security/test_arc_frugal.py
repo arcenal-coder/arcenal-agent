@@ -125,6 +125,17 @@ def test_global_provider_policy_cannot_be_bypassed(tmp_path: Path) -> None:
         CORE.ModelRouter(registry, denied_providers=("remote",)).route(need)
 
 
+def test_routing_requires_tools_declared_by_the_agent_harness(tmp_path: Path) -> None:
+    llm = CountingEngine()
+    engine, _registry, _store, _metrics = _runtime_parts(tmp_path, llm)
+
+    arc_need = engine._need(_context(), CORE.TaskType.REASONING, CORE.CapabilityProfile.STANDARD)
+    ats_need = engine._need(_context(1), CORE.TaskType.REASONING, CORE.CapabilityProfile.STANDARD)
+
+    assert arc_need.tools_required is True
+    assert ats_need.tools_required is False
+
+
 def test_empty_registry_compatibility_never_bypasses_local_only(tmp_path: Path) -> None:
     llm = CountingEngine()
     store = CORE.AutomationStore(tmp_path)

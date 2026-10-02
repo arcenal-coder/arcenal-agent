@@ -260,7 +260,10 @@ def append_notes_to_multimodal_content(content: Any, notes: str) -> bool:
 # - subagent — a delegated child's session is hidden from every picker, so its
 #   title is never read. A batch at `max_concurrent_children` would pay N title
 #   calls for N names nobody sees.
-_UNTITLED_PLATFORMS = frozenset({"cron", "subagent"})
+# - arcenal — ARC nomme déjà ses conversations sans appel auxiliaire. Exclure
+#   cette surface évite qu'un ancien fournisseur Hermes soit sollicité en plus
+#   du fournisseur choisi dans le harnais de l'agent.
+_UNTITLED_PLATFORMS = frozenset({"arcenal", "cron", "subagent"})
 
 
 def _maybe_title_session_at_turn_start(agent: Any, messages: List[Any]) -> None:
