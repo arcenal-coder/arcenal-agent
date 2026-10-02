@@ -31,6 +31,13 @@ PROVIDERS: dict[str, dict[str, str]] = {
     "internal": {"env": "ARCENAL_INTERNAL_LLM_API_KEY", "url": ""},
 }
 
+TOOL_CAPABLE_PROVIDER_CONTRACTS = frozenset({"anthropic", "gemini"})
+OPENAI_TOOL_MODEL_PREFIXES = ("chatgpt-", "gpt-", "o1", "o3", "o4")
+NON_CHAT_MODEL_MARKERS = (
+    "audio", "dall-e", "embedding", "image", "instruct", "moderation",
+    "realtime", "transcrib", "tts", "whisper",
+)
+
 
 class ProviderProbeRequest(BaseModel):
     """Paramètres temporaires utilisés sans persister le secret."""
@@ -47,12 +54,22 @@ class ProviderConnectRequest(ProviderProbeRequest):
     enabled: bool = True
 
 
+class ModelProbeCapabilities(BaseModel):
+    """Capacités techniques prouvées par le catalogue du fournisseur."""
+
+    reasoning: bool = False
+    structured_output: bool = False
+    tools: bool = False
+    vision: bool = False
+
+
 class ProviderProbeResponse(BaseModel):
     """Résultat expurgé d’un test de connexion."""
 
     configured: bool
     connection: str = Field(pattern="^(connected|invalid|missing|quota_limited|unreachable)$")
     message: str
+    model_capabilities: dict[str, ModelProbeCapabilities] = Field(default_factory=dict)
     models: list[str]
     provider: str
     tested_at: str
@@ -78,7 +95,15 @@ class ProviderDescriptorLike(Protocol):
 
 
 class ModelDescriptorLike(Protocol):
+    context_window: int | None
+    display_name: str | None
+    enabled: bool
+    hosting_region: str | None
     id: str
+    input_cost: float
+    output_cost: float
+    privacy_class: object
+    priority: int
     provider: str
     catalog_source: object
 
@@ -171,8 +196,46 @@ def _models(payload: object) -> list[str]:
     data = record.get("data")
     if not isinstance(data, list):
         return _gemini_models(payload)
-    identifiers = [cast(dict[str, object], item).get("id") for item in data if isinstance(item, dict)]
+    identifiers = [cast(dict[str, object], item).get("id") for item in data if _is_chat_model(item)]
     return sorted({str(identifier) for identifier in identifiers if identifier})[:100]
+
+
+def _is_chat_model(value: object) -> bool:
+    if not isinstance(value, dict):
+        return False
+    record = cast(dict[str, object], value)
+    identifier = str(record.get("id") or "").casefold()
+    architecture = record.get("architecture")
+    modalities = cast(dict[str, object], architecture).get("output_modalities") if isinstance(architecture, dict) else None
+    return bool(identifier) and not _is_non_chat_identifier(identifier) and (not isinstance(modalities, list) or "text" in modalities)
+
+
+def _is_non_chat_identifier(identifier: str) -> bool:
+    return any(marker in identifier.casefold() for marker in NON_CHAT_MODEL_MARKERS)
+
+
+def _model_capabilities(payload: object) -> dict[str, ModelProbeCapabilities]:
+    record = cast(dict[str, object], payload) if isinstance(payload, dict) else {}
+    data = record.get("data")
+    if not isinstance(data, list):
+        return {}
+    entries = (cast(dict[str, object], item) for item in data if _is_chat_model(item))
+    return {identifier: _entry_capabilities(item) for item in entries if (identifier := str(item.get("id") or ""))}
+
+
+def _entry_capabilities(item: dict[str, object]) -> ModelProbeCapabilities:
+    parameters = item.get("supported_parameters")
+    supported = {str(value) for value in parameters} if isinstance(parameters, list) else set()
+    architecture = item.get("architecture")
+    inputs = cast(dict[str, object], architecture).get("input_modalities") if isinstance(architecture, dict) else None
+    capabilities = item.get("capabilities")
+    provider_flags = cast(dict[str, object], capabilities) if isinstance(capabilities, dict) else {}
+    return ModelProbeCapabilities(
+        reasoning="reasoning" in supported,
+        structured_output=bool({"response_format", "structured_outputs"} & supported),
+        tools="tools" in supported or provider_flags.get("function_calling") is True,
+        vision=(isinstance(inputs, list) and "image" in inputs) or provider_flags.get("vision") is True,
+    )
 
 
 def _gemini_models(payload: object) -> list[str]:
@@ -230,10 +293,10 @@ def _write_status(response: ProviderProbeResponse) -> None:
         raise HTTPException(status_code=500, detail="État des fournisseurs impossible à enregistrer.") from exc
 
 
-def _result(provider: str, status: int, models: list[str]) -> ProviderProbeResponse:
+def _result(provider: str, status: int, models: list[str], model_capabilities: dict[str, ModelProbeCapabilities] | None = None) -> ProviderProbeResponse:
     tested_at = datetime.now(timezone.utc).isoformat()
     if status == 200:
-        return ProviderProbeResponse(provider=provider, configured=True, connection="connected", message="Connexion opérationnelle.", models=models, tested_at=tested_at)
+        return ProviderProbeResponse(provider=provider, configured=True, connection="connected", message="Connexion opérationnelle.", models=models, model_capabilities=model_capabilities or {}, tested_at=tested_at)
     if status == 429:
         return ProviderProbeResponse(provider=provider, configured=True, connection="quota_limited", message="Le quota disponible du fournisseur est épuisé.", models=[], tested_at=tested_at)
     if status in {401, 403}:
@@ -250,20 +313,45 @@ def _model_id(provider: str, model_name: str) -> str:
     return f"{provider}-{digest}"
 
 
-def _discovered_model(provider: ProviderDescriptorLike, model_name: str) -> ModelDescriptorLike:
+def _discovered_model(provider: ProviderDescriptorLike, model_name: str, metadata: ModelProbeCapabilities | None = None) -> ModelDescriptorLike:
     core = _core()
-    capabilities = (core.CapabilityProfile.STANDARD,)
+    details = metadata or ModelProbeCapabilities()
+    capabilities = (core.CapabilityProfile.STANDARD, core.CapabilityProfile.ADVANCED) if details.reasoning else (core.CapabilityProfile.STANDARD,)
+    contract_tools = _contract_supports_tools(provider.id, model_name)
     return cast(ModelDescriptorLike, core.ModelDescriptor(
         id=_model_id(provider.id, model_name), provider=provider.id,
         model_name=model_name, display_name=model_name,
         availability=core.ModelAvailability.AVAILABLE,
         catalog_source=core.ModelCatalogSource.DISCOVERED,
         capabilities=capabilities, context_window=None,
-        supports_tools=core.ProviderCapability.TOOL_CALLING in provider.capabilities,
-        supports_structured_output=core.ProviderCapability.STRUCTURED_OUTPUT in provider.capabilities,
-        supports_vision=core.ProviderCapability.VISION in provider.capabilities,
+        supports_tools=details.tools or contract_tools,
+        supports_structured_output=details.structured_output,
+        supports_vision=details.vision,
         location=provider.location, priority=provider.priority,
     ))
+
+
+def _contract_supports_tools(provider_id: str, model_name: str) -> bool:
+    if provider_id in TOOL_CAPABLE_PROVIDER_CONTRACTS or provider_id == "openai-codex":
+        return True
+    if provider_id != "openai" or _is_non_chat_identifier(model_name):
+        return False
+    return model_name.casefold().startswith(OPENAI_TOOL_MODEL_PREFIXES)
+
+
+def _reconciled_model(discovered: ModelDescriptorLike, existing: ModelDescriptorLike | None) -> ModelDescriptorLike:
+    if existing is None:
+        return discovered
+    return discovered.model_copy(update={
+        "context_window": existing.context_window,
+        "display_name": existing.display_name,
+        "enabled": existing.enabled,
+        "hosting_region": existing.hosting_region,
+        "input_cost": existing.input_cost,
+        "output_cost": existing.output_cost,
+        "privacy_class": existing.privacy_class,
+        "priority": existing.priority,
+    })
 
 
 def _mark_missing_models(registry: ModelRegistryLike, provider_id: str, active_ids: frozenset[str]) -> None:
@@ -275,17 +363,20 @@ def _mark_missing_models(registry: ModelRegistryLike, provider_id: str, active_i
         registry.upsert(model.model_copy(update={"availability": availability}))
 
 
-def _sync_models(provider_id: str, model_names: list[str]) -> None:
+def _sync_models(provider_id: str, model_names: list[str], model_capabilities: dict[str, ModelProbeCapabilities] | None = None) -> None:
     core = _core()
     runtime = core.FrugalRuntime(_status_root() / "frugal")
     runtime.ensure_configured_model()
     provider = cast(ProviderDescriptorLike | None, runtime.providers.get(provider_id))
     if provider is None:
         raise HTTPException(status_code=422, detail="Fournisseur absent du registre ARC.")
-    models = tuple(_discovered_model(provider, name) for name in model_names)
-    for model in models:
-        runtime.registry.upsert(model)
     registry = cast(ModelRegistryLike, runtime.registry)
+    existing = {model.id: model for model in registry.list()}
+    metadata = model_capabilities or {}
+    discovered = tuple(_discovered_model(provider, name, metadata.get(name)) for name in model_names)
+    models = tuple(_reconciled_model(model, existing.get(model.id)) for model in discovered)
+    for model in models:
+        registry.upsert(model)
     _mark_missing_models(registry, provider_id, frozenset(model.id for model in models))
 
 
@@ -338,7 +429,7 @@ def _activate_provider(request: ProviderConnectRequest, response: ProviderProbeR
     runtime.config.set("providers", request.provider, value)
     if env_name and api_key:
         runtime.vault.set_secret(env_name, api_key)
-    _sync_models(request.provider, response.models)
+    _sync_models(request.provider, response.models, response.model_capabilities)
 
 
 def _require_connectable(response: ProviderProbeResponse) -> None:
@@ -379,7 +470,7 @@ async def _probe(provider: str, url: str, api_key: str) -> ProviderProbeResponse
     except httpx.HTTPError:
         return _result(provider, 503, [])
     payload = _response_payload(response) if response.status_code in {200, 429} else {}
-    return _result(provider, response.status_code, _models(payload))
+    return _result(provider, response.status_code, _models(payload), _model_capabilities(payload))
 
 
 async def _evaluate_provider(request: ProviderProbeRequest) -> ProviderProbeResponse:

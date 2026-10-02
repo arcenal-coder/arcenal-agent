@@ -2934,6 +2934,7 @@ export interface ArcenalProviderProbe {
   configured: boolean;
   connection: "connected" | "invalid" | "missing" | "quota_limited" | "unreachable";
   message: string;
+  model_capabilities?: Record<string, { reasoning: boolean; structured_output: boolean; tools: boolean; vision: boolean }>;
   models: string[];
   provider: string;
   tested_at: string;
