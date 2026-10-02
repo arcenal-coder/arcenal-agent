@@ -1,5 +1,30 @@
 # État du projet ARCenal Agent
 
+## LOT 09.1 — Catalogue modèles et contraste du chat
+
+- Date : 2026-10-02 ; branche `arcenal`, candidate
+  `v0.21.0-arcenal24` / paquet cible `0.21.0~ynh42`.
+- Le Model Registry existant redevient la source de vérité visible. La
+  découverte fournisseur normalise les modèles et conserve leur origine et
+  leur disponibilité sans inventer les métadonnées inconnues.
+- L'Agent Manager crée et modifie des agents avec une politique AUTO ou FIXED.
+  FIXED exige un modèle concret, activé et compatible ; `local_only` interdit
+  toujours un modèle distant. ARC Frugal conserve l'ordre déterministe, cache,
+  workflow puis LLM.
+- Le quota Gemini est distinct d'une authentification invalide. Un 429 termine
+  l'attente, affiche un message expurgé et laisse le chat réutilisable.
+- La bulle utilisateur et son Markdown utilisent la paire sémantique
+  `--arc-primary` / `--arc-primary-text`, calculée selon la dominante en clair
+  comme en sombre.
+- Validation locale : Ruff, ESLint sans erreur, `ty`, TypeScript, compilation
+  Python et build passent ; 237 tests Python ARCenal, 437 tests frontend,
+  9 scénarios YunoHost, 20 tests broker/socket et 13 tests catalogue passent.
+- Rapport : `docs/validation/LOT09_1_MODEL_CATALOGUE.md`.
+- Prochaine étape : publier uniquement en preview, installer ynh42 par la voie
+  YunoHost normale et reprendre la recette Lot 09R finale.
+- Le fichier utilisateur `contributors/emails/agent@Agents-Mac-mini.local`
+  reste exclu de tous les commits.
+
 ## LOT 09R — Recette de compatibilité de production
 
 - Date : 2026-10-01 ; branche `arcenal`, version corrective

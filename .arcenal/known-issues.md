@@ -2,8 +2,9 @@
 
 ## CHAT-MODEL-001 — Recette réelle du modèle Gemini
 
-- État : correctifs `arcenal23` / `0.21.0~ynh41` publiés en preview ; le
-  serveur exécute encore `arcenal21` / `0.21.0~ynh38`.
+- État : la candidate `arcenal24` / `0.21.0~ynh42` restaure le catalogue des
+  modèles, les politiques AUTO/FIXED et le traitement propre du quota. Sa
+  publication preview et sa recette installée restent à effectuer.
 - Cause confirmée : le serveur utilisait `provider: gemini` avec
   `default: auto`, valeur qui n’est pas un identifiant de modèle Gemini.
 - Correctif : Paramètres synchronise désormais le modèle natif avec le moteur
@@ -15,9 +16,9 @@
 - Preuves locales : Ruff, ESLint sans erreur, TypeScript, build, 16 tests API,
   37 tests web ciblés et 20 tests paquet réussissent. Les contrôles du
   catalogue GitHub et sa publication passent.
-- Prochaine étape : installer ynh41 depuis le canal preview, vérifier le test
-  Gemini et le modèle migré, puis valider une nouvelle conversation. Ne pas
-  promouvoir stable avant cette preuve.
+- Prochaine étape : installer ynh42 depuis le canal preview, vérifier le
+  catalogue, AUTO/FIXED, le 429 propre et le contraste du chat, puis reprendre
+  la recette Lot 09R. Ne pas promouvoir stable avant ces preuves.
 - Dernière observation : le service serveur est actif et a redémarré à 16:38
   UTC, mais la version n'est pas lisible sans droits d'administration ; la
   confirmer dans YunoHost avant d'interpréter ce redémarrage comme une mise à
