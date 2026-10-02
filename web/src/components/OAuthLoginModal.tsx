@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, X, Check, Copy } from "lucide-react";
 import { Button } from "@nous-research/ui/ui/components/button";
 import { Spinner } from "@nous-research/ui/ui/components/spinner";
@@ -12,7 +12,7 @@ import { cn, themedBody } from "@/lib/utils";
 interface Props {
   provider: OAuthProvider;
   onClose: () => void;
-  onSuccess: (msg: string) => void;
+  onSuccess: (msg: string) => Promise<void> | void;
   onError: (msg: string) => void;
 }
 
@@ -25,7 +25,7 @@ type Phase =
   | "approved"
   | "error";
 
-export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
+export function OAuthLoginModal({ provider, onClose, onError, onSuccess }: Props) {
   const [phase, setPhase] = useState<Phase>("starting");
   const [start, setStart] = useState<OAuthStartResponse | null>(null);
   const [pkceCode, setPkceCode] = useState("");
@@ -37,7 +37,26 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
   const isMounted = useRef(true);
   const pollTimer = useRef<number | null>(null);
   const copyResetTimer = useRef<number | null>(null);
+  const completionStarted = useRef(false);
   const { t } = useI18n();
+
+  const completeLogin = useCallback(async (): Promise<void> => {
+    if (completionStarted.current) return;
+    completionStarted.current = true;
+    setPhase("submitting");
+    try {
+      await onSuccess(`${provider.name} connected`);
+      if (!isMounted.current) return;
+      setPhase("approved");
+      window.setTimeout(() => isMounted.current && onClose(), 1500);
+    } catch (cause) {
+      if (!isMounted.current) return;
+      const message = cause instanceof Error ? cause.message : t.oauth.loginFailed;
+      setPhase("error");
+      setErrorMsg(message);
+      onError(message);
+    }
+  }, [onClose, onError, onSuccess, provider.name, t.oauth.loginFailed]);
 
   // Initiate flow on mount
   useEffect(() => {
@@ -96,11 +115,9 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
         const resp = await api.pollOAuthSession(provider.id, sid);
         if (!isMounted.current) return;
         if (resp.status === "approved") {
-          setPhase("approved");
           if (pollTimer.current !== null)
             window.clearInterval(pollTimer.current);
-          onSuccess(`${provider.name} connected`);
-          window.setTimeout(() => isMounted.current && onClose(), 1500);
+          await completeLogin();
         } else if (resp.status !== "pending") {
           setPhase("error");
           setErrorMsg(resp.error_message || `Login ${resp.status}`);
@@ -117,7 +134,7 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
     return () => {
       if (pollTimer.current !== null) window.clearInterval(pollTimer.current);
     };
-  }, [start, phase, provider.id, provider.name, onSuccess, onClose]);
+  }, [completeLogin, start, phase, provider.id]);
 
   const handleSubmitPkceCode = async () => {
     if (!start || start.flow !== "pkce") return;
@@ -132,9 +149,7 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
       );
       if (!isMounted.current) return;
       if (resp.ok && resp.status === "approved") {
-        setPhase("approved");
-        onSuccess(`${provider.name} connected`);
-        window.setTimeout(() => isMounted.current && onClose(), 1500);
+        await completeLogin();
       } else {
         setPhase("error");
         setErrorMsg(resp.message || "Token exchange failed");
@@ -350,6 +365,7 @@ export function OAuthLoginModal({ provider, onClose, onSuccess }: Props) {
                     setErrorMsg(null);
                     setStart(null);
                     setPkceCode("");
+                    completionStarted.current = false;
                     setPhase("starting");
                     api
                       .startOAuthLogin(provider.id)

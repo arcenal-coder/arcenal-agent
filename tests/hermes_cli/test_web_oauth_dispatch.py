@@ -775,5 +775,19 @@ def test_status_falls_through_to_generic_dispatcher_for_catalog_only_provider():
     assert out["has_refresh_token"] is True
 
 
+def test_codex_status_never_returns_a_token_fragment():
+    import hermes_cli.web_server as ws
+
+    status = {
+        "api_key": "secret-codex-access-token",
+        "auth_mode": "chatgpt",
+        "logged_in": True,
+    }
+    with patch("hermes_cli.auth.get_codex_auth_status", return_value=status):
+        result = ws._resolve_provider_status("openai-codex", None)
+
+    assert result["logged_in"] is True
+    assert result["token_preview"] is None
+
 
 

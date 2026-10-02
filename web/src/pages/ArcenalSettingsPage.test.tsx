@@ -70,6 +70,7 @@ describe("paramètres des fournisseurs ARC", () => {
 
   it("permet de supprimer une connexion Codex déjà active", async () => {
     apiMocks.getOAuthProviders.mockResolvedValue({ providers: [{ id: "openai-codex", name: "OpenAI Codex", flow: "device_code", cli_command: "codex login --device-auth", docs_url: "https://developers.openai.com/", status: { logged_in: true } }] });
+    apiMocks.getArcenalConfiguration.mockResolvedValue({ ...CONFIGURATION, config: { ...CONFIGURATION.config, providers: { "openai-codex": { enabled: true } } } });
     render(<ArcenalSettingsPage />);
     fireEvent.click(screen.getByRole("button", { name: "Fournisseurs IA" }));
 
@@ -79,6 +80,31 @@ describe("paramètres des fournisseurs ARC", () => {
 
     await waitFor(() => expect(apiMocks.disconnectOAuthProvider).toHaveBeenCalledWith("openai-codex"));
     expect(apiMocks.saveArcenalConfiguration).toHaveBeenCalledWith({ providers: { "openai-codex": { enabled: false } } });
+  });
+
+  it("finalise une authentification Codex avant de l’annoncer configurée", async () => {
+    apiMocks.getOAuthProviders.mockResolvedValue({ providers: [{ id: "openai-codex", name: "OpenAI Codex", flow: "device_code", cli_command: "codex login --device-auth", docs_url: "https://developers.openai.com/", status: { logged_in: true } }] });
+    render(<ArcenalSettingsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Fournisseurs IA" }));
+
+    expect(await screen.findByText("À finaliser")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Finaliser la connexion Codex" }));
+
+    await waitFor(() => expect(apiMocks.syncArcenalCodexProvider).toHaveBeenCalledOnce());
+    expect(apiMocks.saveArcenalConfiguration).toHaveBeenCalledWith({ providers: { "openai-codex": { enabled: true } } });
+    expect(await screen.findByText("Codex est connecté et ses modèles peuvent être attribués aux agents.")).toBeTruthy();
+  });
+
+  it("conserve Codex à finaliser si le catalogue des modèles est indisponible", async () => {
+    apiMocks.getOAuthProviders.mockResolvedValue({ providers: [{ id: "openai-codex", name: "OpenAI Codex", flow: "device_code", cli_command: "codex login --device-auth", docs_url: "https://developers.openai.com/", status: { logged_in: true } }] });
+    apiMocks.syncArcenalCodexProvider.mockRejectedValue(new Error("Catalogue Codex indisponible"));
+    render(<ArcenalSettingsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Fournisseurs IA" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Finaliser la connexion Codex" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Catalogue Codex indisponible");
+    expect(apiMocks.saveArcenalConfiguration).not.toHaveBeenCalled();
+    expect(screen.getByText("À finaliser")).toBeTruthy();
   });
 
   it("enregistre uniquement la connexion du fournisseur", async () => {

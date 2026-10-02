@@ -11163,7 +11163,7 @@ def _resolve_provider_status(provider_id: str, status_fn) -> Dict[str, Any]:
                 "logged_in": bool(raw.get("logged_in")),
                 "source": raw.get("source") or "openai_codex",
                 "source_label": raw.get("auth_mode") or "OpenAI Codex",
-                "token_preview": _truncate_token(raw.get("api_key")),
+                "token_preview": None,
                 "expires_at": None,
                 "has_refresh_token": False,
                 "last_refresh": raw.get("last_refresh"),
