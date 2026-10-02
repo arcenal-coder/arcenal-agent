@@ -59,6 +59,8 @@ peut pas recevoir silencieusement un contexte d'administration.
 
 Cette contrainte est aussi contrôlée à l'enregistrement d'une politique FIXED.
 Une attribution impossible est refusée avant d'être sauvegardée.
+L'aperçu de routage utilise désormais le même niveau calculé depuis les
+permissions que l'exécution réelle : `admin` pour ARC et `internal` pour ATS.
 
 ### Propriété du modèle
 
@@ -84,6 +86,7 @@ Modèle global imposé par le paquet YunoHost : SUPPRIMÉ
 Fallback silencieux vers le fournisseur Hermes : SUPPRIMÉ
 Registre vide sans appel fournisseur : PASS
 Politique FIXED incompatible refusée : PASS
+Aperçu et exécution utilisent la même confidentialité : PASS
 Secret inclus dans le registre : NON
 ```
 

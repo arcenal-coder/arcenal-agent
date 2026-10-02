@@ -147,6 +147,15 @@ class AgentRegistryApiTests(TestCase):
         self.assertEqual(translated.status_code, 422)
         self.assertEqual(translated.detail, "Aucun modèle ARC configuré.")
 
+    def test_runtime_preview_uses_each_agent_confidentiality(self) -> None:
+        arc, ats = MODULE.CORE.default_agents()
+
+        arc_need = MODULE._routing_need(arc, "Analyse le serveur")
+        ats_need = MODULE._routing_need(ats, "Analyse ce CV")
+
+        self.assertEqual(arc_need.confidentiality, MODULE.CORE.ConfidentialityLevel.ADMIN)
+        self.assertEqual(ats_need.confidentiality, MODULE.CORE.ConfidentialityLevel.INTERNAL)
+
     def test_runtime_uses_the_model_assigned_to_arc_instead_of_hermes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

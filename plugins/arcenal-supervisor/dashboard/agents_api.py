@@ -164,6 +164,7 @@ class ModelPolicyLike(Protocol):
 
 class AgentDefinitionLike(Protocol):
     id: str
+    permissions: tuple[str, ...]
     tools: tuple[str, ...]
     model_policy: ModelPolicyLike
 
@@ -200,7 +201,8 @@ def _routing_need(agent: AgentDefinitionLike, message: str) -> object:
     if capability is CORE.CapabilityProfile.DETERMINISTIC:
         capability = CORE.CapabilityProfile.STANDARD
     policy = agent.model_policy
-    return CORE.RoutingNeed(agent_id=agent.id, task_type=task_type, required_capability=capability, confidentiality=CORE.ConfidentialityLevel.ADMIN, tools_required=bool(agent.tools), allowed_providers=policy.allowed_providers, denied_providers=policy.denied_providers, allowed_models=policy.allowed_models, local_only=policy.local_only, local_preferred=policy.local_preferred, max_cost=policy.max_cost)
+    confidentiality = CORE.required_confidentiality(agent.permissions)
+    return CORE.RoutingNeed(agent_id=agent.id, task_type=task_type, required_capability=capability, confidentiality=confidentiality, tools_required=bool(agent.tools), allowed_providers=policy.allowed_providers, denied_providers=policy.denied_providers, allowed_models=policy.allowed_models, local_only=policy.local_only, local_preferred=policy.local_preferred, max_cost=policy.max_cost)
 
 
 def _runtime_selection(agent_id: str, message: str) -> AgentRuntimeResponse:
