@@ -2,7 +2,7 @@
 
 Date : 2026-10-02  
 Branche : `arcenal`  
-Candidate publiée : `v0.21.0-arcenal30` / `0.21.0~ynh48`, canal `preview`
+Candidate publiée : `v0.21.0-arcenal31` / `0.21.0~ynh49`, canal `preview`
 
 ## Objet
 
@@ -117,8 +117,8 @@ en `preview`, la recette réelle doit encore confirmer sur YunoHost :
   redémarrage du seul service ARCenal.
 
 Le flux brut preview référence le paquet
-`d38d66c62396ca33efa4b1eafb1c41ffec092360` et annonce la version
-`0.21.0~ynh48`. Cette candidate intègre les corrections de l'audit et doit
+`8637acf983854f333e7b3b20372d5fdbf3500725` et annonce la version
+`0.21.0~ynh49`. Cette candidate intègre les corrections de l'audit et doit
 maintenant être validée sur le serveur YunoHost réel. Le canal stable reste
 inchangé.
 
