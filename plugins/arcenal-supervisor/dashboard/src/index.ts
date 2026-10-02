@@ -1,4 +1,4 @@
-import { applyGatewayEvent, canSubmitMessage, completeMaintenance, normalizeHistory, synchronizeChat, type ArcenalChatMessage, type ArcenalChatState, type ChatConnectionState, type GatewayEventLike, type PendingApproval, type PendingMaintenance } from "./chat-state";
+import { applyGatewayEvent, canSubmitMessage, chatMessagePresentation, completeMaintenance, normalizeHistory, providerErrorMessage, synchronizeChat, type ArcenalChatMessage, type ArcenalChatState, type ChatConnectionState, type GatewayEventLike, type PendingApproval, type PendingMaintenance } from "./chat-state";
 import { archiveConversation } from "./session-actions";
 
 type UnknownRecord = Record<string, unknown>;
@@ -59,7 +59,7 @@ function EmptyConversation({ onPrompt }: { onPrompt: (prompt: string) => void })
 function Message({ message }: { message: ArcenalChatMessage }): ReturnType<typeof h> {
   return h("article", { className: `arc-chat-message is-${message.role}` },
     h("span", { className: "arc-chat-avatar" }, message.role === "assistant" ? "ARC" : "Vous"),
-    h("div", null, h(SDK.components.Markdown, { content: message.text })),
+    h("div", { style: chatMessagePresentation(message.role) }, h(SDK.components.Markdown, { content: message.text })),
   );
 }
 
@@ -188,7 +188,7 @@ function ArcenalChatPage(): ReturnType<typeof h> {
     if (!client || !chat.sessionId) return;
     const message: ArcenalChatMessage = { id: `user-${Date.now()}`, role: "user", text };
     setChat((current) => ({ ...current, activity: "ARC analyse votre demande…", busy: true, error: "", messages: [...current.messages, message] }));
-    await client.request("prompt.submit", { session_id: chat.sessionId, text }).catch((cause) => setChat((current) => ({ ...current, busy: false, error: errorMessage(cause) })));
+    await client.request("prompt.submit", { session_id: chat.sessionId, text }).catch((cause) => setChat((current) => ({ ...current, activity: "", busy: false, error: providerErrorMessage(errorMessage(cause)), streamingText: "" })));
   };
   React.useEffect(() => {
     if (!client || !chat.busy || !chat.storedSessionId) return;

@@ -40,6 +40,15 @@ export interface GatewayEventLike {
 }
 
 type UnknownRecord = Record<string, unknown>;
+export type ChatMessagePresentation = Readonly<Record<string, string>>;
+
+const USER_MESSAGE_PRESENTATION: ChatMessagePresentation = {
+  "--color-foreground": "var(--arc-primary-text)",
+  "--color-primary": "var(--arc-primary-text)",
+  "--midground": "var(--arc-primary-text)",
+  backgroundColor: "var(--arc-primary)",
+  color: "var(--arc-primary-text)",
+};
 
 function record(value: unknown): UnknownRecord {
   return typeof value === "object" && value !== null ? value as UnknownRecord : {};
@@ -59,11 +68,32 @@ function assistantMessage(text: string): ArcenalChatMessage {
   return { id: `assistant-${Date.now()}`, role: "assistant", text };
 }
 
+export function providerErrorMessage(raw: string): string {
+  const normalized = raw.toLocaleLowerCase();
+  const quota = normalized.includes("429") || normalized.includes("resource_exhausted");
+  if (normalized.includes("gemini") && quota) {
+    return "Le fournisseur Gemini a refusé la requête car le quota disponible est épuisé.";
+  }
+  return redactCredentials(raw) || "La réponse d’ARC a échoué.";
+}
+
+function redactCredentials(raw: string): string {
+  return raw
+    .replace(/\bBearer\s+\S+/gi, "Bearer [masqué]")
+    .replace(/\b(api[_ -]?key|token|secret|password|credential|key)\s*[:=]\s*\S+/gi, "$1=[masqué]");
+}
+
+export function chatMessagePresentation(role: ChatRole): ChatMessagePresentation | undefined {
+  return role === "user" ? USER_MESSAGE_PRESENTATION : undefined;
+}
+
 function completeMessage(state: ArcenalChatState, payload: unknown): ArcenalChatState {
   const data = record(payload);
   const text = textField(data, "text") || state.streamingText;
-  const messages = text ? [...state.messages, assistantMessage(text)] : state.messages;
-  const error = data.status === "error" ? textField(data, "error") || text : "";
+  const failed = data.status === "error";
+  const messages = text && !failed ? [...state.messages, assistantMessage(text)] : state.messages;
+  const rawError = failed ? textField(data, "error") || text : "";
+  const error = rawError ? providerErrorMessage(rawError) : "";
   return { ...state, activity: "", busy: false, error, messages, streamingText: "" };
 }
 
@@ -102,7 +132,10 @@ export function applyGatewayEvent(state: ArcenalChatState, event: GatewayEventLi
   if (event.type === "tool.start") return { ...state, activity: `Action : ${textField(event.payload, "name")}` };
   if (event.type === "tool.complete") return { ...state, pendingMaintenance: maintenance(event.payload) ?? state.pendingMaintenance };
   if (event.type === "approval.request") return { ...state, pendingApproval: approval(event.payload) };
-  if (event.type === "error") return { ...state, busy: false, error: textField(event.payload, "message") || "La réponse d’ARC a échoué." };
+  if (event.type === "error") {
+    const error = providerErrorMessage(textField(event.payload, "message"));
+    return { ...state, activity: "", busy: false, error, streamingText: "" };
+  }
   return state;
 }
 
@@ -126,7 +159,8 @@ function settleFromSnapshot(state: ArcenalChatState, snapshot: SessionSnapshot, 
 export function synchronizeChat(state: ArcenalChatState, snapshot: SessionSnapshot): ArcenalChatState {
   if (!state.busy) return state;
   const inflight = record(snapshot.inflight);
-  const failure = textField(inflight, "error");
+  const rawFailure = textField(inflight, "error");
+  const failure = rawFailure ? providerErrorMessage(rawFailure) : "";
   if (!snapshot.running) return settleFromSnapshot(state, snapshot, failure);
   return {
     ...state,

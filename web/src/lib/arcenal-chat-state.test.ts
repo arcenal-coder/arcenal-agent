@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyGatewayEvent,
   canSubmitMessage,
+  chatMessagePresentation,
   completeMaintenance,
   normalizeHistory,
   synchronizeChat,
@@ -138,6 +139,45 @@ describe("état du chat ARC", () => {
 
     expect(next.busy).toBe(false);
     expect(next.error).toBe("Clé API OpenRouter refusée");
+    expect(next.activity).toBe("");
+    expect(next.streamingText).toBe("");
+  });
+
+  it("présente un quota Gemini épuisé sans secret et libère le chat", () => {
+    const state = { ...INITIAL_STATE, activity: "ARC analyse votre demande…", streamingText: "Début" };
+    const next = applyGatewayEvent(state, {
+      type: "error",
+      session_id: "session-active",
+      payload: { message: "Gemini HTTP 429 RESOURCE_EXHAUSTED api_key=secret-test" },
+    });
+
+    expect(next).toMatchObject({ activity: "", busy: false, streamingText: "" });
+    expect(next.error).toBe("Le fournisseur Gemini a refusé la requête car le quota disponible est épuisé.");
+    expect(next.error).not.toContain("secret-test");
+    expect(canSubmitMessage("Nouvelle demande", "open", next.busy)).toBe(true);
+  });
+
+  it("expurge les identifiants d’une erreur fournisseur générique", () => {
+    const next = applyGatewayEvent(INITIAL_STATE, {
+      type: "error",
+      session_id: "session-active",
+      payload: { message: "OpenRouter indisponible token=secret-test Bearer abc.def" },
+    });
+
+    expect(next.error).toContain("token=[masqué]");
+    expect(next.error).toContain("Bearer [masqué]");
+    expect(next.error).not.toContain("secret-test");
+    expect(next.error).not.toContain("abc.def");
+  });
+
+  it("relie la bulle utilisateur aux tokens de contraste du thème", () => {
+    expect(chatMessagePresentation("user")).toMatchObject({
+      "--color-foreground": "var(--arc-primary-text)",
+      "--color-primary": "var(--arc-primary-text)",
+      backgroundColor: "var(--arc-primary)",
+      color: "var(--arc-primary-text)",
+    });
+    expect(chatMessagePresentation("assistant")).toBeUndefined();
   });
 
   it("ignore une resynchronisation tardive après la réponse finale", () => {
