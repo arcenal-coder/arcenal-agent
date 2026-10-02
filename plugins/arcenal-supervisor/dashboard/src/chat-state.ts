@@ -39,6 +39,23 @@ export interface GatewayEventLike {
   type: string;
 }
 
+export interface AgentRuntimeSelection {
+  agent_id: string;
+  mode: "auto" | "fixed";
+  model: string;
+  provider: string;
+  registry_id: string;
+}
+
+export interface GatewaySessionParams {
+  [key: string]: boolean | string;
+  close_on_disconnect: boolean;
+  follow_profile_config: boolean;
+  model: string;
+  provider: string;
+  source: string;
+}
+
 type UnknownRecord = Record<string, unknown>;
 export type ChatMessagePresentation = Readonly<Record<string, string>>;
 
@@ -76,7 +93,7 @@ export function providerErrorMessage(raw: string): string {
   }
   const unavailable = normalized.includes("503") || normalized.includes("unavailable") || normalized.includes("high demand");
   if (normalized.includes("gemini") && unavailable) {
-    return "Gemini est temporairement saturé. En mode AUTO, ARC essaiera un autre modèle autorisé s’il est disponible ; sinon, réessayez dans quelques instants.";
+    return "Le modèle Gemini sollicité est temporairement saturé. Vérifiez le modèle attribué à l’agent ARC ou réessayez dans quelques instants.";
   }
   return redactCredentials(raw) || "La réponse d’ARC a échoué.";
 }
@@ -89,6 +106,16 @@ function redactCredentials(raw: string): string {
 
 export function chatMessagePresentation(role: ChatRole): ChatMessagePresentation | undefined {
   return role === "user" ? USER_MESSAGE_PRESENTATION : undefined;
+}
+
+export function gatewaySessionParams(runtime: AgentRuntimeSelection): GatewaySessionParams {
+  return {
+    close_on_disconnect: true,
+    follow_profile_config: false,
+    model: runtime.model,
+    provider: runtime.provider,
+    source: "desktop",
+  };
 }
 
 function completeMessage(state: ArcenalChatState, payload: unknown): ArcenalChatState {

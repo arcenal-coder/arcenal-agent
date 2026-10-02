@@ -681,6 +681,11 @@ export const api = {
       "/api/plugins/arcenal-supervisor/providers/test",
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider, api_key: apiKey?.trim() || null, base_url: baseUrl?.trim() || null }) },
     ),
+  syncArcenalCodexProvider: () =>
+    fetchJSON<{ configured: boolean; models: string[]; provider: "openai-codex" }>(
+      "/api/plugins/arcenal-supervisor/providers/codex/sync",
+      { method: "POST" },
+    ),
   getArcenalAccessStatuses: () =>
     fetchJSON<ArcenalAccessStatusesResponse>(
       "/api/plugins/arcenal-supervisor/access/status",
@@ -2855,7 +2860,7 @@ export interface ArcenalProviderDescriptor {
   type: string;
   enabled: boolean;
   base_url: string | null;
-  authentication_type: "none" | "bearer" | "api_key";
+  authentication_type: "none" | "bearer" | "api_key" | "oauth";
   secret_reference: string | null;
   location: "local" | "remote";
   jurisdiction: string | null;

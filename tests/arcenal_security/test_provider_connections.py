@@ -66,6 +66,35 @@ class ProviderConnectionTests(TestCase):
             {"accept": "application/json", "authorization": "Bearer secret"},
         )
 
+    def test_codex_sync_requires_an_active_device_connection(self) -> None:
+        with patch("hermes_cli.auth.get_codex_auth_status", return_value={"logged_in": False}):
+            with self.assertRaises(HTTPException) as raised:
+                MODULE.sync_codex_provider()
+
+        self.assertEqual(raised.exception.status_code, 409)
+
+    def test_codex_sync_rejects_an_empty_catalog(self) -> None:
+        with (
+            patch("hermes_cli.auth.get_codex_auth_status", return_value={"logged_in": True}),
+            patch.object(MODULE, "_codex_models", return_value=[]),
+        ):
+            with self.assertRaises(HTTPException) as raised:
+                MODULE.sync_codex_provider()
+
+        self.assertEqual(raised.exception.status_code, 503)
+
+    def test_codex_sync_populates_the_arc_model_registry(self) -> None:
+        with (
+            patch("hermes_cli.auth.get_codex_auth_status", return_value={"logged_in": True}),
+            patch.object(MODULE, "_codex_models", return_value=["gpt-codex-test"]),
+            patch.object(MODULE, "_sync_models") as sync_models,
+        ):
+            response = MODULE.sync_codex_provider()
+
+        self.assertTrue(response.configured)
+        self.assertEqual(response.models, ["gpt-codex-test"])
+        sync_models.assert_called_once_with("openai-codex", ["gpt-codex-test"])
+
 
 class ProviderProbeTests(IsolatedAsyncioTestCase):
     async def test_missing_key_is_reported_without_network_call(self) -> None:

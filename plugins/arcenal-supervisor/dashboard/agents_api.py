@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from types import ModuleType
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Protocol, cast
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -137,6 +137,43 @@ class AgentUpdateRequest(BaseModel):
     model_policy: AgentModelPolicyRequest | None = None
 
 
+class AgentRuntimeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    message: str = Field(default="", max_length=20_000)
+
+
+class AgentRuntimeResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    agent_id: str
+    mode: Literal["auto", "fixed"]
+    model: str
+    provider: str
+    registry_id: str
+
+
+class ModelPolicyLike(Protocol):
+    mode: str
+    preferred_capability: object
+    allowed_providers: tuple[str, ...]
+    denied_providers: tuple[str, ...]
+    allowed_models: tuple[str, ...]
+    local_only: bool
+    local_preferred: bool
+    max_cost: float | None
+
+
+class AgentDefinitionLike(Protocol):
+    id: str
+    tools: tuple[str, ...]
+    model_policy: ModelPolicyLike
+
+
+class RoutingDecisionLike(Protocol):
+    model: str
+    provider: str
+    registry_id: str
+
+
 def _registry_path() -> Path:
     from hermes_constants import get_hermes_home
 
@@ -154,6 +191,25 @@ def _frugal_runtime():
     runtime = CORE.FrugalRuntime(_registry_path().parent / "frugal")
     runtime.ensure_configured_model()
     return runtime
+
+
+def _routing_need(agent: AgentDefinitionLike, message: str) -> object:
+    task_type = CORE.classify_task(message)
+    required = CORE.required_capability(task_type, message)
+    capability = agent.model_policy.preferred_capability if agent.model_policy.mode == "fixed" else required
+    if capability is CORE.CapabilityProfile.DETERMINISTIC:
+        capability = CORE.CapabilityProfile.STANDARD
+    policy = agent.model_policy
+    return CORE.RoutingNeed(agent_id=agent.id, task_type=task_type, required_capability=capability, confidentiality=CORE.ConfidentialityLevel.ADMIN, tools_required=bool(agent.tools), allowed_providers=policy.allowed_providers, denied_providers=policy.denied_providers, allowed_models=policy.allowed_models, local_only=policy.local_only, local_preferred=policy.local_preferred, max_cost=policy.max_cost)
+
+
+def _runtime_selection(agent_id: str, message: str) -> AgentRuntimeResponse:
+    agent = cast(AgentDefinitionLike, _manager().get(agent_id))
+    runtime = _frugal_runtime()
+    router = CORE.ModelRouter(runtime.registry, providers=runtime.providers)
+    decision = cast(RoutingDecisionLike, router.route(_routing_need(agent, message)))
+    mode: Literal["auto", "fixed"] = "fixed" if agent.model_policy.mode == "fixed" else "auto"
+    return AgentRuntimeResponse(agent_id=agent.id, mode=mode, model=decision.model, provider=decision.provider, registry_id=decision.registry_id)
 
 
 def _agent_definition(request: AgentCreateRequest):
@@ -358,6 +414,14 @@ def get_registered_agent(agent_id: str) -> dict[str, object]:
 def update_registered_agent(agent_id: str, request: AgentUpdateRequest) -> dict[str, object]:
     try:
         return _manager().update(agent_id, _agent_update(request)).model_dump(mode="json")
+    except Exception as exc:
+        raise _translate_error(exc) from exc
+
+
+@router.post("/registry/{agent_id}/runtime", response_model=AgentRuntimeResponse)
+def resolve_agent_runtime(agent_id: str, request: AgentRuntimeRequest) -> AgentRuntimeResponse:
+    try:
+        return _runtime_selection(agent_id, request.message)
     except Exception as exc:
         raise _translate_error(exc) from exc
 

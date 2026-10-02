@@ -35,16 +35,27 @@ class FrugalRuntime:
         self.ensure_providers()
 
     def ensure_providers(self) -> None:
-        existing = {item.id for item in self.providers.list()}
-        for provider in _default_providers(self.configuration):
-            if provider.id not in existing:
-                self.providers.upsert(provider)
+        existing = {item.id: item for item in self.providers.list()}
+        for configured in _default_providers(self.configuration):
+            current = existing.get(configured.id)
+            self.providers.upsert(_reconciled_provider(configured, current))
+
+
+def _reconciled_provider(configured: ProviderDescriptor, current: ProviderDescriptor | None) -> ProviderDescriptor:
+    if current is None:
+        return configured
+    return configured.model_copy(update={
+        "health": current.health,
+        "jurisdiction": current.jurisdiction,
+        "priority": current.priority,
+    })
 
 
 def _default_providers(configuration: ArcRuntimeConfiguration) -> tuple[ProviderDescriptor, ...]:
     common = (ProviderCapability.CHAT, ProviderCapability.STREAMING, ProviderCapability.STRUCTURED_OUTPUT, ProviderCapability.TOOL_CALLING, ProviderCapability.VISION, ProviderCapability.TOKEN_USAGE)
     return (
         _provider(configuration, "openrouter", "OpenRouter", "https://openrouter.ai/api/v1", "OPENROUTER_API_KEY", ModelLocation.REMOTE, common + (ProviderCapability.COST_REPORTING,), 100),
+        _codex_provider(configuration, common, 150),
         _provider(configuration, "openai", "OpenAI", "https://api.openai.com/v1", "OPENAI_API_KEY", ModelLocation.REMOTE, common + (ProviderCapability.EMBEDDINGS, ProviderCapability.COST_REPORTING), 200),
         _provider(configuration, "gemini", "Google Gemini", "https://generativelanguage.googleapis.com/v1beta", "GEMINI_API_KEY", ModelLocation.REMOTE, common + (ProviderCapability.EMBEDDINGS,), 300),
         _provider(configuration, "anthropic", "Anthropic", "https://api.anthropic.com", "ANTHROPIC_API_KEY", ModelLocation.REMOTE, common, 400),
@@ -54,6 +65,25 @@ def _default_providers(configuration: ArcRuntimeConfiguration) -> tuple[Provider
         _provider(configuration, "compatible", "Endpoint compatible OpenAI", "", "OPENAI_COMPATIBLE_API_KEY", ModelLocation.REMOTE, common, 500),
         _provider(configuration, "internal", "Fournisseur interne", "", "ARCENAL_INTERNAL_LLM_API_KEY", ModelLocation.LOCAL, common, 550),
     )
+
+
+def _codex_provider(configuration: ArcRuntimeConfiguration, capabilities: tuple[ProviderCapability, ...], priority: int) -> ProviderDescriptor:
+    return ProviderDescriptor(
+        id="openai-codex", name="OpenAI Codex", type="openai-codex",
+        enabled=_codex_enabled(configuration), base_url="https://chatgpt.com/backend-api/codex",
+        authentication_type=AuthenticationType.OAUTH, secret_reference=None,
+        location=ModelLocation.REMOTE, jurisdiction=None,
+        capabilities=capabilities, priority=priority, health=ProviderHealth.UNKNOWN,
+    )
+
+
+def _codex_enabled(configuration: ArcRuntimeConfiguration) -> bool:
+    configured = configuration.config.get("providers", "openai-codex", {})
+    if isinstance(configured, dict) and configured.get("enabled") is False:
+        return False
+    from hermes_cli.auth import get_codex_auth_status
+
+    return bool(get_codex_auth_status().get("logged_in"))
 
 
 def _provider(configuration: ArcRuntimeConfiguration, provider_id: str, name: str, base_url: str, secret: str | None, location: ModelLocation, capabilities: tuple[ProviderCapability, ...], priority: int) -> ProviderDescriptor:

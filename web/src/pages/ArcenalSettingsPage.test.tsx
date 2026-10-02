@@ -6,9 +6,12 @@ import ArcenalSettingsPage from "./ArcenalSettingsPage";
 const apiMocks = vi.hoisted(() => ({
   getArcenalConfiguration: vi.fn(),
   getArcenalProviderStatuses: vi.fn(),
+  getOAuthProviders: vi.fn(),
   getModelOptions: vi.fn(),
   saveArcenalConfiguration: vi.fn(),
   setArcenalSecret: vi.fn(),
+  syncArcenalCodexProvider: vi.fn(),
+  disconnectOAuthProvider: vi.fn(),
   testArcenalProvider: vi.fn(),
 }));
 
@@ -42,8 +45,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   apiMocks.getArcenalConfiguration.mockResolvedValue(CONFIGURATION);
   apiMocks.getArcenalProviderStatuses.mockResolvedValue({ providers: {} });
+  apiMocks.getOAuthProviders.mockResolvedValue({ providers: [{ id: "openai-codex", name: "OpenAI Codex", flow: "device_code", cli_command: "codex login --device-auth", docs_url: "https://developers.openai.com/", status: { logged_in: false } }] });
   apiMocks.getModelOptions.mockResolvedValue(MODELS);
   apiMocks.saveArcenalConfiguration.mockResolvedValue({ ok: true });
+  apiMocks.syncArcenalCodexProvider.mockResolvedValue({ configured: true, models: ["gpt-test"], provider: "openai-codex" });
 });
 
 afterEach(cleanup);
@@ -55,6 +60,27 @@ async function geminiCard(): Promise<HTMLElement> {
 }
 
 describe("paramètres des fournisseurs ARC", () => {
+  it("propose la connexion Codex par lien d’appareil", async () => {
+    render(<ArcenalSettingsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Fournisseurs IA" }));
+
+    expect(await screen.findByRole("heading", { name: "OpenAI Codex" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Connecter par device link/ })).toBeTruthy();
+  });
+
+  it("permet de supprimer une connexion Codex déjà active", async () => {
+    apiMocks.getOAuthProviders.mockResolvedValue({ providers: [{ id: "openai-codex", name: "OpenAI Codex", flow: "device_code", cli_command: "codex login --device-auth", docs_url: "https://developers.openai.com/", status: { logged_in: true } }] });
+    render(<ArcenalSettingsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Fournisseurs IA" }));
+
+    const card = (await screen.findByRole("heading", { name: "OpenAI Codex" })).closest("article") as HTMLElement;
+    expect(within(card).getByText("Configuré")).toBeTruthy();
+    fireEvent.click(within(card).getByRole("button", { name: "Déconnecter Codex" }));
+
+    await waitFor(() => expect(apiMocks.disconnectOAuthProvider).toHaveBeenCalledWith("openai-codex"));
+    expect(apiMocks.saveArcenalConfiguration).toHaveBeenCalledWith({ providers: { "openai-codex": { enabled: false } } });
+  });
+
   it("enregistre uniquement la connexion du fournisseur", async () => {
     render(<ArcenalSettingsPage />);
     const card = await geminiCard();

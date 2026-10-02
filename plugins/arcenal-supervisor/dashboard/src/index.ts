@@ -1,4 +1,4 @@
-import { applyGatewayEvent, canSubmitMessage, chatMessagePresentation, completeMaintenance, normalizeHistory, providerErrorMessage, synchronizeChat, type ArcenalChatMessage, type ArcenalChatState, type ChatConnectionState, type GatewayEventLike, type PendingApproval, type PendingMaintenance } from "./chat-state";
+import { applyGatewayEvent, canSubmitMessage, chatMessagePresentation, completeMaintenance, gatewaySessionParams, normalizeHistory, providerErrorMessage, synchronizeChat, type AgentRuntimeSelection, type ArcenalChatMessage, type ArcenalChatState, type ChatConnectionState, type GatewayEventLike, type PendingApproval, type PendingMaintenance } from "./chat-state";
 import { archiveConversation } from "./session-actions";
 
 type UnknownRecord = Record<string, unknown>;
@@ -31,8 +31,6 @@ const controlApi = <Result>(path: string, options?: RequestInit): Promise<Result
 const INITIAL_CHAT: ArcenalChatState = {
   activity: "", busy: false, error: "", messages: [], pendingApproval: null, pendingMaintenance: null, sessionId: "", storedSessionId: "", streamingText: "",
 };
-
-const SESSION_PARAMS = { close_on_disconnect: true, follow_profile_config: true, source: "desktop" } as const;
 
 function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : "Une erreur inattendue empêche ARC de répondre.";
@@ -166,7 +164,8 @@ function ArcenalChatPage(): ReturnType<typeof h> {
   const createSession = React.useCallback(async (): Promise<void> => {
     if (!client || connection !== "open") return;
     try {
-      const response = await client.request<SessionResponse>("session.create", SESSION_PARAMS);
+      const runtime = await api<AgentRuntimeSelection>("/agents/registry/arc/runtime", requestOptions({ message: "" }));
+      const response = await client.request<SessionResponse>("session.create", gatewaySessionParams(runtime));
       setChat({ ...INITIAL_CHAT, sessionId: response.session_id, storedSessionId: response.stored_session_id ?? response.session_key ?? response.session_id });
       await refreshSessions();
     } catch (cause) {

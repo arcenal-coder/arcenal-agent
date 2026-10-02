@@ -195,6 +195,22 @@ def test_runtime_enables_provider_from_process_secret(tmp_path: Path, monkeypatc
     assert "test-secret-never-persisted" not in (tmp_path / "provider-registry.json").read_text(encoding="utf-8")
 
 
+def test_runtime_reconciles_provider_after_native_configuration_changes(tmp_path: Path) -> None:
+    config = CORE.ArcNativeConfigStore(tmp_path / "config.json")
+    vault = CORE.ArcFileVault(tmp_path / ".env")
+    runtime = CORE.FrugalRuntime(tmp_path / "frugal", CORE.ArcRuntimeConfiguration(config, vault))
+    runtime.ensure_providers()
+    config.set("providers", "openrouter", {"enabled": True, "base_url": "https://router.example.test/v1"})
+    vault.set_secret("OPENROUTER_API_KEY", "secret-test")
+
+    runtime.ensure_providers()
+
+    provider = runtime.providers.get("openrouter")
+    assert provider is not None
+    assert provider.enabled is True
+    assert provider.base_url == "https://router.example.test/v1"
+
+
 class RateLimitedAdapter:
     def execute(self, context: object, message: str, provider: object, model: str) -> NoReturn:
         raise CORE.ProviderExecutionError("limite simulée", "rate_limited")

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type Dispatch, type ReactElement, type SetStateAction } from "react";
 import { Bot, CheckCircle2, KeyRound, LoaderCircle, Network, Plus, ShieldCheck } from "lucide-react";
-import { api, type ArcenalProviderProbe, type ModelOptionsResponse } from "@/lib/api";
+import { api, type ArcenalProviderProbe, type ModelOptionsResponse, type OAuthProvider } from "@/lib/api";
 import { autonomyFromConfig, buildProviderConnections, normalizeCustomEnvKey, type AutonomyLevel, type ProviderConnection } from "@/lib/arcenal-providers";
 import { ArcenalAccessManager } from "@/components/ArcenalAccessManager";
 import { ArcenalCapabilitiesSettings } from "@/components/ArcenalCapabilitiesSettings";
@@ -11,6 +11,7 @@ import { ArcenalBackupSettingsPanel, ArcenalSystemSettingsPanel } from "@/compon
 import { ArcenalSecuritySettingsPanel } from "@/components/ArcenalSecuritySettings";
 import { isProviderStatusesResponse } from "@/lib/arcenal-provider-status";
 import { ARCENAL_SETTINGS_TABS, type ArcenalSettingsTab } from "@/lib/arcenal-settings-tabs";
+import { OAuthLoginModal } from "@/components/OAuthLoginModal";
 
 interface SettingsState {
   autonomy: AutonomyLevel;
@@ -68,7 +69,7 @@ function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
     {activeTab === "general" && <ArcenalGeneralSettingsPanel config={state.config} onReload={reload} />}
     {activeTab === "appearance" && <ArcenalAppearanceSettingsPanel config={state.config} onReload={reload} />}
     {activeTab === "providers" && <section className="arc-settings-section"><SectionTitle icon={<Network />} eyebrow="Moteurs IA" title="Connexions et API" description="Les connexions restent disponibles simultanément. Une clé enregistrée n’est jamais réaffichée." />
-      <div className="arc-provider-grid">{connections.map((provider) => <ProviderCard key={provider.id} provider={provider} state={state} setState={setState} reload={reload} />)}</div>
+      <div className="arc-provider-grid"><CodexProviderCard setState={setState} reload={reload} />{connections.map((provider) => <ProviderCard key={provider.id} provider={provider} state={state} setState={setState} reload={reload} />)}</div>
       <CustomConnection state={state} setState={setState} reload={reload} />
     </section>}
     {activeTab === "frugal" && <ArcenalFrugalSettingsPanel />}
@@ -78,6 +79,42 @@ function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
     {activeTab === "security" && <><ArcenalSecuritySettingsPanel /><AutonomySettings state={state} setState={setState} /></>}
     {activeTab === "backups" && <ArcenalBackupSettingsPanel />}
   </main>;
+}
+
+function CodexProviderCard({ setState, reload }: { setState: SetState; reload: () => Promise<void> }): ReactElement {
+  const [provider, setProvider] = useState<OAuthProvider | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
+  const refresh = useCallback(async (): Promise<void> => {
+    const response = await api.getOAuthProviders();
+    setProvider(response.providers.find((item) => item.id === "openai-codex") ?? null);
+  }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
+  const connected = provider?.status.logged_in === true;
+  const success = async (): Promise<void> => {
+    try {
+      await api.syncArcenalCodexProvider();
+      await api.saveArcenalConfiguration({ providers: { "openai-codex": { enabled: true } } });
+      setState((current) => ({ ...current, error: "", notice: "Codex est connecté et ses modèles peuvent être attribués aux agents." }));
+      await Promise.all([refresh(), reload()]);
+    } catch (cause) {
+      setState((current) => ({ ...current, error: errorMessage(cause), notice: "" }));
+    }
+  };
+  const disconnect = async (): Promise<void> => {
+    if (!provider) return;
+    try {
+      await api.disconnectOAuthProvider(provider.id);
+      await api.saveArcenalConfiguration({ providers: { "openai-codex": { enabled: false } } });
+      setState((current) => ({ ...current, error: "", notice: "La connexion Codex est supprimée." }));
+      await Promise.all([refresh(), reload()]);
+    } catch (cause) {
+      setState((current) => ({ ...current, error: errorMessage(cause), notice: "" }));
+    }
+  };
+  const action = connected
+    ? <button onClick={() => { void disconnect(); }} type="button">Déconnecter Codex</button>
+    : <button className="arc-primary-button" disabled={!provider} onClick={() => setShowLogin(true)} type="button"><KeyRound /> Connecter par device link</button>;
+  return <article className="arc-provider-card" data-configured={connected}><header><span><Bot aria-hidden /></span><div><h3>OpenAI Codex</h3><small>Compte ChatGPT par lien d’appareil</small></div><em>{connected ? <><CheckCircle2 /> Configuré</> : "À connecter"}</em></header><p>La connexion utilise le flux officiel Codex. Ne communiquez jamais le code d’appareil à un tiers.</p><p className="arc-provider-model-note">Les modèles Codex seront attribués dans le harnais de chaque agent.</p><div className="arc-provider-actions">{action}</div>{provider && showLogin && <OAuthLoginModal provider={provider} onClose={() => setShowLogin(false)} onError={(message) => setState((current) => ({ ...current, error: message }))} onSuccess={() => { void success(); }} />}</article>;
 }
 
 function SectionTitle({ icon, eyebrow, title, description }: { icon: ReactElement; eyebrow: string; title: string; description: string }): ReactElement {

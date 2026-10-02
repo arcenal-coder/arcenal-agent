@@ -32,6 +32,7 @@ class AuthenticationType(str, Enum):
     NONE = "none"
     BEARER = "bearer"
     API_KEY = "api_key"
+    OAUTH = "oauth"
 
 
 class ProviderDescriptor(StrictModel):

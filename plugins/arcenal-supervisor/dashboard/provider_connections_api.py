@@ -50,6 +50,12 @@ class ProviderProbeResponse(BaseModel):
     tested_at: str
 
 
+class CodexSyncResponse(BaseModel):
+    configured: bool
+    models: list[str]
+    provider: str = "openai-codex"
+
+
 class JsonResponse(Protocol):
     """Contrat minimal requis pour décoder une réponse HTTP."""
 
@@ -253,6 +259,16 @@ def _sync_models(provider_id: str, model_names: list[str]) -> None:
     _mark_missing_models(registry, provider_id, frozenset(model.id for model in models))
 
 
+def _codex_models() -> list[str]:
+    from hermes_cli.inventory import build_models_payload, load_picker_context
+
+    payload = build_models_payload(load_picker_context(), explicit_only=True, for_picker=True, probe_custom_providers=False, max_models=100)
+    providers = payload.get("providers", [])
+    row = next((item for item in providers if isinstance(item, dict) and item.get("slug") == "openai-codex"), {})
+    models = row.get("models", []) if isinstance(row, dict) else []
+    return [item for item in models if isinstance(item, str) and item.strip()][:100]
+
+
 async def _probe(provider: str, url: str, api_key: str) -> ProviderProbeResponse:
     import httpx
 
@@ -291,3 +307,16 @@ async def test_provider(request: ProviderProbeRequest) -> ProviderProbeResponse:
     if response.connection == "connected" and response.models:
         _sync_models(request.provider, response.models)
     return response
+
+
+@router.post("/codex/sync", response_model=CodexSyncResponse)
+def sync_codex_provider() -> CodexSyncResponse:
+    from hermes_cli.auth import get_codex_auth_status
+
+    if not get_codex_auth_status().get("logged_in"):
+        raise HTTPException(status_code=409, detail="La connexion Codex n’est pas active.")
+    models = _codex_models()
+    if not models:
+        raise HTTPException(status_code=503, detail="Le catalogue Codex est temporairement indisponible.")
+    _sync_models("openai-codex", models)
+    return CodexSyncResponse(configured=True, models=models)

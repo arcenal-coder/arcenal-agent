@@ -139,6 +139,32 @@ class AgentRegistryApiTests(TestCase):
 
         self.assertEqual(response.status_code, 422)
 
+    def test_runtime_uses_the_model_assigned_to_arc_instead_of_hermes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            environment = {"HERMES_HOME": directory, "ARCENAL_CONFIG_BACKEND": "arc"}
+            with patch.dict(os.environ, environment, clear=False), patch.object(MODULE, "_registry_path", return_value=root / "agents.json"):
+                configuration = MODULE.CORE.runtime_configuration(root)
+                configuration.config.set("providers", "openrouter", {"enabled": True})
+                configuration.vault.set_secret("OPENROUTER_API_KEY", "secret-test")
+                runtime = MODULE._frugal_runtime()
+                runtime.registry.upsert(MODULE.CORE.ModelDescriptor(
+                    id="openrouter-small", provider="openrouter", model_name="openai/gpt-4.1-mini",
+                    capabilities=(MODULE.CORE.CapabilityProfile.STANDARD,), context_window=128_000,
+                    supports_tools=True, availability=MODULE.CORE.ModelAvailability.AVAILABLE,
+                    catalog_source=MODULE.CORE.ModelCatalogSource.DISCOVERED,
+                    privacy_class=MODULE.CORE.ConfidentialityLevel.ADMIN,
+                    location=MODULE.CORE.ModelLocation.REMOTE,
+                ))
+                response = _client().post(
+                    "/api/plugins/arcenal-supervisor/agents/registry/arc/runtime",
+                    json={"message": "Bonjour"},
+                )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["provider"], "openrouter")
+        self.assertEqual(response.json()["model"], "openai/gpt-4.1-mini")
+
     def test_query_route_executes_arc_core_with_application_identity(self) -> None:
         output = MODULE.CORE.EngineOutput(response="Réponse ATS", usage={"input_tokens": 2})
         engine_path = "arcenal_arc_core.hermes_engine.HermesAgentEngine.execute"
