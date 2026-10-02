@@ -4,7 +4,7 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import NoReturn
+from typing import NoReturn, Protocol, cast
 
 import pytest
 
@@ -26,26 +26,46 @@ def _load_core() -> ModuleType:
 CORE = _load_core()
 
 
+class ProviderLike(Protocol):
+    id: str
+    health: object
+    secret_reference: str
+
+
+class ProviderRegistryLike(Protocol):
+    def upsert(self, provider: object) -> ProviderLike: ...
+
+    def get(self, provider_id: str) -> ProviderLike | None: ...
+
+
+class ModelRegistryLike(Protocol):
+    def upsert(self, model: object) -> object: ...
+
+
 class FakeAdapter:
-    def __init__(self, failing: tuple[str, ...] = (), empty: tuple[str, ...] = ()) -> None:
+    def __init__(self, failing: tuple[str, ...] = (), empty: tuple[str, ...] = (), unavailable: tuple[str, ...] = ()) -> None:
         self.failing = failing
         self.empty = empty
+        self.unavailable = unavailable
         self.calls: list[str] = []
 
-    def execute(self, context: object, message: str, provider: object, model: str) -> object:
+    def execute(self, context: object, message: str, provider: ProviderLike, model: str) -> object:
         provider_id = provider.id
         self.calls.append(provider_id)
+        if provider_id in self.unavailable:
+            raise RuntimeError("HTTP 503 (UNAVAILABLE): high demand")
         if provider_id in self.failing:
             raise RuntimeError("panne simulée")
         response = "" if provider_id in self.empty else f"{provider_id}:{message}"
         return CORE.EngineOutput(response=response, usage={"input_tokens": 4, "output_tokens": 2, "cost": 0.001})
 
 
-def _provider(identifier: str, location: str, enabled: bool = True, health: str = "healthy", tools: bool = True) -> object:
+def _provider(identifier: str, location: str, enabled: bool = True, health: str = "healthy", tools: bool = True) -> ProviderLike:
     capabilities = [CORE.ProviderCapability.CHAT, CORE.ProviderCapability.TOKEN_USAGE]
     if tools:
         capabilities.append(CORE.ProviderCapability.TOOL_CALLING)
-    return CORE.ProviderDescriptor(id=identifier, name=identifier.title(), type=identifier, enabled=enabled, base_url=f"https://{identifier}.example.test/v1", authentication_type=CORE.AuthenticationType.BEARER, secret_reference=f"{identifier.upper()}_API_KEY", location=CORE.ModelLocation(location), jurisdiction="test", capabilities=tuple(capabilities), priority=10, health=CORE.ProviderHealth(health))
+    provider = CORE.ProviderDescriptor(id=identifier, name=identifier.title(), type=identifier, enabled=enabled, base_url=f"https://{identifier}.example.test/v1", authentication_type=CORE.AuthenticationType.BEARER, secret_reference=f"{identifier.upper()}_API_KEY", location=CORE.ModelLocation(location), jurisdiction="test", capabilities=tuple(capabilities), priority=10, health=CORE.ProviderHealth(health))
+    return cast(ProviderLike, provider)
 
 
 def _model(identifier: str, provider: str, location: str, priority: int = 10) -> object:
@@ -57,10 +77,10 @@ def _need(**updates: object) -> object:
     return CORE.RoutingNeed(**{**values, **updates})
 
 
-def _registries(tmp_path: Path) -> tuple[object, object]:
+def _registries(tmp_path: Path) -> tuple[ProviderRegistryLike, ModelRegistryLike]:
     providers = CORE.ProviderRegistry(tmp_path / "providers.json")
     models = CORE.ModelRegistry(tmp_path / "models.json")
-    return providers, models
+    return cast(ProviderRegistryLike, providers), cast(ModelRegistryLike, models)
 
 
 def test_provider_registry_keeps_secrets_as_references(tmp_path: Path) -> None:
@@ -125,7 +145,9 @@ def test_provider_executor_retries_once_and_rejects_empty_response(tmp_path: Pat
     with pytest.raises(Exception, match="indisponible"):
         CORE.ProviderExecutor(adapter, retries=1, registry=providers, retry_delay_seconds=0).execute(_context(), "bonjour", provider, "small")
     assert adapter.calls == ["openrouter", "openrouter"]
-    assert providers.get("openrouter").health is CORE.ProviderHealth.DEGRADED
+    current_provider = providers.get("openrouter")
+    assert current_provider is not None
+    assert current_provider.health is CORE.ProviderHealth.DEGRADED
 
 
 def test_provider_executor_observes_rate_limit_and_stops_after_retry(tmp_path: Path) -> None:
@@ -135,6 +157,33 @@ def test_provider_executor_observes_rate_limit_and_stops_after_retry(tmp_path: P
     with pytest.raises(CORE.ProviderExecutionError) as captured:
         CORE.ProviderExecutor(RateLimitedAdapter(), retries=1, registry=providers, retry_delay_seconds=0).execute(_context(), "bonjour", provider, "small")
     assert [attempt.status for attempt in captured.value.attempts] == ["rate_limited", "rate_limited"]
+
+
+def test_provider_executor_classifies_gemini_503_as_unavailable(tmp_path: Path) -> None:
+    providers, _models = _registries(tmp_path)
+    provider = providers.upsert(_provider("gemini", "remote"))
+
+    with pytest.raises(CORE.ProviderExecutionError) as captured:
+        CORE.ProviderExecutor(UnavailableAdapter(), retries=0, registry=providers).execute(_context(), "bonjour", provider, "gemini-flash")
+
+    assert captured.value.attempts[0].status == "unavailable"
+    assert "high demand" not in str(captured.value)
+
+
+def test_auto_mode_falls_back_after_gemini_503(tmp_path: Path) -> None:
+    providers, models = _registries(tmp_path)
+    providers.upsert(_provider("gemini", "remote"))
+    providers.upsert(_provider("openrouter", "remote"))
+    models.upsert(_model("gemini-fast", "gemini", "remote", priority=1))
+    models.upsert(_model("openrouter-fast", "openrouter", "remote", priority=2))
+    adapter = FakeAdapter(unavailable=("gemini",))
+    store = CORE.AutomationStore(tmp_path)
+    engine = CORE.FrugalAgentEngine(adapter, CORE.DeterministicEngine(), CORE.FrugalCache(tmp_path / "cache.json"), CORE.WorkflowEngine(store), CORE.ModelRouter(models, providers=providers), CORE.FrugalMetricsRepository(tmp_path / "metrics.json"), CORE.ProcessObserver(store), providers, CORE.ProviderExecutor(adapter, retries=0, registry=providers))
+
+    output = engine.execute(_context(), "Rédige une réponse courte")
+
+    assert output.usage["provider"] == "openrouter"
+    assert adapter.calls == ["gemini", "openrouter"]
 
 
 def test_runtime_enables_provider_from_process_secret(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -149,6 +198,11 @@ def test_runtime_enables_provider_from_process_secret(tmp_path: Path, monkeypatc
 class RateLimitedAdapter:
     def execute(self, context: object, message: str, provider: object, model: str) -> NoReturn:
         raise CORE.ProviderExecutionError("limite simulée", "rate_limited")
+
+
+class UnavailableAdapter:
+    def execute(self, context: object, message: str, provider: object, model: str) -> NoReturn:
+        raise RuntimeError("Gemini HTTP 503 (UNAVAILABLE): high demand api_key=secret-test")
 
 
 def _context() -> object:

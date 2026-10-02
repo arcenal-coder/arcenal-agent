@@ -67,7 +67,7 @@ class ProviderExecutor:
         return output, self._trace(provider.id, model, attempt, "success", started)
 
     def _trace(self, provider: str, model: str, attempt: int, status: str, started: float) -> ProviderAttempt:
-        normalized = status if status in {"success", "failed", "rate_limited", "timeout", "invalid_response"} else "failed"
+        normalized = status if status in {"success", "failed", "rate_limited", "timeout", "unavailable", "invalid_response"} else "failed"
         error_code = None if normalized == "success" else normalized
         return ProviderAttempt(provider=provider, model=model, attempt=attempt, status=normalized, duration_ms=(perf_counter() - started) * 1_000, error_code=error_code)
 
@@ -84,7 +84,15 @@ def _provider_error(exc: Exception) -> ProviderExecutionError:
         status = getattr(chain, "status_code", None)
         if status == 429:
             return ProviderExecutionError("Le fournisseur limite temporairement les requêtes.", "rate_limited")
+        if status in {500, 502, 503, 504} or _looks_unavailable(chain):
+            return ProviderExecutionError("Le fournisseur est temporairement indisponible.", "unavailable")
         if isinstance(chain, TimeoutError) or "timeout" in type(chain).__name__.casefold():
             return ProviderExecutionError("Le fournisseur n’a pas répondu dans le délai imparti.", "timeout")
         chain = chain.__cause__
     return ProviderExecutionError("Échec contrôlé du fournisseur IA.", "failed")
+
+
+def _looks_unavailable(error: BaseException) -> bool:
+    message = str(error).casefold()
+    markers = ("http 503", "unavailable", "high demand", "temporarily unavailable")
+    return any(marker in message for marker in markers)

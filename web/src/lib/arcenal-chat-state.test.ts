@@ -157,17 +157,42 @@ describe("état du chat ARC", () => {
     expect(canSubmitMessage("Nouvelle demande", "open", next.busy)).toBe(true);
   });
 
+  it("présente une saturation Gemini sans bloquer le chat", () => {
+    const state = { ...INITIAL_STATE, activity: "ARC analyse votre demande…", streamingText: "Début" };
+    const next = applyGatewayEvent(state, {
+      type: "error",
+      session_id: "session-active",
+      payload: { message: "Gemini HTTP 503 (UNAVAILABLE): high demand api_key=secret-test" },
+    });
+
+    expect(next).toMatchObject({ activity: "", busy: false, streamingText: "" });
+    expect(next.error).toContain("temporairement saturé");
+    expect(next.error).not.toContain("secret-test");
+    expect(canSubmitMessage("Nouvelle demande", "open", next.busy)).toBe(true);
+  });
+
   it("expurge les identifiants d’une erreur fournisseur générique", () => {
     const next = applyGatewayEvent(INITIAL_STATE, {
       type: "error",
       session_id: "session-active",
-      payload: { message: "OpenRouter indisponible token=secret-test Bearer abc.def" },
+      payload: { message: "Upstream HTTP 503: {\"api_key\":\"secret-test\"} Bearer abc.def" },
     });
 
-    expect(next.error).toContain("token=[masqué]");
+    expect(next.error).toContain("api_key=[masqué]");
     expect(next.error).toContain("Bearer [masqué]");
     expect(next.error).not.toContain("secret-test");
     expect(next.error).not.toContain("abc.def");
+  });
+
+  it("libère aussi le chat après un message final en erreur 503", () => {
+    const next = applyGatewayEvent(INITIAL_STATE, {
+      type: "message.complete",
+      session_id: "session-active",
+      payload: { status: "error", error: "Gemini HTTP 503 UNAVAILABLE", text: "échec" },
+    });
+
+    expect(next).toMatchObject({ activity: "", busy: false, streamingText: "" });
+    expect(next.error).toContain("temporairement saturé");
   });
 
   it("relie la bulle utilisateur aux tokens de contraste du thème", () => {

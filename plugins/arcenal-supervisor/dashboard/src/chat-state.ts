@@ -74,13 +74,17 @@ export function providerErrorMessage(raw: string): string {
   if (normalized.includes("gemini") && quota) {
     return "Le fournisseur Gemini a refusé la requête car le quota disponible est épuisé.";
   }
+  const unavailable = normalized.includes("503") || normalized.includes("unavailable") || normalized.includes("high demand");
+  if (normalized.includes("gemini") && unavailable) {
+    return "Gemini est temporairement saturé. En mode AUTO, ARC essaiera un autre modèle autorisé s’il est disponible ; sinon, réessayez dans quelques instants.";
+  }
   return redactCredentials(raw) || "La réponse d’ARC a échoué.";
 }
 
 function redactCredentials(raw: string): string {
   return raw
     .replace(/\bBearer\s+\S+/gi, "Bearer [masqué]")
-    .replace(/\b(api[_ -]?key|token|secret|password|credential|key)\s*[:=]\s*\S+/gi, "$1=[masqué]");
+    .replace(/\b(api[_ -]?key|token|secret|password|credential|key)["']?\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s,}]+)/gi, "$1=[masqué]");
 }
 
 export function chatMessagePresentation(role: ChatRole): ChatMessagePresentation | undefined {

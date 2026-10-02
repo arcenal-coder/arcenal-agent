@@ -60,6 +60,6 @@ class ProviderAttempt(StrictModel):
     provider: str
     model: str
     attempt: int = Field(ge=1, le=3)
-    status: str = Field(pattern=r"^(success|failed|rate_limited|timeout|invalid_response)$")
+    status: str = Field(pattern=r"^(success|failed|rate_limited|timeout|unavailable|invalid_response)$")
     duration_ms: float = Field(ge=0)
     error_code: str | None = Field(default=None, max_length=80)
