@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import tempfile
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
@@ -14,7 +15,7 @@ from typing import Protocol, cast
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 router = APIRouter(prefix="/providers")
 
@@ -37,6 +38,13 @@ class ProviderProbeRequest(BaseModel):
     provider: str = Field(min_length=2, max_length=40)
     api_key: str | None = Field(default=None, max_length=2048)
     base_url: str | None = Field(default=None, max_length=2048)
+
+
+class ProviderConnectRequest(ProviderProbeRequest):
+    """Connexion validée puis persistée de manière atomique."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    enabled: bool = True
 
 
 class ProviderProbeResponse(BaseModel):
@@ -81,6 +89,28 @@ class ModelRegistryLike(Protocol):
     def list(self) -> tuple[ModelDescriptorLike, ...]: ...
 
     def upsert(self, model: ModelDescriptorLike) -> ModelDescriptorLike: ...
+
+    def remove(self, model_id: str) -> None: ...
+
+
+class FrugalRuntimeLike(Protocol):
+    registry: ModelRegistryLike
+
+    def ensure_configured_model(self) -> None: ...
+
+
+@dataclass(frozen=True)
+class ProviderSnapshot:
+    """État minimal permettant d'annuler une activation incomplète."""
+
+    config_exists: bool
+    config_value: object
+    models: tuple[ModelDescriptorLike, ...]
+    secret_value: str | None
+
+
+class ProviderActivationError(RuntimeError):
+    """Échec d'activation après validation distante du fournisseur."""
 
 
 def _definition(provider: str) -> dict[str, str]:
@@ -259,6 +289,76 @@ def _sync_models(provider_id: str, model_names: list[str]) -> None:
     _mark_missing_models(registry, provider_id, frozenset(model.id for model in models))
 
 
+def _provider_snapshot(provider_id: str, env_name: str) -> ProviderSnapshot:
+    configuration = _core().runtime_configuration()
+    runtime = _frugal_runtime()
+    models = tuple(model for model in runtime.registry.list() if model.provider == provider_id)
+    return ProviderSnapshot(
+        config_exists=configuration.config.exists("providers", provider_id),
+        config_value=configuration.config.get("providers", provider_id),
+        models=models,
+        secret_value=configuration.vault.get_secret(env_name) if env_name else None,
+    )
+
+
+def _frugal_runtime() -> FrugalRuntimeLike:
+    core = _core()
+    runtime = core.FrugalRuntime(_status_root() / "frugal")
+    runtime.ensure_configured_model()
+    return cast(FrugalRuntimeLike, runtime)
+
+
+def _restore_models(provider_id: str, models: tuple[ModelDescriptorLike, ...]) -> None:
+    registry = cast(ModelRegistryLike, _frugal_runtime().registry)
+    for model in tuple(registry.list()):
+        if model.provider == provider_id:
+            registry.remove(model.id)
+    for model in models:
+        registry.upsert(model)
+
+
+def _restore_provider(provider_id: str, env_name: str, snapshot: ProviderSnapshot) -> None:
+    runtime = _core().runtime_configuration()
+    if snapshot.config_exists:
+        runtime.config.set("providers", provider_id, snapshot.config_value)
+    else:
+        runtime.config.delete("providers", provider_id)
+    if env_name and snapshot.secret_value is not None:
+        runtime.vault.set_secret(env_name, snapshot.secret_value)
+    elif env_name:
+        runtime.vault.delete_secret(env_name)
+    _restore_models(provider_id, snapshot.models)
+
+
+def _activate_provider(request: ProviderConnectRequest, response: ProviderProbeResponse, env_name: str) -> None:
+    runtime = _core().runtime_configuration()
+    base_url = request.base_url.strip() if request.base_url else None
+    api_key = request.api_key.strip() if request.api_key else ""
+    value = {"enabled": request.enabled, **({"base_url": base_url} if base_url else {})}
+    runtime.config.set("providers", request.provider, value)
+    if env_name and api_key:
+        runtime.vault.set_secret(env_name, api_key)
+    _sync_models(request.provider, response.models)
+
+
+def _require_connectable(response: ProviderProbeResponse) -> None:
+    if response.connection != "connected":
+        status = 503 if response.connection in {"quota_limited", "unreachable"} else 422
+        raise HTTPException(status_code=status, detail=response.message)
+    if not response.models:
+        raise HTTPException(status_code=503, detail="Le fournisseur ne publie aucun modèle compatible.")
+
+
+def _abort_activation(provider_id: str, env_name: str, snapshot: ProviderSnapshot, cause: Exception) -> None:
+    try:
+        _restore_provider(provider_id, env_name, snapshot)
+    except Exception as rollback_error:
+        error = ProviderActivationError("Activation échouée et état antérieur impossible à restaurer.")
+        raise HTTPException(status_code=500, detail=str(error)) from rollback_error
+    error = ProviderActivationError("Activation annulée et état antérieur restauré.")
+    raise HTTPException(status_code=500, detail=str(error)) from cause
+
+
 def _codex_models() -> list[str]:
     from hermes_cli.inventory import build_models_payload, load_picker_context
 
@@ -282,6 +382,15 @@ async def _probe(provider: str, url: str, api_key: str) -> ProviderProbeResponse
     return _result(provider, response.status_code, _models(payload))
 
 
+async def _evaluate_provider(request: ProviderProbeRequest) -> ProviderProbeResponse:
+    definition = _definition(request.provider)
+    api_key = (request.api_key or "").strip() or _configured_key(definition["env"])
+    url = _probe_url(request.provider, request.base_url)
+    if definition["env"] and not api_key:
+        return _missing(request.provider)
+    return await _probe(request.provider, url, api_key)
+
+
 def _response_payload(response: JsonResponse) -> object:
     try:
         return response.json()
@@ -296,16 +405,26 @@ def provider_statuses() -> dict[str, object]:
 
 @router.post("/test", response_model=ProviderProbeResponse)
 async def test_provider(request: ProviderProbeRequest) -> ProviderProbeResponse:
-    definition = _definition(request.provider)
-    api_key = (request.api_key or "").strip() or _configured_key(definition["env"])
-    url = _probe_url(request.provider, request.base_url)
-    if definition["env"] and not api_key:
-        response = _missing(request.provider)
-    else:
-        response = await _probe(request.provider, url, api_key)
+    response = await _evaluate_provider(request)
     _write_status(response)
-    if response.connection == "connected" and response.models:
-        _sync_models(request.provider, response.models)
+    return response
+
+
+@router.post("/connect", response_model=ProviderProbeResponse)
+async def connect_provider(request: ProviderConnectRequest) -> ProviderProbeResponse:
+    definition = _definition(request.provider)
+    response = await _evaluate_provider(request)
+    try:
+        _require_connectable(response)
+    except HTTPException:
+        _write_status(response)
+        raise
+    snapshot = _provider_snapshot(request.provider, definition["env"])
+    try:
+        _activate_provider(request, response, definition["env"])
+    except Exception as exc:
+        _abort_activation(request.provider, definition["env"], snapshot, exc)
+    _write_status(response)
     return response
 
 

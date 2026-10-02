@@ -681,6 +681,11 @@ export const api = {
       "/api/plugins/arcenal-supervisor/providers/test",
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider, api_key: apiKey?.trim() || null, base_url: baseUrl?.trim() || null }) },
     ),
+  connectArcenalProvider: (provider: string, enabled: boolean, apiKey?: string, baseUrl?: string) =>
+    fetchJSON<ArcenalProviderProbe>(
+      "/api/plugins/arcenal-supervisor/providers/connect",
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ provider, enabled, api_key: apiKey?.trim() || null, base_url: baseUrl?.trim() || null }) },
+    ),
   syncArcenalCodexProvider: () =>
     fetchJSON<{ configured: boolean; models: string[]; provider: "openai-codex" }>(
       "/api/plugins/arcenal-supervisor/providers/codex/sync",

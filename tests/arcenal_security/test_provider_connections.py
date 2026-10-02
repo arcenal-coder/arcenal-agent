@@ -115,23 +115,88 @@ class ProviderProbeTests(IsolatedAsyncioTestCase):
         with (
             patch.object(MODULE, "_probe", new=AsyncMock(return_value=expected)) as probe,
             patch.object(MODULE, "_write_status") as write_status,
-            patch.object(MODULE, "_sync_models"),
+            patch.object(MODULE, "_sync_models") as sync_models,
         ):
             response = await MODULE.test_provider(request)
         self.assertEqual(response.models, ["mistral-small"])
         probe.assert_awaited_once()
         write_status.assert_called_once_with(expected)
+        sync_models.assert_not_called()
 
-    async def test_discovered_models_feed_the_existing_registry(self) -> None:
-        request = MODULE.ProviderProbeRequest(provider="gemini", api_key="secret")
+    async def test_connection_persists_secret_configuration_and_models(self) -> None:
+        _load_core()
+        request = MODULE.ProviderConnectRequest(provider="gemini", api_key="secret", enabled=True)
         expected = MODULE._result("gemini", 200, ["gemini-flash"])
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"ARCENAL_HOME": directory, "ARCENAL_CONFIG_BACKEND": "arc"}, clear=False):
+            with patch.object(MODULE, "_probe", new=AsyncMock(return_value=expected)):
+                response = await MODULE.connect_provider(request)
+            configuration = MODULE._core().runtime_configuration()
+            persisted_secret = configuration.vault.get_secret("GEMINI_API_KEY")
+            persisted_provider = configuration.config.get("providers", "gemini")
+            persisted_status = MODULE._read_statuses()["gemini"]
+            models = MODULE._frugal_runtime().registry.list()
+
+        self.assertEqual(response.models, ["gemini-flash"])
+        self.assertEqual(persisted_secret, "secret")
+        self.assertEqual(persisted_provider, {"enabled": True})
+        self.assertEqual(persisted_status["connection"], "connected")
+        self.assertTrue(any(model.model_name == "gemini-flash" for model in models))
+
+    async def test_failed_probe_preserves_existing_provider(self) -> None:
+        _load_core()
+        request = MODULE.ProviderConnectRequest(provider="gemini", api_key="new-secret")
+        rejected = MODULE._result("gemini", 429, [])
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"ARCENAL_HOME": directory, "ARCENAL_CONFIG_BACKEND": "arc"}, clear=False):
+            configuration = MODULE._core().runtime_configuration()
+            configuration.vault.set_secret("GEMINI_API_KEY", "old-secret")
+            configuration.config.set("providers", "gemini", {"enabled": False})
+            with patch.object(MODULE, "_probe", new=AsyncMock(return_value=rejected)), patch.object(MODULE, "_write_status"):
+                with self.assertRaises(HTTPException):
+                    await MODULE.connect_provider(request)
+            persisted_secret = configuration.vault.get_secret("GEMINI_API_KEY")
+            persisted_provider = configuration.config.get("providers", "gemini")
+
+        self.assertEqual(persisted_secret, "old-secret")
+        self.assertEqual(persisted_provider, {"enabled": False})
+
+    async def test_empty_catalog_is_not_persisted(self) -> None:
+        request = MODULE.ProviderConnectRequest(provider="openrouter", api_key="secret")
+        empty = MODULE._result("openrouter", 200, [])
         with (
-            patch.object(MODULE, "_probe", new=AsyncMock(return_value=expected)),
+            patch.object(MODULE, "_probe", new=AsyncMock(return_value=empty)),
             patch.object(MODULE, "_write_status"),
-            patch.object(MODULE, "_sync_models") as sync_models,
+            patch.object(MODULE, "_provider_snapshot") as snapshot,
         ):
-            await MODULE.test_provider(request)
-        sync_models.assert_called_once_with("gemini", ["gemini-flash"])
+            with self.assertRaises(HTTPException) as raised:
+                await MODULE.connect_provider(request)
+
+        self.assertEqual(raised.exception.status_code, 503)
+        snapshot.assert_not_called()
+
+    async def test_synchronization_failure_restores_previous_state(self) -> None:
+        _load_core()
+        request = MODULE.ProviderConnectRequest(provider="mistral", api_key="new-secret")
+        expected = MODULE._result("mistral", 200, ["new-model"])
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"ARCENAL_HOME": directory, "ARCENAL_CONFIG_BACKEND": "arc"}, clear=False):
+            configuration = MODULE._core().runtime_configuration()
+            configuration.vault.set_secret("MISTRAL_API_KEY", "old-secret")
+            configuration.config.set("providers", "mistral", {"enabled": False})
+            MODULE._sync_models("mistral", ["old-model"])
+            MODULE._write_status(MODULE._result("mistral", 401, []))
+            with patch.object(MODULE, "_probe", new=AsyncMock(return_value=expected)), patch.object(MODULE, "_sync_models", side_effect=RuntimeError("sync")):
+                with self.assertRaises(HTTPException) as raised:
+                    await MODULE.connect_provider(request)
+            persisted_secret = configuration.vault.get_secret("MISTRAL_API_KEY")
+            persisted_provider = configuration.config.get("providers", "mistral")
+            persisted_status = MODULE._read_statuses()["mistral"]
+            models = MODULE._frugal_runtime().registry.list()
+
+        self.assertEqual(persisted_secret, "old-secret")
+        self.assertEqual(persisted_provider, {"enabled": False})
+        self.assertEqual([model.model_name for model in models if model.provider == "mistral"], ["old-model"])
+        self.assertEqual(persisted_status["connection"], "invalid")
+        self.assertEqual(raised.exception.status_code, 500)
+        self.assertIn("restauré", raised.exception.detail)
 
     async def test_quota_limit_is_not_reported_as_invalid_credentials(self) -> None:
         result = MODULE._result("gemini", 429, [])

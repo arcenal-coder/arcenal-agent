@@ -8,6 +8,7 @@ const apiMocks = vi.hoisted(() => ({
   getArcenalProviderStatuses: vi.fn(),
   getOAuthProviders: vi.fn(),
   getModelOptions: vi.fn(),
+  connectArcenalProvider: vi.fn(),
   saveArcenalConfiguration: vi.fn(),
   setArcenalSecret: vi.fn(),
   syncArcenalCodexProvider: vi.fn(),
@@ -49,6 +50,8 @@ beforeEach(() => {
   apiMocks.getModelOptions.mockResolvedValue(MODELS);
   apiMocks.saveArcenalConfiguration.mockResolvedValue({ ok: true });
   apiMocks.syncArcenalCodexProvider.mockResolvedValue({ configured: true, models: ["gpt-test"], provider: "openai-codex" });
+  apiMocks.connectArcenalProvider.mockResolvedValue({ configured: true, connection: "connected", message: "Connexion opérationnelle.", models: ["gemini-3.6-flash"], provider: "gemini", tested_at: "2026-10-02T18:00:00Z" });
+  apiMocks.testArcenalProvider.mockResolvedValue({ configured: true, connection: "connected", message: "Connexion opérationnelle.", models: ["gemini-3.6-flash"], provider: "gemini", tested_at: "2026-10-02T18:00:00Z" });
 });
 
 afterEach(cleanup);
@@ -107,13 +110,14 @@ describe("paramètres des fournisseurs ARC", () => {
     expect(screen.getByText("À finaliser")).toBeTruthy();
   });
 
-  it("enregistre uniquement la connexion du fournisseur", async () => {
+  it("enregistre, teste et synchronise la connexion du fournisseur", async () => {
     render(<ArcenalSettingsPage />);
     const card = await geminiCard();
     fireEvent.click(within(card).getByRole("button", { name: "Mettre à jour" }));
-    await waitFor(() => expect(apiMocks.saveArcenalConfiguration).toHaveBeenCalledWith({
-      providers: { gemini: { base_url: "https://generativelanguage.googleapis.com/v1beta", enabled: true } },
-    }));
+    await waitFor(() => expect(apiMocks.connectArcenalProvider).toHaveBeenCalledWith(
+      "gemini", true, undefined, "https://generativelanguage.googleapis.com/v1beta",
+    ));
+    expect(await screen.findByText("Google Gemini est connecté et ses modèles sont synchronisés.")).toBeTruthy();
     expect(within(card).queryByLabelText("Modèle principal")).toBeNull();
   });
 
@@ -125,11 +129,21 @@ describe("paramètres des fournisseurs ARC", () => {
   });
 
   it("propage l’échec de la connexion sans annoncer une disponibilité", async () => {
-    apiMocks.saveArcenalConfiguration.mockRejectedValue(new Error("Connexion indisponible"));
+    apiMocks.connectArcenalProvider.mockRejectedValue(new Error("Connexion indisponible"));
     render(<ArcenalSettingsPage />);
     const card = await geminiCard();
     fireEvent.click(within(card).getByRole("button", { name: "Mettre à jour" }));
     expect((await screen.findByRole("alert")).textContent).toContain("Connexion indisponible");
     expect(screen.queryByText("Google Gemini est disponible pour ARC.")).toBeNull();
+  });
+
+  it("n’annonce pas un fournisseur connecté si son test échoue", async () => {
+    apiMocks.connectArcenalProvider.mockRejectedValue(new Error("Quota épuisé."));
+    render(<ArcenalSettingsPage />);
+    const card = await geminiCard();
+    fireEvent.click(within(card).getByRole("button", { name: "Mettre à jour" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Quota épuisé.");
+    expect(screen.queryByText(/modèles sont synchronisés/)).toBeNull();
   });
 });

@@ -173,14 +173,25 @@ async function saveProvider(provider: ProviderConnection, state: SettingsState, 
   setState((current) => ({ ...current, busy: true, error: "", notice: "" }));
   try {
     const secret = state.secrets[provider.id]?.trim();
-    if (provider.envKey && secret) await api.setArcenalSecret(provider.envKey, secret);
     const baseUrl = state.providerUrls[provider.id]?.trim();
-    const providerConfig = { providers: { [provider.id]: { base_url: baseUrl || undefined, enabled: state.enabledProviders[provider.id] !== false } } };
-    await api.saveArcenalConfiguration(providerConfig);
-    setState((current) => ({ ...current, notice: `${provider.label} est disponible pour ARC.`, secrets: { ...current.secrets, [provider.id]: "" } }));
+    const status = await api.connectArcenalProvider(provider.id, state.enabledProviders[provider.id] !== false, secret, baseUrl);
+    requireConnectedProvider(status);
+    setState((current) => ({ ...current, notice: `${provider.label} est connecté et ses modèles sont synchronisés.`, providerStatuses: { ...current.providerStatuses, [provider.id]: status }, secrets: { ...current.secrets, [provider.id]: "" } }));
     await reload();
   } catch (cause) {
     setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));
+  }
+}
+
+function requireConnectedProvider(status: ArcenalProviderProbe): void {
+  if (!isProviderStatusesResponse({ providers: { [status.provider]: status } })) {
+    throw new Error("La réponse du fournisseur est incomplète.");
+  }
+  if (status.connection !== "connected") {
+    throw new Error(status.message);
+  }
+  if (status.models.length === 0) {
+    throw new Error("Le fournisseur ne publie aucun modèle compatible.");
   }
 }
 

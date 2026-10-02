@@ -431,6 +431,15 @@ describe("api fournisseurs ARCenal", () => {
     expect(options.body).toContain('"base_url":"https://llm.internal/v1"');
     expect(options.body).not.toContain("undefined");
   });
+
+  it("connecte un fournisseur par une opération atomique", async () => {
+    const fetchMock = jsonFetchMock({ provider: "openrouter", connection: "connected", models: ["model-test"] });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.connectArcenalProvider("openrouter", true, " key-test ", " https://openrouter.ai/api/v1 ");
+    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(options.body).toBe(JSON.stringify({ provider: "openrouter", enabled: true, api_key: "key-test", base_url: "https://openrouter.ai/api/v1" }));
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/plugins/arcenal-supervisor/providers/connect");
+  });
 });
 
 describe("api accès métier ARCenal", () => {

@@ -69,6 +69,12 @@ YunoHost cible ne demande plus de fournisseur, de clé ou de modèle global lors
 d'une installation neuve. Les anciennes valeurs restent uniquement prises en
 charge par la migration de compatibilité.
 
+La connexion d'un fournisseur distant est désormais atomique côté serveur :
+test réel avant écriture, enregistrement du secret et de la configuration,
+puis synchronisation du catalogue. Un échec laisse la configuration intacte
+ou restaure l'état précédent. ARC n'annonce plus un fournisseur disponible si
+le test ou la synchronisation échoue.
+
 ## Preuves locales
 
 ```yaml
@@ -87,6 +93,8 @@ Fallback silencieux vers le fournisseur Hermes : SUPPRIMÉ
 Registre vide sans appel fournisseur : PASS
 Politique FIXED incompatible refusée : PASS
 Aperçu et exécution utilisent la même confidentialité : PASS
+Connexion fournisseur avec synchronisation des modèles : PASS
+Annonce de disponibilité après test réussi uniquement : PASS
 Secret inclus dans le registre : NON
 ```
 
