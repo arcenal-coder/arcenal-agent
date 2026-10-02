@@ -1,6 +1,6 @@
 import type { ArcenalProviderProbe, ArcenalProviderStatusesResponse } from "@/lib/api";
 
-const CONNECTION_STATES = new Set(["connected", "invalid", "missing", "unreachable"]);
+const CONNECTION_STATES = new Set(["connected", "invalid", "missing", "quota_limited", "unreachable"]);
 
 export function isProviderStatusesResponse(value: unknown): value is ArcenalProviderStatusesResponse {
   if (!isRecord(value) || !isRecord(value.providers)) return false;

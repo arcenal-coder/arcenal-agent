@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .errors import ModelRoutingError
-from .frugal_models import ModelDescriptor, ModelLocation, RoutingDecision, RoutingNeed
+from .frugal_models import ModelAvailability, ModelDescriptor, ModelLocation, RoutingDecision, RoutingNeed
 from .frugal_store import JsonCollectionStore
 from .provider_models import ProviderCapability, ProviderHealth
 from .provider_registry import ProviderRegistry
@@ -59,8 +59,9 @@ class ModelRouter:
     def _eligible(self, model: ModelDescriptor, need: RoutingNeed) -> bool:
         checks = (
             model.enabled,
+            model.availability is not ModelAvailability.UNAVAILABLE,
             need.required_capability in model.capabilities,
-            model.context_window >= need.context_size,
+            model.context_window is None or model.context_window >= need.context_size,
             not need.tools_required or model.supports_tools,
             not need.structured_output or model.supports_structured_output,
             not need.vision_required or model.supports_vision,
@@ -100,7 +101,7 @@ class ModelRouter:
         remote_penalty = 1.0 if need.local_preferred and model.location is ModelLocation.REMOTE else 0.0
         provider_penalty = self._provider_penalty(model.provider)
         cost = model.input_cost + model.output_cost
-        quality = -float(model.context_window) if need.latency_preference == "quality" else 0.0
+        quality = -float(model.context_window or 0) if need.latency_preference == "quality" else 0.0
         return remote_penalty, provider_penalty, cost, float(model.priority), quality
 
     def _provider_penalty(self, provider_id: str) -> float:

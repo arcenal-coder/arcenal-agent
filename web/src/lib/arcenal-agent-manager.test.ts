@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchJSON } from "./api";
-import { loadManagedAgents, updateManagedAgent } from "./arcenal-agent-manager";
+import { fetchJSON, type ArcenalModelDescriptor } from "./api";
+import { buildAgentModelPolicy, createManagedAgent, loadManagedAgents, modelsForProvider, updateManagedAgent, type ManagedAgent } from "./arcenal-agent-manager";
 
 vi.mock("./api", () => ({ fetchJSON: vi.fn() }));
+
+const MODELS: ArcenalModelDescriptor[] = [
+  { id: "gemini-flash", provider: "gemini", model_name: "gemini-flash", display_name: "Gemini Flash", enabled: true, availability: "available", catalog_source: "discovered", capabilities: ["standard"], context_window: null, supports_tools: true, supports_structured_output: true, supports_vision: false, privacy_class: "internal", location: "remote", hosting_region: null, input_cost: 0, output_cost: 0, priority: 10 },
+  { id: "gemini-disabled", provider: "gemini", model_name: "gemini-disabled", display_name: "Gemini désactivé", enabled: false, availability: "available", catalog_source: "configured", capabilities: ["standard"], context_window: null, supports_tools: false, supports_structured_output: false, supports_vision: false, privacy_class: "internal", location: "remote", hosting_region: null, input_cost: 0, output_cost: 0, priority: 20 },
+  { id: "ollama-local", provider: "ollama", model_name: "qwen3:8b", display_name: "Qwen local", enabled: true, availability: "available", catalog_source: "discovered", capabilities: ["standard"], context_window: null, supports_tools: true, supports_structured_output: false, supports_vision: false, privacy_class: "internal", location: "local", hosting_region: null, input_cost: 0, output_cost: 0, priority: 5 },
+];
 
 describe("registre ARC Core", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -16,5 +22,46 @@ describe("registre ARC Core", () => {
     vi.mocked(fetchJSON).mockResolvedValue({ id: "ats", enabled: false });
     await updateManagedAgent("ats", { autonomy_level: "controlled", enabled: false });
     expect(fetchJSON).toHaveBeenCalledWith(expect.stringContaining("/ats"), expect.objectContaining({ method: "PATCH" }));
+  });
+
+  it("crée un agent gouverné via le registre ARC", async () => {
+    vi.mocked(fetchJSON).mockResolvedValue({ id: "veille" });
+    const agent: ManagedAgent = {
+      application: "arcenal-system", autonomy_level: "controlled", description: "Veille",
+      enabled: true, id: "veille", knowledge_scopes: ["regulatory"], metadata: {},
+      model_policy: { allowed_models: [], allowed_providers: [], denied_providers: [], local_only: false, local_preferred: true, mode: "auto" },
+      name: "Veille", permissions: [], role: "analyst", system_instructions: [{ content: "Veiller", id: "mission" }], tools: [],
+    };
+    await createManagedAgent(agent);
+    expect(fetchJSON).toHaveBeenCalledWith(expect.stringContaining("registry"), expect.objectContaining({ method: "POST" }));
+  });
+
+  it("construit une politique automatique sans pseudo-modèle", () => {
+    expect(buildAgentModelPolicy("auto", "", "", false, true, MODELS)).toEqual({
+      allowed_models: [], allowed_providers: [], denied_providers: [], local_only: false, local_preferred: true, mode: "auto",
+    });
+  });
+
+  it("construit une politique fixe depuis le registre", () => {
+    expect(buildAgentModelPolicy("fixed", "gemini", "gemini-flash", false, true, MODELS)).toMatchObject({
+      allowed_models: ["gemini-flash"], allowed_providers: ["gemini"], mode: "fixed",
+    });
+  });
+
+  it("préserve les contraintes de routage lors d’un changement de modèle", () => {
+    const current = { allowed_models: [], allowed_providers: [], denied_providers: ["openai"], local_only: false, local_preferred: true, max_cost: 0.2, mode: "auto" as const, preferred_capability: "light" as const };
+    const policy = buildAgentModelPolicy("fixed", "gemini", "gemini-flash", false, true, MODELS, current);
+
+    expect(policy).toMatchObject({ denied_providers: ["openai"], max_cost: 0.2, preferred_capability: "light" });
+  });
+
+  it("refuse un modèle absent, désactivé ou distant pour local_only", () => {
+    expect(() => buildAgentModelPolicy("fixed", "gemini", "auto", false, true, MODELS)).toThrow(/registre/);
+    expect(() => buildAgentModelPolicy("fixed", "gemini", "gemini-disabled", false, true, MODELS)).toThrow(/activé/);
+    expect(() => buildAgentModelPolicy("fixed", "gemini", "gemini-flash", true, true, MODELS)).toThrow(/local/);
+  });
+
+  it("filtre les modèles activés et disponibles par fournisseur", () => {
+    expect(modelsForProvider(MODELS, "gemini").map((model) => model.id)).toEqual(["gemini-flash"]);
   });
 });

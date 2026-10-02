@@ -2781,9 +2781,12 @@ export interface ArcenalModelDescriptor {
   id: string;
   provider: string;
   model_name: string;
+  display_name: string | null;
   enabled: boolean;
+  availability: "available" | "unavailable" | "unknown";
+  catalog_source: "configured" | "discovered" | "static";
   capabilities: ArcenalModelCapability[];
-  context_window: number;
+  context_window: number | null;
   supports_tools: boolean;
   supports_structured_output: boolean;
   supports_vision: boolean;
@@ -2892,7 +2895,7 @@ function enterpriseMemoryQuery(filters: EnterpriseMemoryFilters): string {
 
 export interface ArcenalProviderProbe {
   configured: boolean;
-  connection: "connected" | "invalid" | "missing" | "unreachable";
+  connection: "connected" | "invalid" | "missing" | "quota_limited" | "unreachable";
   message: string;
   models: string[];
   provider: string;

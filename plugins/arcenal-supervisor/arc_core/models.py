@@ -5,7 +5,9 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Self
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .contracts import Permission, StrictModel
 from .frugal_models import CapabilityProfile
@@ -39,6 +41,20 @@ class ModelPolicy(StrictModel):
     allowed_models: tuple[str, ...] = ()
     local_only: bool = False
     max_cost: float | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def validate_selection(self) -> Self:
+        if self.mode == "auto" and self.allowed_models:
+            raise ValueError("Le mode AUTO ne référence aucun modèle fictif.")
+        if self.mode == "fixed" and len(self.allowed_models) != 1:
+            raise ValueError("Le mode FIXED exige exactement un modèle.")
+        if self.mode == "fixed" and len(self.allowed_providers) != 1:
+            raise ValueError("Le mode FIXED exige exactement un fournisseur.")
+        if any(model.casefold() == "auto" for model in self.allowed_models):
+            raise ValueError("Le mode FIXED exige un modèle concret et non AUTO.")
+        if any(provider in self.denied_providers for provider in self.allowed_providers):
+            raise ValueError("Un fournisseur autorisé ne peut pas être simultanément interdit.")
+        return self
 
 
 class AgentDefinition(StrictModel):

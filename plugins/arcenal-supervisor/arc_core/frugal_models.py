@@ -44,6 +44,18 @@ class ModelLocation(str, Enum):
     REMOTE = "remote"
 
 
+class ModelAvailability(str, Enum):
+    AVAILABLE = "available"
+    UNAVAILABLE = "unavailable"
+    UNKNOWN = "unknown"
+
+
+class ModelCatalogSource(str, Enum):
+    CONFIGURED = "configured"
+    DISCOVERED = "discovered"
+    STATIC = "static"
+
+
 class CacheValidation(str, Enum):
     GENERATED = "generated"
     VALIDATED = "validated"
@@ -61,9 +73,12 @@ class ModelDescriptor(StrictModel):
     id: str = Field(pattern=r"^[a-z0-9][a-z0-9_.-]{0,95}$")
     provider: str = Field(pattern=r"^[a-z0-9][a-z0-9_.-]{0,63}$")
     model_name: str = Field(min_length=1, max_length=240)
+    display_name: str | None = Field(default=None, min_length=1, max_length=240)
     enabled: bool = True
+    availability: ModelAvailability = ModelAvailability.UNKNOWN
+    catalog_source: ModelCatalogSource = ModelCatalogSource.STATIC
     capabilities: tuple[CapabilityProfile, ...]
-    context_window: int = Field(ge=256, le=10_000_000)
+    context_window: int | None = Field(default=None, ge=256, le=10_000_000)
     supports_tools: bool = False
     supports_structured_output: bool = False
     supports_vision: bool = False

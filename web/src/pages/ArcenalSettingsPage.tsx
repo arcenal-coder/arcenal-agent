@@ -125,12 +125,18 @@ function ProviderCard({ provider, state, setState, reload }: ProviderProps): Rea
     <header><span><Bot aria-hidden /></span><div><h3>{provider.label}</h3><small>{provider.local ? "Moteur local ou privé" : "Service externe"}</small></div><em data-state={status?.connection}>{provider.configured ? <><CheckCircle2 /> Configuré</> : "À connecter"}</em></header>
     {provider.configurableUrl && <ProviderUrlInput provider={provider} state={state} setState={setState} />}
     {provider.keyRequired && <SecretInput provider={provider} value={secret} setState={setState} />}
+    <DiscoveredModels models={discovered} />
     <ModelSelect label="Modèle principal" provider={provider} models={models} state={state} setState={setState} />
     <ModelSelect label="Modèle secondaire" provider={provider} models={models} secondary state={state} setState={setState} />
     <label className="arc-provider-toggle"><input checked={state.enabledProviders[provider.id] !== false} onChange={(event) => setState((current) => ({ ...current, enabledProviders: { ...current.enabledProviders, [provider.id]: event.target.checked } }))} type="checkbox" /><span>Connexion active</span></label>
     {status && <p className="arc-provider-status" data-state={status.connection}>{status.message}<small>Dernier test : {formatTestDate(status.tested_at)}</small></p>}
     <div className="arc-provider-actions"><button disabled={state.busy} onClick={test} type="button">Tester la connexion</button><button className="arc-primary-button" disabled={state.busy || (provider.keyRequired && !provider.configured && !secret.trim())} onClick={save} type="button">{state.busy ? <LoaderCircle className="arc-spin" /> : <KeyRound />} {provider.configured ? "Mettre à jour" : "Connecter"}</button></div>
   </article>;
+}
+
+function DiscoveredModels({ models }: { models: string[] }): ReactElement {
+  if (models.length === 0) return <p className="arc-provider-models">Aucun modèle découvert lors du dernier test.</p>;
+  return <details className="arc-provider-models"><summary>{models.length} modèle{models.length === 1 ? "" : "s"} disponible{models.length === 1 ? "" : "s"}</summary><ul>{models.map((model) => <li key={model}>{model}</li>)}</ul></details>;
 }
 
 function SecretInput({ provider, value, setState }: { provider: ProviderConnection; value: string; setState: SetState }): ReactElement {

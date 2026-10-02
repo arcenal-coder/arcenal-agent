@@ -9,7 +9,13 @@ from .deterministic_engine import DeterministicEngine
 from .frugal_cache import FrugalCache
 from .frugal_engine import FrugalAgentEngine
 from .frugal_metrics import FrugalMetricsRepository
-from .frugal_models import CapabilityProfile, ModelDescriptor, ModelLocation
+from .frugal_models import (
+    CapabilityProfile,
+    ModelAvailability,
+    ModelCatalogSource,
+    ModelDescriptor,
+    ModelLocation,
+)
 from .hermes_engine import HermesAgentEngine
 from .knowledge_models import ConfidentialityLevel
 from .model_router import ModelRegistry, ModelRouter
@@ -57,7 +63,7 @@ def _configured_model(configuration: ArcRuntimeConfiguration) -> ModelDescriptor
     provider, model = selection
     local = provider.casefold() in {"ollama", "vllm", "local"}
     capabilities = (CapabilityProfile.LIGHT, CapabilityProfile.STANDARD, CapabilityProfile.ADVANCED, CapabilityProfile.SPECIALIZED)
-    return ModelDescriptor(id="hermes-current", provider=provider.casefold(), model_name=model, capabilities=capabilities, context_window=128_000, supports_tools=True, supports_structured_output=True, privacy_class=ConfidentialityLevel.ADMIN, location=ModelLocation.LOCAL if local else ModelLocation.REMOTE, priority=500)
+    return ModelDescriptor(id="hermes-current", provider=provider.casefold(), model_name=model, display_name=model, availability=ModelAvailability.AVAILABLE, catalog_source=ModelCatalogSource.CONFIGURED, capabilities=capabilities, context_window=128_000, supports_tools=True, supports_structured_output=True, privacy_class=ConfidentialityLevel.ADMIN, location=ModelLocation.LOCAL if local else ModelLocation.REMOTE, priority=500)
 
 
 def _configured_provider(configuration: ArcRuntimeConfiguration) -> ProviderDescriptor | None:

@@ -70,12 +70,62 @@ class AgentRegistryApiTests(TestCase):
             client = _client()
             listed = client.get("/api/plugins/arcenal-supervisor/agents/registry")
             updated = client.patch("/api/plugins/arcenal-supervisor/agents/registry/ats", json={"autonomy_level": "automatic", "enabled": False})
+            policy = client.patch("/api/plugins/arcenal-supervisor/agents/registry/ats", json={"model_policy": {"mode": "auto", "allowed_models": [], "allowed_providers": []}})
             reloaded = client.get("/api/plugins/arcenal-supervisor/agents/registry/ats")
 
         self.assertEqual([item["id"] for item in listed.json()["agents"]], ["arc", "ats"])
         self.assertFalse(updated.json()["enabled"])
         self.assertEqual(updated.json()["autonomy_level"], "automatic")
+        self.assertEqual(policy.json()["model_policy"]["mode"], "auto")
         self.assertFalse(reloaded.json()["enabled"])
+
+    def test_registry_creates_an_agent_with_an_explicit_auto_policy(self) -> None:
+        payload = {
+            "id": "veille", "name": "Veille", "description": "Surveille les exigences.",
+            "role": "analyst", "application": "arcenal-system",
+            "system_instructions": [{"id": "mission", "content": "Analyser les exigences."}],
+            "permissions": [], "tools": [], "knowledge_scopes": ["regulatory"],
+            "model_policy": {"mode": "auto", "allowed_models": [], "allowed_providers": []},
+            "autonomy_level": "controlled", "enabled": True, "metadata": {},
+        }
+        with tempfile.TemporaryDirectory() as directory, patch.object(MODULE, "_registry_path", return_value=Path(directory) / "agents.json"):
+            response = _client().post("/api/plugins/arcenal-supervisor/agents/registry", json=payload)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["model_policy"]["mode"], "auto")
+
+    def test_registry_updates_an_agent_with_a_registered_fixed_model(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            registry_path = Path(directory) / "agents.json"
+            with patch.object(MODULE, "_registry_path", return_value=registry_path):
+                runtime = MODULE._frugal_runtime()
+                runtime.registry.upsert(MODULE.CORE.ModelDescriptor(
+                    id="gemini-flash", provider="gemini", model_name="gemini-flash",
+                    capabilities=(MODULE.CORE.CapabilityProfile.STANDARD,), context_window=None,
+                    availability=MODULE.CORE.ModelAvailability.AVAILABLE,
+                    catalog_source=MODULE.CORE.ModelCatalogSource.DISCOVERED,
+                    privacy_class=MODULE.CORE.ConfidentialityLevel.INTERNAL,
+                    location=MODULE.CORE.ModelLocation.REMOTE,
+                ))
+                response = _client().patch(
+                    "/api/plugins/arcenal-supervisor/agents/registry/ats",
+                    json={"model_policy": {
+                        "mode": "fixed", "preferred_capability": "light",
+                        "allowed_providers": ["gemini"], "allowed_models": ["gemini-flash"],
+                    }},
+                )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["model_policy"]["allowed_models"], ["gemini-flash"])
+        self.assertEqual(response.json()["model_policy"]["preferred_capability"], "light")
+
+    def test_registry_rejects_unknown_fields_at_the_api_boundary(self) -> None:
+        response = _client().patch(
+            "/api/plugins/arcenal-supervisor/agents/registry/ats",
+            json={"model_policy": {"mode": "auto", "secret": "unexpected"}},
+        )
+
+        self.assertEqual(response.status_code, 422)
 
     def test_query_route_executes_arc_core_with_application_identity(self) -> None:
         output = MODULE.CORE.EngineOutput(response="Réponse ATS", usage={"input_tokens": 2})

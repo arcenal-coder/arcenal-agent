@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from types import ModuleType
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -37,7 +37,6 @@ def _load_arc_core() -> ModuleType:
 
 CORE = _load_arc_core()
 AgentQueryResponseModel = CORE.AgentQueryResponse
-AgentUpdateModel = CORE.AgentUpdate
 
 
 class AgentMemoryUpdate(BaseModel):
@@ -70,6 +69,52 @@ class AgentQueryRequest(BaseModel):
         return value
 
 
+class AgentInstructionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    id: str = Field(pattern=r"^[a-z][a-z0-9_.-]{0,63}$")
+    content: str = Field(min_length=1, max_length=8_000)
+
+
+class AgentModelPolicyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    mode: Literal["auto", "fixed"] = "auto"
+    preferred_capability: Literal["deterministic", "light", "standard", "advanced", "specialized"] = "standard"
+    local_preferred: bool = True
+    allowed_providers: list[str] = Field(default_factory=list)
+    denied_providers: list[str] = Field(default_factory=list)
+    allowed_models: list[str] = Field(default_factory=list)
+    local_only: bool = False
+    max_cost: float | None = Field(default=None, ge=0)
+
+
+class AgentCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    id: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
+    name: str = Field(min_length=1, max_length=120)
+    description: str = Field(min_length=1, max_length=500)
+    role: str = Field(min_length=1, max_length=80)
+    application: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
+    system_instructions: list[AgentInstructionRequest] = Field(min_length=1)
+    permissions: list[str] = Field(default_factory=list)
+    tools: list[str] = Field(default_factory=list)
+    knowledge_scopes: list[str] = Field(min_length=1)
+    model_policy: AgentModelPolicyRequest = Field(default_factory=AgentModelPolicyRequest)
+    autonomy_level: Literal["automatic", "controlled", "approval_required"]
+    enabled: bool = True
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+
+class AgentUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    autonomy_level: Literal["automatic", "controlled", "approval_required"] | None = None
+    enabled: bool | None = None
+    model_policy: AgentModelPolicyRequest | None = None
+
+
 def _registry_path() -> Path:
     from hermes_constants import get_hermes_home
 
@@ -78,7 +123,44 @@ def _registry_path() -> Path:
 
 def _manager():
     repository = CORE.AgentRepository(_registry_path(), CORE.default_agents())
-    return CORE.AgentManager(repository)
+    runtime = _frugal_runtime()
+    return CORE.AgentManager(repository, runtime.registry)
+
+
+def _frugal_runtime():
+    runtime = CORE.FrugalRuntime(_registry_path().parent / "frugal")
+    runtime.ensure_configured_model()
+    return runtime
+
+
+def _agent_definition(request: AgentCreateRequest):
+    policy = _model_policy(request.model_policy)
+    instructions = tuple(CORE.InstructionBlock(**item.model_dump()) for item in request.system_instructions)
+    permissions = tuple(CORE.Permission(item) for item in request.permissions)
+    return CORE.AgentDefinition(
+        id=request.id, name=request.name, description=request.description,
+        role=request.role, application=request.application, enabled=request.enabled,
+        tools=tuple(request.tools), knowledge_scopes=tuple(request.knowledge_scopes), metadata=request.metadata,
+        autonomy_level=CORE.AutonomyLevel(request.autonomy_level), model_policy=policy,
+        permissions=permissions, system_instructions=instructions,
+    )
+
+
+def _model_policy(request: AgentModelPolicyRequest):
+    return CORE.ModelPolicy(
+        mode=request.mode, preferred_capability=CORE.CapabilityProfile(request.preferred_capability),
+        local_preferred=request.local_preferred,
+        allowed_providers=tuple(request.allowed_providers),
+        denied_providers=tuple(request.denied_providers),
+        allowed_models=tuple(request.allowed_models),
+        local_only=request.local_only, max_cost=request.max_cost,
+    )
+
+
+def _agent_update(request: AgentUpdateRequest):
+    autonomy = CORE.AutonomyLevel(request.autonomy_level) if request.autonomy_level else None
+    policy = _model_policy(request.model_policy) if request.model_policy else None
+    return CORE.AgentUpdate(autonomy_level=autonomy, enabled=request.enabled, model_policy=policy)
 
 
 def _audit_writer(event: str, actor: str, details: dict[str, object]) -> object:
@@ -93,13 +175,12 @@ def _arc_core():
 
     retriever = CORE.create_retriever(get_hermes_home(), _audit_writer)
     builder = CORE.ContextBuilder(policy, retriever)
-    runtime = CORE.FrugalRuntime(get_hermes_home() / "arcenal" / "frugal")
-    runtime.ensure_configured_model()
+    runtime = _frugal_runtime()
     return CORE.ArcCore(_manager(), builder, runtime.engine, _audit_writer)
 
 
 def _translate_error(exc: Exception) -> HTTPException:
-    from arcenal_arc_core.errors import AgentAccessDeniedError, AgentDisabledError, AgentExecutionError, AgentNotFoundError, ApplicationAuthenticationError
+    from arcenal_arc_core.errors import AgentAccessDeniedError, AgentContractError, AgentDisabledError, AgentExecutionError, AgentNotFoundError, ApplicationAuthenticationError
 
     if isinstance(exc, AgentNotFoundError):
         return HTTPException(status_code=404, detail=str(exc))
@@ -109,6 +190,8 @@ def _translate_error(exc: Exception) -> HTTPException:
         return HTTPException(status_code=401, detail=str(exc))
     if isinstance(exc, AgentAccessDeniedError):
         return HTTPException(status_code=403, detail=str(exc))
+    if isinstance(exc, (AgentContractError, ValueError)):
+        return HTTPException(status_code=422, detail=str(exc))
     if isinstance(exc, AgentExecutionError):
         return HTTPException(status_code=503, detail=str(exc))
     return HTTPException(status_code=500, detail="ARC Core a rencontré une erreur interne.")
@@ -175,6 +258,14 @@ def list_registered_agents() -> dict[str, object]:
     return {"agents": [agent.model_dump(mode="json") for agent in _manager().list_agents()]}
 
 
+@router.post("/registry", status_code=201)
+def create_registered_agent(request: AgentCreateRequest) -> dict[str, object]:
+    try:
+        return _manager().register(_agent_definition(request)).model_dump(mode="json")
+    except Exception as exc:
+        raise _translate_error(exc) from exc
+
+
 @router.get("/registry/{agent_id}")
 def get_registered_agent(agent_id: str) -> dict[str, object]:
     try:
@@ -184,9 +275,9 @@ def get_registered_agent(agent_id: str) -> dict[str, object]:
 
 
 @router.patch("/registry/{agent_id}")
-def update_registered_agent(agent_id: str, request: AgentUpdateModel) -> dict[str, object]:
+def update_registered_agent(agent_id: str, request: AgentUpdateRequest) -> dict[str, object]:
     try:
-        return _manager().update(agent_id, request).model_dump(mode="json")
+        return _manager().update(agent_id, _agent_update(request)).model_dump(mode="json")
     except Exception as exc:
         raise _translate_error(exc) from exc
 

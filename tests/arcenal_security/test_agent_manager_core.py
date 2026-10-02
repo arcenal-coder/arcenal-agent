@@ -64,6 +64,52 @@ def test_registry_persists_updates_and_rejects_duplicates(tmp_path: Path) -> Non
         manager.register(CORE.default_agents()[0])
 
 
+def test_fixed_policy_requires_an_enabled_registered_model(tmp_path: Path) -> None:
+    registry = CORE.ModelRegistry(tmp_path / "models.json")
+    registry.upsert(_model_descriptor("gemini-flash", "gemini", "remote"))
+    manager = CORE.AgentManager(CORE.AgentRepository(tmp_path / "agents.json", CORE.default_agents()), registry)
+    policy = CORE.ModelPolicy(mode="fixed", allowed_providers=("gemini",), allowed_models=("gemini-flash",))
+
+    updated = manager.update("ats", CORE.AgentUpdate(model_policy=policy))
+
+    assert updated.model_policy.allowed_models == ("gemini-flash",)
+    with pytest.raises(ValueError, match="registre"):
+        missing = CORE.ModelPolicy(mode="fixed", allowed_providers=("gemini",), allowed_models=("absent",))
+        manager.update("ats", CORE.AgentUpdate(model_policy=missing))
+
+
+def test_local_only_policy_rejects_remote_fixed_model(tmp_path: Path) -> None:
+    registry = CORE.ModelRegistry(tmp_path / "models.json")
+    registry.upsert(_model_descriptor("gemini-flash", "gemini", "remote"))
+    manager = CORE.AgentManager(CORE.AgentRepository(tmp_path / "agents.json", CORE.default_agents()), registry)
+    policy = CORE.ModelPolicy(mode="fixed", allowed_providers=("gemini",), allowed_models=("gemini-flash",), local_only=True)
+
+    with pytest.raises(ValueError, match="local"):
+        manager.update("ats", CORE.AgentUpdate(model_policy=policy))
+
+
+def test_model_policy_rejects_fixed_auto_and_missing_model() -> None:
+    with pytest.raises(ValueError, match="modèle concret"):
+        CORE.ModelPolicy(mode="fixed", allowed_providers=("gemini",), allowed_models=("auto",))
+    with pytest.raises(ValueError, match="exactement un modèle"):
+        CORE.ModelPolicy(mode="fixed", allowed_providers=("gemini",))
+
+
+def _model_descriptor(identifier: str, provider: str, location: str) -> object:
+    return CORE.ModelDescriptor(
+        id=identifier,
+        provider=provider,
+        model_name=identifier,
+        display_name=identifier,
+        availability=CORE.ModelAvailability.AVAILABLE,
+        catalog_source=CORE.ModelCatalogSource.CONFIGURED,
+        capabilities=(CORE.CapabilityProfile.STANDARD,),
+        context_window=None,
+        privacy_class=CORE.ConfidentialityLevel.INTERNAL,
+        location=CORE.ModelLocation(location),
+    )
+
+
 def test_registry_rejects_unknown_disabled_and_corrupt_agents(tmp_path: Path) -> None:
     path = tmp_path / "agents.json"
     manager = _manager(path)

@@ -93,6 +93,12 @@
 .arc-agent-facts dd { margin: 4px 0 0; overflow-wrap: anywhere; color: var(--arc-text); font-size: 10px; }
 .arc-agent-setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; color: var(--arc-text); font-size: 10px; font-weight: 700; }
 .arc-agent-setting select { min-width: 180px; padding: 8px; border: 1px solid var(--arc-line); border-radius: 7px; color: var(--arc-text); background: var(--arc-surface); }
+.arc-agent-policy { display: grid; gap: 10px; margin-top: 18px; padding: 14px; border: 1px solid var(--arc-line); border-radius: 12px; color: var(--arc-text); }
+.arc-agent-policy legend { padding: 0 6px; font-weight: 800; }
+.arc-agent-policy label { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 10px; font-weight: 700; }
+.arc-agent-policy input, .arc-agent-policy select { min-width: 210px; padding: 8px; border: 1px solid var(--arc-line); border-radius: 7px; color: var(--arc-text); background: var(--arc-surface); }
+.arc-agent-policy button { justify-self: end; padding: 9px 13px; border: 0; border-radius: 8px; color: var(--arc-primary-text); background: var(--arc-primary); font: inherit; font-weight: 800; }
+.arc-agent-policy button:disabled { cursor: not-allowed; opacity: .45; }
 .arc-card-action { padding: 8px 10px; border: 1px solid var(--arc-border); border-radius: 7px; color: var(--arc-primary); background: var(--arc-surface); font-size: 9px; font-weight: 750; }
 .arc-agent-card button.arc-card-action { cursor: pointer; }
 .arc-empty-state { display: grid; min-height: 230px; place-items: center; align-content: center; padding: 28px; border: 1px dashed rgba(32, 34, 41, 0.16); border-radius: 8px; text-align: center; }
@@ -340,8 +346,12 @@
 .arc-provider-toggle { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; color: var(--arc-text); font-size: 9px; }
 .arc-provider-status { display: flex; flex-direction: column; gap: 3px; margin: 0 0 12px; padding: 9px 10px; border-radius: 8px; color: var(--arc-muted); background: rgba(32, 34, 41, .04); font-size: 8px; }
 .arc-provider-status[data-state="connected"] { color: var(--arc-emerald); background: rgba(36, 104, 92, .08); }
+.arc-provider-status[data-state="quota_limited"] { color: var(--arc-warning); background: color-mix(in srgb, var(--arc-warning) 12%, transparent); }
 .arc-provider-status[data-state="invalid"], .arc-provider-status[data-state="unreachable"] { color: var(--arc-wine); background: rgba(132, 47, 71, .08); }
 .arc-provider-status small { color: var(--arc-muted); font-size: 7px; }
+.arc-provider-models { margin: 0 0 10px; color: var(--arc-muted); font-size: 9px; }
+.arc-provider-models summary { cursor: pointer; font-weight: 800; }
+.arc-provider-models ul { max-height: 120px; margin: 8px 0 0; padding-left: 18px; overflow: auto; }
 .arc-provider-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .arc-provider-actions > button { min-height: 36px; border: 1px solid var(--arc-line); border-radius: 9px; color: var(--arc-text); background: var(--arc-white); font-size: 8px; font-weight: 750; cursor: pointer; }
 .arc-custom-connection { display: grid; grid-template-columns: minmax(210px, 1.2fr) minmax(150px, .8fr) minmax(150px, .8fr) auto; align-items: center; gap: 9px; margin-top: 12px; padding: 14px; border: 1px dashed var(--arc-line); border-radius: 14px; background: var(--arc-cream, #fff7e8); }
@@ -774,6 +784,8 @@ html[data-arc-color-mode="dark"] .arc-capability-filters label:first-child,
 html[data-arc-color-mode="dark"] .arc-capability-filters input,
 html[data-arc-color-mode="dark"] .arc-capability-filters select { color: var(--arc-text); background: #25282f; }
 html[data-arc-color-mode="dark"] .arc-agent-modal > section { background: #20232a; }
+html[data-arc-color-mode="dark"] .arc-agent-policy input,
+html[data-arc-color-mode="dark"] .arc-agent-policy select { background: #17191e; }
 html[data-arc-color-mode="dark"] .arc-agent-checklist { background: #1d2026; }
 html[data-arc-color-mode="dark"] .arc-resource-grid article,
 html[data-arc-color-mode="dark"] .arc-system-card,

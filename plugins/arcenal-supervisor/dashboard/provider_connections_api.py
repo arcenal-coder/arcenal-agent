@@ -7,6 +7,7 @@ import os
 import sys
 import tempfile
 from datetime import datetime, timezone
+from hashlib import sha256
 from pathlib import Path
 from types import ModuleType
 from typing import Protocol, cast
@@ -42,7 +43,7 @@ class ProviderProbeResponse(BaseModel):
     """Résultat expurgé d’un test de connexion."""
 
     configured: bool
-    connection: str = Field(pattern="^(connected|invalid|missing|unreachable)$")
+    connection: str = Field(pattern="^(connected|invalid|missing|quota_limited|unreachable)$")
     message: str
     models: list[str]
     provider: str
@@ -53,6 +54,27 @@ class JsonResponse(Protocol):
     """Contrat minimal requis pour décoder une réponse HTTP."""
 
     def json(self) -> object: ...
+
+
+class ProviderDescriptorLike(Protocol):
+    id: str
+    capabilities: tuple[object, ...]
+    location: object
+    priority: int
+
+
+class ModelDescriptorLike(Protocol):
+    id: str
+    provider: str
+    catalog_source: object
+
+    def model_copy(self, *, update: dict[str, object]) -> ModelDescriptorLike: ...
+
+
+class ModelRegistryLike(Protocol):
+    def list(self) -> tuple[ModelDescriptorLike, ...]: ...
+
+    def upsert(self, model: ModelDescriptorLike) -> ModelDescriptorLike: ...
 
 
 def _definition(provider: str) -> dict[str, str]:
@@ -122,8 +144,16 @@ def _gemini_models(payload: object) -> list[str]:
     models = record.get("models")
     if not isinstance(models, list):
         return []
-    names = [cast(dict[str, object], item).get("name") for item in models if isinstance(item, dict)]
+    usable = [cast(dict[str, object], item) for item in models if _supports_generation(item)]
+    names = [item.get("name") for item in usable]
     return sorted({str(name).removeprefix("models/") for name in names if name})[:100]
+
+
+def _supports_generation(value: object) -> bool:
+    if not isinstance(value, dict):
+        return False
+    methods = cast(dict[str, object], value).get("supportedGenerationMethods")
+    return isinstance(methods, list) and "generateContent" in methods
 
 
 def _status_root() -> Path:
@@ -166,8 +196,10 @@ def _write_status(response: ProviderProbeResponse) -> None:
 
 def _result(provider: str, status: int, models: list[str]) -> ProviderProbeResponse:
     tested_at = datetime.now(timezone.utc).isoformat()
-    if status in {200, 429}:
+    if status == 200:
         return ProviderProbeResponse(provider=provider, configured=True, connection="connected", message="Connexion opérationnelle.", models=models, tested_at=tested_at)
+    if status == 429:
+        return ProviderProbeResponse(provider=provider, configured=True, connection="quota_limited", message="Le quota disponible du fournisseur est épuisé.", models=[], tested_at=tested_at)
     if status in {401, 403}:
         return ProviderProbeResponse(provider=provider, configured=True, connection="invalid", message="Le fournisseur a refusé l’authentification.", models=[], tested_at=tested_at)
     return ProviderProbeResponse(provider=provider, configured=True, connection="unreachable", message=f"Le fournisseur répond avec le code HTTP {status}.", models=[], tested_at=tested_at)
@@ -175,6 +207,50 @@ def _result(provider: str, status: int, models: list[str]) -> ProviderProbeRespo
 
 def _missing(provider: str) -> ProviderProbeResponse:
     return ProviderProbeResponse(provider=provider, configured=False, connection="missing", message="La clé ou l’adresse requise est absente.", models=[], tested_at=datetime.now(timezone.utc).isoformat())
+
+
+def _model_id(provider: str, model_name: str) -> str:
+    digest = sha256(model_name.encode("utf-8")).hexdigest()[:16]
+    return f"{provider}-{digest}"
+
+
+def _discovered_model(provider: ProviderDescriptorLike, model_name: str) -> ModelDescriptorLike:
+    core = _core()
+    capabilities = (core.CapabilityProfile.STANDARD,)
+    return cast(ModelDescriptorLike, core.ModelDescriptor(
+        id=_model_id(provider.id, model_name), provider=provider.id,
+        model_name=model_name, display_name=model_name,
+        availability=core.ModelAvailability.AVAILABLE,
+        catalog_source=core.ModelCatalogSource.DISCOVERED,
+        capabilities=capabilities, context_window=None,
+        supports_tools=core.ProviderCapability.TOOL_CALLING in provider.capabilities,
+        supports_structured_output=core.ProviderCapability.STRUCTURED_OUTPUT in provider.capabilities,
+        supports_vision=core.ProviderCapability.VISION in provider.capabilities,
+        location=provider.location, priority=provider.priority,
+    ))
+
+
+def _mark_missing_models(registry: ModelRegistryLike, provider_id: str, active_ids: frozenset[str]) -> None:
+    core = _core()
+    for model in registry.list():
+        if model.provider != provider_id or model.catalog_source is not core.ModelCatalogSource.DISCOVERED:
+            continue
+        availability = core.ModelAvailability.AVAILABLE if model.id in active_ids else core.ModelAvailability.UNAVAILABLE
+        registry.upsert(model.model_copy(update={"availability": availability}))
+
+
+def _sync_models(provider_id: str, model_names: list[str]) -> None:
+    core = _core()
+    runtime = core.FrugalRuntime(_status_root() / "frugal")
+    runtime.ensure_configured_model()
+    provider = cast(ProviderDescriptorLike | None, runtime.providers.get(provider_id))
+    if provider is None:
+        raise HTTPException(status_code=422, detail="Fournisseur absent du registre ARC.")
+    models = tuple(_discovered_model(provider, name) for name in model_names)
+    for model in models:
+        runtime.registry.upsert(model)
+    registry = cast(ModelRegistryLike, runtime.registry)
+    _mark_missing_models(registry, provider_id, frozenset(model.id for model in models))
 
 
 async def _probe(provider: str, url: str, api_key: str) -> ProviderProbeResponse:
@@ -212,4 +288,6 @@ async def test_provider(request: ProviderProbeRequest) -> ProviderProbeResponse:
     else:
         response = await _probe(request.provider, url, api_key)
     _write_status(response)
+    if response.connection == "connected" and response.models:
+        _sync_models(request.provider, response.models)
     return response
