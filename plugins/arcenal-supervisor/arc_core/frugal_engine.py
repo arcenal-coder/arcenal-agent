@@ -50,8 +50,15 @@ class FrugalAgentEngine:
             return self._finish(context, task_type, ExecutionMode.CACHE, cached[0], started, f"Cache {cached[1]} fiable")
         workflow = self._workflows.execute(context, message)
         if workflow is not None:
-            return self._finish(context, task_type, ExecutionMode.WORKFLOW, workflow, started, "Workflow actif et validé")
+            return self._execute_workflow(context, workflow, task_type, started)
         return self._execute_llm(context, message, task_type, started)
+
+    def _execute_workflow(self, context: EffectiveContext, workflow: EngineOutput, task_type: TaskType, started: float) -> EngineOutput:
+        if not workflow.usage.get("workflow_agent_prompt"):
+            return self._finish(context, task_type, ExecutionMode.WORKFLOW, workflow, started, "Workflow actif et validé")
+        output = self._execute_llm(context, workflow.response, classify_task(workflow.response), started)
+        usage = {**output.usage, "workflow_id": workflow.usage.get("workflow_id", ""), "workflow_version": workflow.usage.get("workflow_version", 1)}
+        return output.model_copy(update={"usage": usage})
 
     def _execute_llm(self, context: EffectiveContext, message: str, task_type: TaskType, started: float) -> EngineOutput:
         routing_started = perf_counter()

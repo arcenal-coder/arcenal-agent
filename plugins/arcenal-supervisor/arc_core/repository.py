@@ -8,7 +8,13 @@ import tempfile
 from pathlib import Path
 
 from .errors import AgentContractError
-from .models import AgentDefinition
+from .models import AgentDefinition, AgentHarness
+
+
+LEGACY_DIRECTIVE_FILES = ("AGENTS.md", "RULES.md", "SECURITY.md", "TOOLS.md")
+HARNESS_MIGRATION_KEY = "harness_migration"
+HARNESS_MIGRATION_VALUE = "global-v1"
+LEGACY_TRUNCATION_MARKER = "\n\n[Contenu historique complet conservé dans le fichier source.]"
 
 
 class AgentRepository:
@@ -41,3 +47,57 @@ class AgentRepository:
         except OSError as exc:
             temporary.unlink(missing_ok=True)
             raise AgentContractError("Le registre des agents ne peut pas être enregistré.") from exc
+
+
+def migrate_legacy_harness(
+    repository: AgentRepository, legacy_root: Path
+) -> tuple[AgentDefinition, ...]:
+    agents = repository.load()
+    arc = next((agent for agent in agents if agent.id == "arc"), None)
+    if arc is None or arc.metadata.get(HARNESS_MIGRATION_KEY):
+        return agents
+    harness = _legacy_harness(legacy_root) or arc.harness
+    migrated = tuple(_migrated_agent(agent, harness) for agent in agents)
+    repository.save(migrated)
+    return migrated
+
+
+def _legacy_harness(legacy_root: Path) -> AgentHarness | None:
+    context = _bounded_legacy(_read_optional(legacy_root / "CONTEXT.md"), 16_000)
+    memory = _bounded_legacy(_read_optional(legacy_root / "MEMORY.md"), 32_000)
+    directives = _bounded_legacy(_legacy_directives(legacy_root), 16_000)
+    if not context and not directives and not memory:
+        return None
+    return AgentHarness(context=context, directives=directives, memory=memory)
+
+
+def _legacy_directives(legacy_root: Path) -> str:
+    sections = tuple(
+        f"## {name}\n\n{content}"
+        for name in LEGACY_DIRECTIVE_FILES
+        if (content := _read_optional(legacy_root / name))
+    )
+    return "\n\n".join(sections)
+
+
+def _read_optional(path: Path) -> str:
+    if not path.is_file():
+        return ""
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise AgentContractError(f"Le paramètre historique {path.name} est illisible.") from exc
+
+
+def _bounded_legacy(content: str, limit: int) -> str:
+    if len(content) <= limit:
+        return content
+    available = limit - len(LEGACY_TRUNCATION_MARKER)
+    return f"{content[:available].rstrip()}{LEGACY_TRUNCATION_MARKER}"
+
+
+def _migrated_agent(agent: AgentDefinition, harness: AgentHarness) -> AgentDefinition:
+    if agent.id != "arc":
+        return agent
+    metadata = {**agent.metadata, HARNESS_MIGRATION_KEY: HARNESS_MIGRATION_VALUE}
+    return agent.model_copy(update={"harness": harness, "metadata": metadata})

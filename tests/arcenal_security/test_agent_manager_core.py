@@ -64,6 +64,68 @@ def test_registry_persists_updates_and_rejects_duplicates(tmp_path: Path) -> Non
         manager.register(CORE.default_agents()[0])
 
 
+def test_registry_persists_each_agent_harness(tmp_path: Path) -> None:
+    path = tmp_path / "agents.json"
+    manager = _manager(path)
+    harness = CORE.AgentHarness(context="Contexte ATS", directives="Directive ATS", memory="Mémoire ATS")
+
+    manager.update("ats", CORE.AgentUpdate(harness=harness))
+
+    assert _manager(path).get("ats").harness == harness
+
+
+def test_legacy_global_files_are_migrated_once_without_deletion(tmp_path: Path) -> None:
+    path = tmp_path / "agents.json"
+    legacy = tmp_path / "managed-files"
+    legacy.mkdir()
+    (legacy / "CONTEXT.md").write_text("Contexte historique", encoding="utf-8")
+    (legacy / "AGENTS.md").write_text("Directive historique", encoding="utf-8")
+    (legacy / "MEMORY.md").write_text("Mémoire historique", encoding="utf-8")
+    repository = CORE.AgentRepository(path, CORE.default_agents())
+
+    migrated = CORE.migrate_legacy_harness(repository, legacy)
+    repeated = CORE.migrate_legacy_harness(repository, legacy)
+
+    arc = next(agent for agent in migrated if agent.id == "arc")
+    assert arc.harness.context == "Contexte historique"
+    assert "Directive historique" in arc.harness.directives
+    assert arc.harness.memory == "Mémoire historique"
+    assert repeated == migrated
+    assert (legacy / "AGENTS.md").is_file()
+
+
+def test_legacy_harness_migration_rejects_an_unreadable_source(tmp_path: Path, monkeypatch) -> None:
+    source = tmp_path / "managed-files" / "CONTEXT.md"
+    source.parent.mkdir()
+    source.write_text("Contexte", encoding="utf-8")
+    original = Path.read_text
+
+    def failing_read(path: Path, *args: object, **kwargs: object) -> str:
+        if path == source:
+            raise OSError("lecture impossible")
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", failing_read)
+    repository = CORE.AgentRepository(tmp_path / "agents.json", CORE.default_agents())
+    with pytest.raises(ERRORS.AgentContractError, match="historique"):
+        CORE.migrate_legacy_harness(repository, source.parent)
+
+
+def test_legacy_harness_migration_bounds_large_files_without_deleting_them(tmp_path: Path) -> None:
+    legacy = tmp_path / "managed-files"
+    legacy.mkdir()
+    source = legacy / "CONTEXT.md"
+    source.write_text("x" * 20_000, encoding="utf-8")
+    repository = CORE.AgentRepository(tmp_path / "agents.json", CORE.default_agents())
+
+    migrated = CORE.migrate_legacy_harness(repository, legacy)
+
+    arc = next(agent for agent in migrated if agent.id == "arc")
+    assert len(arc.harness.context) <= 16_000
+    assert "complet conservé" in arc.harness.context
+    assert len(source.read_text(encoding="utf-8")) == 20_000
+
+
 def test_fixed_policy_requires_an_enabled_registered_model(tmp_path: Path) -> None:
     registry = CORE.ModelRegistry(tmp_path / "models.json")
     registry.upsert(_model_descriptor("gemini-flash", "gemini", "remote"))
@@ -135,6 +197,8 @@ def test_context_builder_applies_global_policy_and_rejects_other_apps() -> None:
     assert context.identity.user_id == "admin"
     assert context.request_context == {"ticket": "INC-42"}
     assert context.system_prompt.startswith("# Politique globale ARCenal")
+    assert "# Contexte propre à l’agent" in context.system_prompt
+    assert arc.harness.directives in context.system_prompt
     with pytest.raises(ERRORS.AgentAccessDeniedError):
         builder.build(arc, CORE.ApplicationIdentity(application_id="arcenal-ats"), None)
 

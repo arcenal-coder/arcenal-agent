@@ -75,6 +75,7 @@ import type { SystemAction } from "@/contexts/system-actions-context";
 // every admin surface (and heavy deps like xterm) up front.
 const ConfigPage = lazy(() => import("@/pages/ConfigPage"));
 const ArcenalAgentsPage = lazy(() => import("@/pages/ArcenalAgentsPage"));
+const ArcenalScheduledTasksPage = lazy(() => import("@/pages/ArcenalScheduledTasksPage"));
 const ArcenalKnowledgePage = lazy(() => import("@/pages/ArcenalKnowledgePage"));
 const ArcenalSettingsPage = lazy(() => import("@/pages/ArcenalSettingsPage"));
 const ArcenalWikiPage = lazy(() => import("@/pages/ArcenalWikiPage"));
@@ -160,6 +161,7 @@ function HomeRouteRedirect(): ReactElement {
  */
 const BUILTIN_ROUTES_CORE: Record<string, ComponentType> = {
   "/": HomeRouteRedirect,
+  "/scheduled-tasks": ArcenalScheduledTasksPage,
   "/agents": ArcenalAgentsPage,
   "/knowledge": ArcenalKnowledgePage,
   "/settings": ArcenalSettingsPage,

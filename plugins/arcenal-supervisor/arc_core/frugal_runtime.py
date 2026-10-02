@@ -9,15 +9,8 @@ from .deterministic_engine import DeterministicEngine
 from .frugal_cache import FrugalCache
 from .frugal_engine import FrugalAgentEngine
 from .frugal_metrics import FrugalMetricsRepository
-from .frugal_models import (
-    CapabilityProfile,
-    ModelAvailability,
-    ModelCatalogSource,
-    ModelDescriptor,
-    ModelLocation,
-)
+from .frugal_models import ModelLocation
 from .hermes_engine import HermesAgentEngine
-from .knowledge_models import ConfidentialityLevel
 from .model_router import ModelRegistry, ModelRouter
 from .provider_adapter import HermesProviderAdapter, ProviderExecutor
 from .provider_models import AuthenticationType, ProviderCapability, ProviderDescriptor, ProviderHealth
@@ -40,41 +33,12 @@ class FrugalRuntime:
 
     def ensure_configured_model(self) -> None:
         self.ensure_providers()
-        if self.registry.list():
-            return
-        configured = _configured_model(self.configuration)
-        if configured is not None:
-            self.registry.upsert(configured)
 
     def ensure_providers(self) -> None:
         existing = {item.id for item in self.providers.list()}
         for provider in _default_providers(self.configuration):
             if provider.id not in existing:
                 self.providers.upsert(provider)
-        configured = _configured_provider(self.configuration)
-        if configured is not None and configured.id not in existing:
-            self.providers.upsert(configured)
-
-
-def _configured_model(configuration: ArcRuntimeConfiguration) -> ModelDescriptor | None:
-    selection = configuration.model_selection()
-    if selection is None:
-        return None
-    provider, model = selection
-    local = provider.casefold() in {"ollama", "vllm", "local"}
-    capabilities = (CapabilityProfile.LIGHT, CapabilityProfile.STANDARD, CapabilityProfile.ADVANCED, CapabilityProfile.SPECIALIZED)
-    return ModelDescriptor(id="hermes-current", provider=provider.casefold(), model_name=model, display_name=model, availability=ModelAvailability.AVAILABLE, catalog_source=ModelCatalogSource.CONFIGURED, capabilities=capabilities, context_window=128_000, supports_tools=True, supports_structured_output=True, privacy_class=ConfidentialityLevel.ADMIN, location=ModelLocation.LOCAL if local else ModelLocation.REMOTE, priority=500)
-
-
-def _configured_provider(configuration: ArcRuntimeConfiguration) -> ProviderDescriptor | None:
-    model = _configured_model(configuration)
-    if model is None:
-        return None
-    known = {provider.id for provider in _default_providers(configuration)}
-    if model.provider in known:
-        return None
-    capabilities = (ProviderCapability.CHAT, ProviderCapability.STREAMING, ProviderCapability.STRUCTURED_OUTPUT, ProviderCapability.TOOL_CALLING, ProviderCapability.TOKEN_USAGE)
-    return ProviderDescriptor(id=model.provider, name=model.provider, type="hermes-compatible", enabled=True, base_url="", authentication_type=AuthenticationType.BEARER, location=model.location, capabilities=capabilities, priority=500)
 
 
 def _default_providers(configuration: ArcRuntimeConfiguration) -> tuple[ProviderDescriptor, ...]:

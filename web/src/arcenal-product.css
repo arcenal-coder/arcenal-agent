@@ -21,7 +21,7 @@
 .arc-primary-brand { display: flex; min-width: 0; align-items: center; gap: 12px; }
 .arc-primary-brand img { width: auto; max-width: 150px; height: 46px; object-fit: contain; }
 
-.arc-primary-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 4px; border: 1px solid var(--arc-line); border-radius: 14px; background: var(--arc-ivory); }
+.arc-primary-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 4px; border: 1px solid var(--arc-line); border-radius: 14px; background: var(--arc-ivory); }
 .arc-primary-tab { display: flex; min-width: 0; min-height: 48px; align-items: center; justify-content: center; gap: 9px; border-radius: 7px; color: var(--arc-muted); transition: 160ms ease; }
 .arc-primary-tab:hover { color: var(--arc-ink); background: rgba(255, 255, 255, 0.7); }
 .arc-primary-tab[aria-current="page"] { color: var(--arc-primary-text); background: var(--arc-primary); box-shadow: 0 8px 18px color-mix(in srgb, var(--arc-primary) 24%, transparent); }
@@ -680,6 +680,14 @@
 .arc-workflow-card p { color: var(--arc-text); font-size: 9px; }
 .arc-workflow-card footer { justify-content: flex-start; margin-top: 10px; }
 .arc-workflow-card button svg { width: 12px; }
+.arc-scheduled-tasks { display: grid; gap: 18px; }
+.arc-task-composer, .arc-task-inventory { display: grid; gap: 14px; padding: 18px; border: 1px solid var(--arc-line); border-radius: 14px; background: var(--arc-white); box-shadow: 0 12px 34px rgba(32, 34, 41, .045); }
+.arc-task-composer > header, .arc-task-inventory > header { display: flex; align-items: center; gap: 12px; }
+.arc-task-composer > header > span { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 11px; color: var(--arc-primary-text); background: var(--arc-primary); }
+.arc-task-composer h2, .arc-task-inventory h2 { margin: 2px 0; color: var(--arc-ink); font-family: var(--arc-font-display); font-size: 20px; font-weight: 500; }
+.arc-task-composer p, .arc-task-composer small, .arc-task-inventory small { margin: 0; color: var(--arc-muted); font-size: 9px; }
+.arc-task-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.arc-task-composer .arc-primary-button { justify-self: start; }
 .arc-document-workflow { display: grid; gap: 10px; }
 .arc-document-workflow > span { display: flex; align-items: center; gap: 6px; }
 .arc-document-workflow > span svg { width: 13px; color: var(--arc-wine); }
@@ -764,7 +772,9 @@ html[data-arc-color-mode="dark"] .arc-memory-catalog article,
 html[data-arc-color-mode="dark"] .arc-memory-detail,
 html[data-arc-color-mode="dark"] .arc-memory-empty { background: #1d2026; }
 html[data-arc-color-mode="dark"] .arc-frugal-metrics article,
-html[data-arc-color-mode="dark"] .arc-frugal-panel { background: #1d2026; }
+html[data-arc-color-mode="dark"] .arc-frugal-panel,
+html[data-arc-color-mode="dark"] .arc-task-composer,
+html[data-arc-color-mode="dark"] .arc-task-inventory { background: #1d2026; }
 html[data-arc-color-mode="dark"] .arc-appearance,
 html[data-arc-color-mode="dark"] .arc-lda-register,
 html[data-arc-color-mode="dark"] .arc-lda-toolbar,
@@ -824,6 +834,7 @@ html[data-arc-color-mode="dark"] .arc-onboarding-checks article { background: #1
   .arc-agent-editor, .arc-agent-capability-grid { grid-template-columns: 1fr; }
   .arc-agent-editor > .arc-field { grid-column: 1 / -1; }
   .arc-provider-grid, .arc-autonomy-grid, .arc-custom-connection, .arc-access-form, .arc-capability-list, .arc-capability-filters { grid-template-columns: 1fr; }
+  .arc-task-grid { grid-template-columns: 1fr; }
   .arc-resource-grid, .arc-system-grid { grid-template-columns: 1fr; }
   .arc-backup-summary { grid-template-columns: auto 1fr; }
   .arc-backup-actions { grid-template-columns: 1fr; }

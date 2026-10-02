@@ -5,9 +5,9 @@ import { emptyAgentDraft } from "./arcenal-agents";
 
 vi.mock("./api", () => ({
   api: {
-    createProfile: vi.fn(), deleteProfile: vi.fn(), getArcenalAgentMemory: vi.fn(),
+    createProfile: vi.fn(), deleteProfile: vi.fn(), getArcenalAgentHarness: vi.fn(),
     getAuxiliaryModels: vi.fn(), getModelOptions: vi.fn(), getProfileSoul: vi.fn(),
-    getSkills: vi.fn(), getToolsets: vi.fn(), saveArcenalAgentMemory: vi.fn(),
+    getSkills: vi.fn(), getToolsets: vi.fn(), saveArcenalAgentHarness: vi.fn(),
     setModelAssignment: vi.fn(), setProfileModel: vi.fn(), toggleSkill: vi.fn(),
     toggleToolset: vi.fn(), updateProfileDescription: vi.fn(), updateProfileSoul: vi.fn(),
   },
@@ -24,13 +24,16 @@ describe("administration des agents spécialisés", () => {
     vi.mocked(api.getSkills).mockResolvedValue(SKILLS);
     vi.mocked(api.getToolsets).mockResolvedValue(TOOLS);
     vi.mocked(api.getProfileSoul).mockResolvedValue({ content: "# Identité\n\nAnalyste\n\n# Mission\n\nVeiller", exists: true });
-    vi.mocked(api.getArcenalAgentMemory).mockResolvedValue({ content: "Mémoire", profile: "veille", updated_at: null });
+    vi.mocked(api.getArcenalAgentHarness).mockResolvedValue({ context: "Contexte", directives: "Directives", memory: "Mémoire", profile: "veille" });
     vi.mocked(api.getAuxiliaryModels).mockResolvedValue({ main: { model: "main", provider: "openai" }, tasks: [{ base_url: "", model: "small", provider: "openai", task: "" }] });
   });
 
   it("charge une fiche isolée avec ses permissions effectives", async () => {
     const result = await loadSpecializedAgent(PROFILE);
     expect(result.draft.identity).toBe("Analyste");
+    expect(result.draft.context).toBe("Contexte");
+    expect(result.draft.directives).toBe("Directives");
+    expect(result.draft.memory).toBe("Mémoire");
     expect(result.draft.skills).toEqual(["rag"]);
     expect(result.draft.toolsets).toEqual([]);
   });
@@ -40,6 +43,7 @@ describe("administration des agents spécialisés", () => {
     await createSpecializedAgent(draft);
     expect(api.createProfile).toHaveBeenCalledWith(expect.objectContaining({ name: "veille" }));
     expect(api.toggleToolset).toHaveBeenCalledWith("web", true, "veille");
+    expect(api.saveArcenalAgentHarness).toHaveBeenCalledWith("veille", expect.objectContaining({ context: "", directives: "", memory: "" }));
   });
 
   it("réinitialise le modèle secondaire lorsqu’il est vidé", async () => {

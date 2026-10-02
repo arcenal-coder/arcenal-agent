@@ -41,14 +41,14 @@ export async function loadAgentCatalog(profile?: string): Promise<AgentCatalog> 
 }
 
 export async function loadSpecializedAgent(profile: ProfileInfo): Promise<LoadedAgent> {
-  const [catalog, soul, memory, auxiliary] = await Promise.all([
+  const [catalog, soul, harness, auxiliary] = await Promise.all([
     loadAgentCatalog(profile.name),
     api.getProfileSoul(profile.name),
-    api.getArcenalAgentMemory(profile.name),
+    api.getArcenalAgentHarness(profile.name),
     api.getAuxiliaryModels(profile.name),
   ]);
   const secondary = secondaryAssignment(auxiliary);
-  const draft = draftFromProfile(profile, soul.content, memory.content, secondary.model);
+  const draft = draftFromProfile(profile, soul.content, harness, secondary.model);
   return { catalog, draft: withEnabledCapabilities(draft, catalog) };
 }
 
@@ -70,7 +70,7 @@ export async function saveSpecializedAgent(draft: AgentDraft, catalog: AgentCata
     api.updateProfileDescription(clean.name, clean.mission),
     api.setProfileModel(clean.name, clean.provider, clean.mainModel),
     api.updateProfileSoul(clean.name, agentSoul(clean)),
-    api.saveArcenalAgentMemory(clean.name, clean.memory),
+    api.saveArcenalAgentHarness(clean.name, agentHarness(clean)),
     saveSecondaryModel(clean),
   ]);
   await synchronizeCapabilities(clean, catalog);
@@ -89,7 +89,7 @@ function createPayload(draft: AgentDraft): Parameters<typeof api.createProfile>[
 async function persistAgentIdentity(draft: AgentDraft): Promise<void> {
   await Promise.all([
     api.updateProfileSoul(draft.name, agentSoul(draft)),
-    api.saveArcenalAgentMemory(draft.name, draft.memory),
+    api.saveArcenalAgentHarness(draft.name, agentHarness(draft)),
     saveSecondaryModel(draft),
   ]);
 }
@@ -121,11 +121,17 @@ async function synchronizeToolsets(profile: string, selected: string[], catalog:
   await Promise.all(changes.map((toolset) => api.toggleToolset(toolset.name, selected.includes(toolset.name), profile)));
 }
 
-function draftFromProfile(profile: ProfileInfo, soul: string, memory: string, secondaryModel: string): AgentDraft {
+function agentHarness(draft: AgentDraft): { context: string; directives: string; memory: string } {
+  return { context: draft.context, directives: draft.directives, memory: draft.memory };
+}
+
+function draftFromProfile(profile: ProfileInfo, soul: string, harness: { context: string; directives: string; memory: string }, secondaryModel: string): AgentDraft {
   return {
+    context: harness.context,
+    directives: harness.directives,
     identity: extractAgentIdentity(soul),
     mainModel: profile.model ?? "",
-    memory,
+    memory: harness.memory,
     mission: profile.description,
     name: profile.name,
     provider: profile.provider ?? "openrouter",

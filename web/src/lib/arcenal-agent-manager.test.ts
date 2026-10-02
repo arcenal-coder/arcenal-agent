@@ -28,12 +28,21 @@ describe("registre ARC Core", () => {
     vi.mocked(fetchJSON).mockResolvedValue({ id: "veille" });
     const agent: ManagedAgent = {
       application: "arcenal-system", autonomy_level: "controlled", description: "Veille",
-      enabled: true, id: "veille", knowledge_scopes: ["regulatory"], metadata: {},
+      enabled: true, harness: { context: "Contexte", directives: "Directives", memory: "" }, id: "veille", knowledge_scopes: ["regulatory"], metadata: {},
       model_policy: { allowed_models: [], allowed_providers: [], denied_providers: [], local_only: false, local_preferred: true, mode: "auto" },
       name: "Veille", permissions: [], role: "analyst", system_instructions: [{ content: "Veiller", id: "mission" }], tools: [],
     };
     await createManagedAgent(agent);
     expect(fetchJSON).toHaveBeenCalledWith(expect.stringContaining("registry"), expect.objectContaining({ method: "POST" }));
+  });
+
+  it("met à jour le harnais propre à un agent", async () => {
+    vi.mocked(fetchJSON).mockResolvedValue({ id: "ats" });
+    const harness = { context: "Contexte ATS", directives: "Directives ATS", memory: "Mémoire ATS" };
+
+    await updateManagedAgent("ats", { harness });
+
+    expect(fetchJSON).toHaveBeenCalledWith(expect.stringContaining("/ats"), expect.objectContaining({ body: JSON.stringify({ harness }) }));
   });
 
   it("construit une politique automatique sans pseudo-modèle", () => {

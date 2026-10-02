@@ -12,7 +12,7 @@ from typing import Any, Protocol, TypedDict
 
 from tools.registry import tool_error, tool_result
 
-from .arc_core import runtime_configuration
+from .arc_core import AgentHarness, runtime_configuration
 from .security.broker_client import BrokerUnavailableError, execute_readonly
 
 
@@ -95,7 +95,7 @@ def context_search(args: dict[str, Any], **_: Any) -> str:
     if len(query) < 2:
         return tool_error("La recherche de contexte doit contenir au moins deux caractères.")
     try:
-        passages = _supervisor_module().managed_files.search_context(query)
+        passages = _matching_agent_sections(_active_harness().context, query, "agent.context")
         return tool_result(query=query, passages=passages)
     except Exception as exc:
         return tool_error(f"Recherche dans le contexte impossible : {exc}")
@@ -107,10 +107,38 @@ def memory_search(args: dict[str, Any], **_: Any) -> str:
     if len(query) < 2:
         return tool_error("La recherche mémoire doit contenir au moins deux caractères.")
     try:
-        entries = _supervisor_module().managed_files.list_memory_entries(query)
+        entries = _matching_agent_sections(_active_harness().memory, query, "agent.memory")
         return tool_result(query=query, entries=entries[:10])
     except Exception as exc:
         return tool_error(f"Recherche dans la mémoire impossible : {exc}")
+
+
+def _active_harness() -> AgentHarness:
+    from hermes_cli.profiles import get_active_profile_name
+    from hermes_constants import get_hermes_home
+    from .arc_core import AgentRepository, default_agents, migrate_legacy_harness
+
+    home = get_hermes_home()
+    profile = get_active_profile_name() or "default"
+    if profile != "default":
+        root = home if home.name == profile else home / "profiles" / profile
+        return AgentHarness(context=_agent_file(root / "CONTEXT.md"), directives=_agent_file(root / "DIRECTIVES.md"), memory=_agent_file(root / "memories" / "MEMORY.md"))
+    repository = AgentRepository(home / "arcenal" / "agents.json", default_agents())
+    agents = migrate_legacy_harness(repository, home / "arcenal" / "managed-files")
+    return next(agent.harness for agent in agents if agent.id == "arc")
+
+
+def _agent_file(path: Path) -> str:
+    if not path.is_file():
+        return ""
+    return path.read_text(encoding="utf-8").strip()
+
+
+def _matching_agent_sections(content: str, query: str, source: str) -> list[dict[str, str]]:
+    normalized = query.casefold()
+    paragraphs = (section.strip() for section in re.split(r"\n\s*\n", content))
+    matches = (section for section in paragraphs if normalized in section.casefold())
+    return [{"content": section, "source": source} for section in matches][:10]
 
 
 def access_catalog(args: dict[str, Any], **_: Any) -> str:

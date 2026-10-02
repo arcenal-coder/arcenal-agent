@@ -4,11 +4,12 @@ import { agentSoul, emptyAgentDraft, extractAgentIdentity, secondaryAssignment, 
 
 describe("gouvernance des agents ARCenal", () => {
   it("normalise un agent complet sans doublons de permissions", () => {
-    const draft = validateAgentDraft({ ...emptyAgentDraft(), identity: "Analyste", mainModel: "gpt-test", mission: "Surveiller la conformité", name: "Veille réglementaire", skills: ["rag", "rag"], toolsets: ["web", "web"] });
+    const draft = validateAgentDraft({ ...emptyAgentDraft(), context: "  contexte  ", directives: "  directives  ", identity: "Analyste", mainModel: "gpt-test", memory: "  mémoire  ", mission: "Surveiller la conformité", name: "Veille réglementaire", skills: ["rag", "rag"], toolsets: ["web", "web"] });
 
     expect(draft.name).toBe("veille-reglementaire");
     expect(draft.skills).toEqual(["rag"]);
     expect(draft.toolsets).toEqual(["web"]);
+    expect({ context: draft.context, directives: draft.directives, memory: draft.memory }).toEqual({ context: "contexte", directives: "directives", memory: "mémoire" });
   });
 
   it("refuse une mission ou un modèle absent", () => {

@@ -152,6 +152,21 @@ def test_workflow_runs_without_llm_then_exception_falls_back(tmp_path: Path) -> 
     assert llm.calls == 1
 
 
+def test_agent_prompt_workflow_delegates_to_the_selected_agent_model(tmp_path: Path) -> None:
+    llm = CountingEngine()
+    engine, _registry, store, _metrics = _runtime_parts(tmp_path, llm)
+    now = datetime.now(timezone.utc)
+    workflow = CORE.AutomationWorkflow(id="incident", name="Incident", description="Analyse un incident.", status=CORE.WorkflowStatus.ACTIVE, agent_id="arc", trigger="incident déclaré", steps=(CORE.WorkflowStep(id="prompt", operation="agent_prompt", template="Analyse le serveur"),), autonomy="controlled", created_at=now, updated_at=now, approved_by="admin")
+    store.save_workflow(workflow)
+
+    output = engine.execute(_context(), "incident déclaré")
+
+    assert output.response == "Réponse Analyse le serveur"
+    assert output.usage["workflow_id"] == "incident"
+    assert output.usage["execution_mode"] == "llm"
+    assert llm.calls == 1
+
+
 def test_workflow_cannot_escalate_permissions_or_tools(tmp_path: Path) -> None:
     store = CORE.AutomationStore(tmp_path)
     now = datetime.now(timezone.utc)

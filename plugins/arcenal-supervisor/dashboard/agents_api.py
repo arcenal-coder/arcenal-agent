@@ -53,6 +53,18 @@ class AgentMemoryResponse(BaseModel):
     updated_at: str | None
 
 
+class ProfileHarnessWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    context: str = Field(default="", max_length=16_000)
+    directives: str = Field(default="", max_length=16_000)
+    memory: str = Field(default="", max_length=32_000)
+
+
+class ProfileHarnessResponse(ProfileHarnessWrite):
+    profile: str
+
+
 class AgentQueryRequest(BaseModel):
     """Message applicatif borné, sans politique contrôlée par le client."""
 
@@ -76,6 +88,14 @@ class AgentInstructionRequest(BaseModel):
     content: str = Field(min_length=1, max_length=8_000)
 
 
+class AgentHarnessRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    context: str = Field(default="", max_length=16_000)
+    directives: str = Field(default="", max_length=16_000)
+    memory: str = Field(default="", max_length=32_000)
+
+
 class AgentModelPolicyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
@@ -97,6 +117,7 @@ class AgentCreateRequest(BaseModel):
     description: str = Field(min_length=1, max_length=500)
     role: str = Field(min_length=1, max_length=80)
     application: str = Field(pattern=r"^[a-z0-9][a-z0-9-]{0,63}$")
+    harness: AgentHarnessRequest = Field(default_factory=AgentHarnessRequest)
     system_instructions: list[AgentInstructionRequest] = Field(min_length=1)
     permissions: list[str] = Field(default_factory=list)
     tools: list[str] = Field(default_factory=list)
@@ -112,6 +133,7 @@ class AgentUpdateRequest(BaseModel):
 
     autonomy_level: Literal["automatic", "controlled", "approval_required"] | None = None
     enabled: bool | None = None
+    harness: AgentHarnessRequest | None = None
     model_policy: AgentModelPolicyRequest | None = None
 
 
@@ -123,6 +145,7 @@ def _registry_path() -> Path:
 
 def _manager():
     repository = CORE.AgentRepository(_registry_path(), CORE.default_agents())
+    CORE.migrate_legacy_harness(repository, _registry_path().parent / "managed-files")
     runtime = _frugal_runtime()
     return CORE.AgentManager(repository, runtime.registry)
 
@@ -140,6 +163,7 @@ def _agent_definition(request: AgentCreateRequest):
     return CORE.AgentDefinition(
         id=request.id, name=request.name, description=request.description,
         role=request.role, application=request.application, enabled=request.enabled,
+        harness=CORE.AgentHarness(**request.harness.model_dump()),
         tools=tuple(request.tools), knowledge_scopes=tuple(request.knowledge_scopes), metadata=request.metadata,
         autonomy_level=CORE.AutonomyLevel(request.autonomy_level), model_policy=policy,
         permissions=permissions, system_instructions=instructions,
@@ -159,8 +183,9 @@ def _model_policy(request: AgentModelPolicyRequest):
 
 def _agent_update(request: AgentUpdateRequest):
     autonomy = CORE.AutonomyLevel(request.autonomy_level) if request.autonomy_level else None
+    harness = CORE.AgentHarness(**request.harness.model_dump()) if request.harness else None
     policy = _model_policy(request.model_policy) if request.model_policy else None
-    return CORE.AgentUpdate(autonomy_level=autonomy, enabled=request.enabled, model_policy=policy)
+    return CORE.AgentUpdate(autonomy_level=autonomy, enabled=request.enabled, harness=harness, model_policy=policy)
 
 
 def _audit_writer(event: str, actor: str, details: dict[str, object]) -> object:
@@ -216,6 +241,51 @@ def _memory_path(name: str) -> Path:
     return path
 
 
+def _harness_paths(name: str) -> dict[str, Path]:
+    root = _profile_dir(name).resolve()
+    paths = {
+        "context": root / "CONTEXT.md",
+        "directives": root / "DIRECTIVES.md",
+        "memory": root / "memories" / "MEMORY.md",
+    }
+    if any(root not in path.resolve().parents for path in paths.values()):
+        raise HTTPException(status_code=422, detail="Chemin de harnais invalide.")
+    return paths
+
+
+def _read_profile_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8") if path.is_file() else ""
+    except (OSError, UnicodeDecodeError) as exc:
+        raise HTTPException(status_code=500, detail="Paramètre de l’agent illisible.") from exc
+
+
+def _write_profile_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(content)
+        os.replace(temporary, path)
+        path.chmod(0o600)
+    except OSError as exc:
+        temporary.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail="Paramètre de l’agent impossible à enregistrer.") from exc
+
+
+def _read_harness(name: str) -> ProfileHarnessResponse:
+    paths = _harness_paths(name)
+    return ProfileHarnessResponse(profile=name, **{key: _read_profile_text(path) for key, path in paths.items()})
+
+
+def _write_harness(name: str, payload: ProfileHarnessWrite) -> ProfileHarnessResponse:
+    paths = _harness_paths(name)
+    for key, path in paths.items():
+        _write_profile_text(path, getattr(payload, key))
+    return _read_harness(name)
+
+
 def _read_memory(name: str) -> AgentMemoryResponse:
     path = _memory_path(name)
     try:
@@ -251,6 +321,16 @@ def get_agent_memory(name: str) -> AgentMemoryResponse:
 @router.put("/{name}/memory", response_model=AgentMemoryResponse)
 def update_agent_memory(name: str, request: AgentMemoryUpdate) -> AgentMemoryResponse:
     return _write_memory(name, request.content)
+
+
+@router.get("/{name}/harness", response_model=ProfileHarnessResponse)
+def get_profile_harness(name: str) -> ProfileHarnessResponse:
+    return _read_harness(name)
+
+
+@router.put("/{name}/harness", response_model=ProfileHarnessResponse)
+def update_profile_harness(name: str, request: ProfileHarnessWrite) -> ProfileHarnessResponse:
+    return _write_harness(name, request)
 
 
 @router.get("/registry")

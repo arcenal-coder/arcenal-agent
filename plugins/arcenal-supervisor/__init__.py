@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import os
-from typing import Any
+from collections.abc import Mapping
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .arc_core import AgentHarness
 
 from .capabilities import record_usage
 
@@ -30,48 +34,8 @@ from .tools import (
 )
 
 
-ARC_SYSTEM_PROMPT = """Tu es ARC, l’architecte et superviseur d’ARCenal Système.
-Tu n’es pas Hermes : Hermes Agent est ton moteur technique amont, maintenu
-séparément pour faciliter les mises à jour.
-
-Ta mission principale est d’administrer, superviser et maintenir le serveur
-YunoHost sur lequel tu es installé. Pour toute demande liée au serveur :
-- commence par observer l’état réel avec les outils ARCenal disponibles ;
-- utilise arcenal_yunohost_query pour les données natives YunoHost ;
-- distingue clairement les faits mesurés, les hypothèses et les recommandations ;
-- privilégie les mécanismes officiels YunoHost pour les applications, services,
-  permissions, sauvegardes, diagnostics et mises à niveau ;
-- propose un plan avant toute modification et vérifie le résultat après action ;
-- prépare les opérations sensibles dans la conversation, mais réserve leur
-  confirmation et leur exécution au panneau ARC authentifié ;
-- ne prétends jamais avoir exécuté une action qu’un outil n’a pas confirmée.
-
-Pour les questions documentaires, recherche d’abord dans le coffre ARCenal.
-Chaque réponse issue du RAG cite la référence, la version et le statut de la
-source. Seuls les documents au statut Applicable constituent la LDA et le wiki
-officiels ; une note en révision ne doit jamais être présentée comme publiée.
-
-Ta mission secondaire est d’assister les applications ARCenal avec des agents,
-des compétences et des mémoires spécialisées. Les futurs échanges applicatifs
-doivent respecter AACP/1 et le principe du moindre privilège. Aucun connecteur
-ne doit être inventé ou considéré actif sans déclaration et autorisation.
-Avant d’utiliser un compte ou une API métier, consulte le coffre avec
-arcenal_access_catalog. Respecte l’autonomie propre au service et référence
-le secret uniquement par sa variable d’environnement : ne demande, n’affiche
-et ne journalise jamais sa valeur.
-
-Pour assurer la continuité entre les sessions, consulte arcenal_memory_search
-avant de répondre sur une décision, une préférence, une convention, un projet
-ou une action durable dont le contexte courant ne fournit pas la certitude.
-
-Tu t’adresses en français par défaut, avec des réponses accessibles à un
-administrateur non développeur. Tu peux donner les détails techniques utiles,
-mais tu conduis d’abord vers un diagnostic, une décision et un résultat clair.
-"""
-
-DIRECTIVES_PROMPT_MAX_CHARS = 2_600
-DIRECTIVE_EXCERPT_MAX_CHARS = 560
-MEMORY_PROMPT_MAX_CHARS = 2_000
+HARNESS_PROMPT_MAX_CHARS = 4_000
+HARNESS_SECTION_MAX_CHARS = 1_250
 
 
 class PromptBudgetError(ValueError):
@@ -91,43 +55,63 @@ def _bounded_excerpt(content: str, max_chars: int, continuation: str) -> str:
     return f"{clipped}\n{continuation}"
 
 
-def _directives_prompt(_session_info: Mapping[str, Any]) -> str:
-    """Fige les directives administrées dans chaque nouvelle conversation."""
-    from .tools import _supervisor_module
-
-    sections: list[str] = []
-    for file_id in ("agents", "rules", "security", "tools"):
-        detail = _supervisor_module().managed_files.read_managed_file(file_id)
-        content = _bounded_excerpt(
-            str(detail["content"]),
-            DIRECTIVE_EXCERPT_MAX_CHARS,
-            "[Suite disponible via arcenal_context_search]",
-        )
-        if content:
-            sections.append(f"## {detail['file']['filename']}\n{content}")
-    prompt = "# Directives ARCenal administrées\n" + "\n\n".join(sections)
-    if not sections:
-        return ""
-    return _bounded_excerpt(
-        prompt,
-        DIRECTIVES_PROMPT_MAX_CHARS,
-        "[Directives complètes accessibles par recherche]",
+def _agent_harness_prompt(session_info: Mapping[str, Any]) -> str:
+    profile_name = str(session_info.get("profile_name") or "default")
+    harness = _harness_for_profile(profile_name)
+    sections = (
+        _harness_section("Contexte", harness.context),
+        _harness_section("Directives", harness.directives),
+        _harness_section("Mémoire", harness.memory),
     )
-
-
-def _memory_prompt(_session_info: Mapping[str, Any]) -> str:
-    """Fige un extrait borné de la mémoire durable dans la conversation."""
-    from .tools import _supervisor_module
-
-    detail = _supervisor_module().managed_files.read_managed_file("memory")
-    content = str(detail["content"]).strip()
+    content = "\n\n".join(section for section in sections if section)
     if not content:
         return ""
-    return "# Mémoire durable ARCenal\n" + _bounded_excerpt(
-        content,
-        MEMORY_PROMPT_MAX_CHARS - 28,
-        "[Suite disponible via arcenal_memory_search]",
-    )
+    return _bounded_excerpt(content, HARNESS_PROMPT_MAX_CHARS, "[Harnais agent tronqué]")
+
+
+def _harness_for_profile(profile_name: str) -> AgentHarness:
+    from hermes_constants import get_hermes_home
+    from .arc_core import AgentHarness, AgentRepository, default_agents, migrate_legacy_harness
+
+    home = get_hermes_home()
+    profile_harness = _profile_harness(home, profile_name)
+    if profile_harness is not None:
+        return profile_harness
+    repository = AgentRepository(home / "arcenal" / "agents.json", default_agents())
+    agents = migrate_legacy_harness(repository, home / "arcenal" / "managed-files")
+    expected = "arc" if profile_name == "default" else profile_name
+    agent = next((item for item in agents if item.metadata.get("profile") == profile_name or item.id == expected), None)
+    return agent.harness if agent is not None else AgentHarness()
+
+
+def _profile_harness(home: Path, profile_name: str) -> AgentHarness | None:
+    from .arc_core import AgentHarness
+
+    if profile_name == "default":
+        return None
+    root = home if home.name == profile_name else home / "profiles" / profile_name
+    values = {
+        "context": _read_profile_parameter(root / "CONTEXT.md"),
+        "directives": _read_profile_parameter(root / "DIRECTIVES.md"),
+        "memory": _read_profile_parameter(root / "memories" / "MEMORY.md"),
+    }
+    return AgentHarness(**values) if any(values.values()) else None
+
+
+def _read_profile_parameter(path: Path) -> str:
+    if not path.is_file():
+        return ""
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise RuntimeError(f"Le paramètre d’agent {path.name} est illisible.") from exc
+
+
+def _harness_section(title: str, content: str) -> str:
+    if not content.strip():
+        return ""
+    excerpt = _bounded_excerpt(content, HARNESS_SECTION_MAX_CHARS, "[Suite du paramètre non injectée]")
+    return f"# {title} propre à l’agent\n\n{excerpt}"
 
 
 def _record_tool_usage(
@@ -159,22 +143,10 @@ def register(ctx) -> None:
     """Enregistre les outils sans modifier le cœur commun Hermes."""
     _register_application_auth(ctx)
     ctx.register_system_prompt_section(
-        id="arcenal.identity",
-        content=ARC_SYSTEM_PROMPT,
+        id="arcenal.harness",
+        content=_agent_harness_prompt,
         position="after_memory",
-        max_chars=3000,
-    )
-    ctx.register_system_prompt_section(
-        id="arcenal.directives",
-        content=_directives_prompt,
-        position="after_memory",
-        max_chars=DIRECTIVES_PROMPT_MAX_CHARS,
-    )
-    ctx.register_system_prompt_section(
-        id="arcenal.memory",
-        content=_memory_prompt,
-        position="after_memory",
-        max_chars=MEMORY_PROMPT_MAX_CHARS,
+        max_chars=HARNESS_PROMPT_MAX_CHARS,
     )
     ctx.register_hook("post_tool_call", _record_tool_usage)
     for name, schema, handler, emoji in (

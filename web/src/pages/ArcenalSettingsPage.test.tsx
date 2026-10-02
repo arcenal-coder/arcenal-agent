@@ -9,7 +9,6 @@ const apiMocks = vi.hoisted(() => ({
   getModelOptions: vi.fn(),
   saveArcenalConfiguration: vi.fn(),
   setArcenalSecret: vi.fn(),
-  setModelAssignment: vi.fn(),
   testArcenalProvider: vi.fn(),
 }));
 
@@ -45,7 +44,6 @@ beforeEach(() => {
   apiMocks.getArcenalProviderStatuses.mockResolvedValue({ providers: {} });
   apiMocks.getModelOptions.mockResolvedValue(MODELS);
   apiMocks.saveArcenalConfiguration.mockResolvedValue({ ok: true });
-  apiMocks.setModelAssignment.mockResolvedValue({ ok: true });
 });
 
 afterEach(cleanup);
@@ -57,36 +55,29 @@ async function geminiCard(): Promise<HTMLElement> {
 }
 
 describe("paramètres des fournisseurs ARC", () => {
-  it("synchronise le modèle natif ARC avec le moteur conversationnel", async () => {
+  it("enregistre uniquement la connexion du fournisseur", async () => {
     render(<ArcenalSettingsPage />);
     const card = await geminiCard();
-    const mainModel = within(card).getByLabelText("Modèle principal");
-    fireEvent.change(mainModel, { target: { value: "gemini-3.6-flash" } });
     fireEvent.click(within(card).getByRole("button", { name: "Mettre à jour" }));
-    await waitFor(() => expect(apiMocks.setModelAssignment).toHaveBeenCalledWith({
-      base_url: "https://generativelanguage.googleapis.com/v1beta",
-      model: "gemini-3.6-flash",
-      provider: "gemini",
-      scope: "main",
+    await waitFor(() => expect(apiMocks.saveArcenalConfiguration).toHaveBeenCalledWith({
+      providers: { gemini: { base_url: "https://generativelanguage.googleapis.com/v1beta", enabled: true } },
     }));
+    expect(within(card).queryByLabelText("Modèle principal")).toBeNull();
   });
 
-  it("refuse le pseudo-modèle auto pour un fournisseur direct", async () => {
+  it("affiche le catalogue comme une information attribuable aux agents", async () => {
+    render(<ArcenalSettingsPage />);
+    const card = await geminiCard();
+    expect(within(card).getByText("Les modèles sont attribués dans le harnais de chaque agent.")).toBeTruthy();
+    expect(within(card).getByText("1 modèle disponible")).toBeTruthy();
+  });
+
+  it("propage l’échec de la connexion sans annoncer une disponibilité", async () => {
+    apiMocks.saveArcenalConfiguration.mockRejectedValue(new Error("Connexion indisponible"));
     render(<ArcenalSettingsPage />);
     const card = await geminiCard();
     fireEvent.click(within(card).getByRole("button", { name: "Mettre à jour" }));
-    expect((await screen.findByRole("alert")).textContent).toContain("modèle précis");
-    expect(apiMocks.saveArcenalConfiguration).not.toHaveBeenCalled();
-    expect(apiMocks.setModelAssignment).not.toHaveBeenCalled();
-  });
-
-  it("propage l’échec du moteur sans annoncer une connexion disponible", async () => {
-    apiMocks.setModelAssignment.mockRejectedValue(new Error("Modèle indisponible"));
-    render(<ArcenalSettingsPage />);
-    const card = await geminiCard();
-    fireEvent.change(within(card).getByLabelText("Modèle principal"), { target: { value: "gemini-3.6-flash" } });
-    fireEvent.click(within(card).getByRole("button", { name: "Mettre à jour" }));
-    expect((await screen.findByRole("alert")).textContent).toContain("Modèle indisponible");
+    expect((await screen.findByRole("alert")).textContent).toContain("Connexion indisponible");
     expect(screen.queryByText("Google Gemini est disponible pour ARC.")).toBeNull();
   });
 });

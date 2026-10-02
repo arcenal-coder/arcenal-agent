@@ -77,8 +77,14 @@ class ContextBuilder:
         return RequestIdentity(request_id=str(uuid4()), user_id=caller.user_id, user_source=caller.user_source, application_id=caller.application_id, agent_id=agent.id, session_id=session_id, permissions=permissions, timestamp=datetime.now(timezone.utc))
 
     def _prompt(self, agent: AgentDefinition) -> str:
-        sections = ("# Politique globale ARCenal", *self._policy.instructions, "# Politique de l’agent", *(item.content for item in agent.system_instructions))
-        return "\n\n".join(sections)
+        sections = (
+            "# Politique globale ARCenal",
+            *self._policy.instructions,
+            "# Politique de l’agent",
+            *(item.content for item in agent.system_instructions),
+            *_harness_sections(agent),
+        )
+        return "\n\n".join(section for section in sections if section)
 
     def _plan(self, identity: RequestIdentity, agent: AgentDefinition, message: str) -> ContextPlan:
         return ContextPlan(
@@ -119,3 +125,12 @@ class ContextBuilder:
         if "knowledge.restricted" in permissions:
             return ConfidentialityLevel.RESTRICTED
         return ConfidentialityLevel.INTERNAL
+
+
+def _harness_sections(agent: AgentDefinition) -> tuple[str, ...]:
+    values = (
+        ("Contexte propre à l’agent", agent.harness.context),
+        ("Directives propres à l’agent", agent.harness.directives),
+        ("Mémoire propre à l’agent", agent.harness.memory),
+    )
+    return tuple(f"# {title}\n\n{content.strip()}" for title, content in values if content.strip())

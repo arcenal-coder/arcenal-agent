@@ -104,28 +104,24 @@ def test_brand_asset_under_a_yunohost_subpath_is_accepted(tmp_path: Path, monkey
     assert response.status_code == 200
 
 
-def test_model_change_invalidates_only_previous_model(tmp_path: Path, monkeypatch) -> None:
+def test_provider_configuration_does_not_change_legacy_global_model(tmp_path: Path, monkeypatch) -> None:
     runtime = _runtime(tmp_path)
     runtime.config.set("models", "default", "old-model")
-    invalidated: list[str] = []
-    monkeypatch.setattr(API, "_invalidate_model", invalidated.append)
     client = _client(runtime, monkeypatch)
 
-    response = client.put("/configuration/v1", json={"models": {"default": "new-model", "provider": "openrouter"}})
+    response = client.put("/configuration/v1", json={"providers": {"openrouter": {"enabled": True}}})
 
     assert response.status_code == 200
-    assert invalidated == ["hermes-current"]
-    assert runtime.config.get("models", "default") == "new-model"
+    assert runtime.config.get("models", "default") == "old-model"
 
 
-@pytest.mark.parametrize("model", ["auto", " AUTO "])
-def test_literal_auto_model_is_rejected(model: str, tmp_path: Path, monkeypatch) -> None:
+def test_global_model_configuration_is_rejected(tmp_path: Path, monkeypatch) -> None:
     client = _client(_runtime(tmp_path), monkeypatch)
 
-    response = client.put("/configuration/v1", json={"models": {"default": model, "provider": "gemini"}})
+    response = client.put("/configuration/v1", json={"models": {"default": "gemini-3.8-flash", "provider": "gemini"}})
 
     assert response.status_code == 422
-    assert "modèle précis" in response.text
+    assert "models" in response.text
 
 
 def test_legacy_mode_rejects_configuration_writes(tmp_path: Path, monkeypatch) -> None:

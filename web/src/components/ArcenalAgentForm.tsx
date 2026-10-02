@@ -21,6 +21,8 @@ export function ArcenalAgentForm(props: AgentFormProps): ReactElement {
       <ModelFields draft={draft} models={catalog.models} update={update} />
       <CapabilityFields draft={draft} skills={catalog.skills} toolsets={catalog.toolsets} onChange={onChange} />
       <TextField label="Identité et consignes" value={draft.identity} onChange={(value) => update("identity", value)} />
+      <TextField label="Contexte propre à l’agent" value={draft.context} onChange={(value) => update("context", value)} />
+      <TextField label="Directives propres à l’agent" value={draft.directives} onChange={(value) => update("directives", value)} />
       <TextField label="Mémoire isolée" value={draft.memory} onChange={(value) => update("memory", value)} />
       <button className="arc-primary-button" disabled={busy} type="submit">
         <Sparkles aria-hidden />{busy ? "Enregistrement…" : mode === "create" ? "Créer et spécialiser" : "Enregistrer l’agent"}

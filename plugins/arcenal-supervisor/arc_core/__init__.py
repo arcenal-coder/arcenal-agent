@@ -52,6 +52,7 @@ from .silverbullet import (
     SilverBulletSynchronizer,
 )
 from .models import (
+    AgentHarness,
     AgentDefinition,
     AgentQueryResponse,
     AgentUpdate,
@@ -64,7 +65,7 @@ from .models import (
     RequestIdentity,
     UserIdentitySource,
 )
-from .repository import AgentRepository
+from .repository import AgentRepository, migrate_legacy_harness
 from .service import ArcCore
 from .automation_engine import AutomationStore, ProcessObserver, WorkflowEngine, transition_workflow
 from .deterministic_engine import DeterministicEngine, DeterministicRule, default_rules
@@ -125,6 +126,7 @@ from .vault import (
 
 __all__ = [
     "AgentDefinition",
+    "AgentHarness",
     "AgentManager",
     "AgentQueryResponse",
     "AgentRepository",

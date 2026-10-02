@@ -3,6 +3,12 @@ import { fetchJSON, type ArcenalModelDescriptor } from "./api";
 export type AgentAutonomy = "automatic" | "controlled" | "approval_required";
 export type AgentModelMode = "auto" | "fixed";
 
+export interface AgentHarness {
+  context: string;
+  directives: string;
+  memory: string;
+}
+
 export interface AgentModelPolicy {
   allowed_models: string[];
   allowed_providers: string[];
@@ -19,6 +25,7 @@ export interface ManagedAgent {
   autonomy_level: AgentAutonomy;
   description: string;
   enabled: boolean;
+  harness: AgentHarness;
   id: string;
   knowledge_scopes: string[];
   metadata: Record<string, string>;
@@ -33,6 +40,7 @@ export interface ManagedAgent {
 export interface ManagedAgentUpdate {
   autonomy_level?: AgentAutonomy;
   enabled?: boolean;
+  harness?: AgentHarness;
   model_policy?: AgentModelPolicy;
 }
 

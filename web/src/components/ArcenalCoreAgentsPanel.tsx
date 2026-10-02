@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactElement } from "react";
 import { Bot, Plus, X } from "lucide-react";
 import { api, type ArcenalModelDescriptor } from "@/lib/api";
-import { buildAgentModelPolicy, createManagedAgent, loadManagedAgents, modelsForProvider, updateManagedAgent, type AgentAutonomy, type AgentModelMode, type ManagedAgent, type ManagedAgentUpdate } from "@/lib/arcenal-agent-manager";
+import { buildAgentModelPolicy, createManagedAgent, loadManagedAgents, modelsForProvider, updateManagedAgent, type AgentAutonomy, type AgentHarness, type AgentModelMode, type ManagedAgent, type ManagedAgentUpdate } from "@/lib/arcenal-agent-manager";
 
 const AUTONOMY_LABELS: Record<AgentAutonomy, string> = {
   approval_required: "Validation requise",
@@ -122,9 +122,20 @@ function ManagedAgentDialog({ agent, models, onClose, onSave }: { agent: Managed
         <label className="arc-agent-setting">Autonomie<select value={agent.autonomy_level} onChange={(event) => void onSave({ autonomy_level: event.target.value as AgentAutonomy })}>{Object.entries(AUTONOMY_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label className="arc-agent-setting"><input checked={agent.enabled} type="checkbox" onChange={(event) => void onSave({ enabled: event.target.checked })} /> Agent activé</label>
         <AgentModelPolicyEditor agent={agent} models={models} onSave={onSave} />
+        <AgentHarnessEditor harness={agent.harness} onSave={(harness) => onSave({ harness })} />
       </section>
     </div>
   );
+}
+
+function AgentHarnessEditor({ harness, onSave }: { harness: AgentHarness; onSave: (harness: AgentHarness) => Promise<void> }): ReactElement {
+  const [draft, setDraft] = useState(harness);
+  const update = (field: keyof AgentHarness, value: string): void => setDraft((current) => ({ ...current, [field]: value }));
+  return <fieldset className="arc-agent-policy"><legend>Harnais de l’agent</legend><HarnessFields harness={draft} update={update} /><button onClick={() => void onSave(draft)} type="button">Enregistrer le harnais</button></fieldset>;
+}
+
+function HarnessFields({ harness, update }: { harness: AgentHarness; update: (field: keyof AgentHarness, value: string) => void }): ReactElement {
+  return <><label>Contexte<textarea rows={5} value={harness.context} onChange={(event) => update("context", event.target.value)} /></label><label>Directives<textarea rows={6} value={harness.directives} onChange={(event) => update("directives", event.target.value)} /></label><label>Mémoire propre<textarea rows={6} value={harness.memory} onChange={(event) => update("memory", event.target.value)} /></label></>;
 }
 
 function AgentModelPolicyEditor({ agent, models, onSave }: { agent: ManagedAgent; models: ArcenalModelDescriptor[]; onSave: (update: ManagedAgentUpdate) => Promise<void> }): ReactElement {
@@ -148,6 +159,7 @@ function FixedModelFields({ choices, modelId, provider, providers, setModelId, s
 
 function ManagedAgentCreateDialog({ models, onClose, onCreate }: { models: ArcenalModelDescriptor[]; onClose: () => void; onCreate: (agent: ManagedAgent) => Promise<void> }): ReactElement {
   const [identity, setIdentity] = useState({ application: "arcenal-system", description: "", id: "", name: "", role: "specialist", scopes: "company" });
+  const [harness, setHarness] = useState<AgentHarness>({ context: "", directives: "", memory: "" });
   const [mode, setMode] = useState<AgentModelMode>("auto");
   const [provider, setProvider] = useState(models[0]?.provider || "");
   const [modelId, setModelId] = useState("");
@@ -155,8 +167,9 @@ function ManagedAgentCreateDialog({ models, onClose, onCreate }: { models: Arcen
   const providers = [...new Set(models.filter((model) => model.enabled && model.availability !== "unavailable").map((model) => model.provider))];
   const validPolicy = mode === "auto" || selectable.some((model) => model.id === modelId);
   const change = (field: keyof typeof identity, value: string): void => setIdentity((current) => ({ ...current, [field]: value }));
-  const submit = (event: FormEvent<HTMLFormElement>): void => { event.preventDefault(); void onCreate(createAgentDefinition(identity, buildAgentModelPolicy(mode, provider, modelId, false, true, models))); };
-  return <div className="arc-agent-modal" role="dialog" aria-modal="true" aria-labelledby="create-core-agent-title"><section><header><div><span>ARC Core</span><h2 id="create-core-agent-title">Créer un agent gouverné</h2></div><button type="button" onClick={onClose} aria-label="Fermer"><X aria-hidden /></button></header><form className="arc-agent-policy" onSubmit={submit}><CreateIdentityFields identity={identity} change={change} /><label>Mode modèle<select value={mode} onChange={(event) => setMode(event.target.value as AgentModelMode)}><option value="auto">AUTO — routage ARC</option><option value="fixed">FIXED — modèle imposé</option></select></label>{mode === "fixed" && <FixedModelFields choices={selectable} modelId={modelId} provider={provider} providers={providers} setModelId={setModelId} setProvider={setProvider} />}<button disabled={!validPolicy} type="submit">Créer l’agent</button></form></section></div>;
+  const submit = (event: FormEvent<HTMLFormElement>): void => { event.preventDefault(); void onCreate(createAgentDefinition(identity, harness, buildAgentModelPolicy(mode, provider, modelId, false, true, models))); };
+  const updateHarness = (field: keyof AgentHarness, value: string): void => setHarness((current) => ({ ...current, [field]: value }));
+  return <div className="arc-agent-modal" role="dialog" aria-modal="true" aria-labelledby="create-core-agent-title"><section><header><div><span>ARC Core</span><h2 id="create-core-agent-title">Créer un agent gouverné</h2></div><button type="button" onClick={onClose} aria-label="Fermer"><X aria-hidden /></button></header><form className="arc-agent-policy" onSubmit={submit}><CreateIdentityFields identity={identity} change={change} /><label>Mode modèle<select value={mode} onChange={(event) => setMode(event.target.value as AgentModelMode)}><option value="auto">AUTO — routage propre à l’agent</option><option value="fixed">FIXED — modèle imposé</option></select></label>{mode === "fixed" && <FixedModelFields choices={selectable} modelId={modelId} provider={provider} providers={providers} setModelId={setModelId} setProvider={setProvider} />}<HarnessFields harness={harness} update={updateHarness} /><button disabled={!validPolicy} type="submit">Créer l’agent</button></form></section></div>;
 }
 
 type AgentIdentityDraft = { application: string; description: string; id: string; name: string; role: string; scopes: string };
@@ -165,9 +178,9 @@ function CreateIdentityFields({ identity, change }: { identity: AgentIdentityDra
   return <><label>Identifiant<input pattern="[a-z0-9][a-z0-9-]{0,63}" required value={identity.id} onChange={(event) => change("id", event.target.value)} /></label><label>Nom<input required value={identity.name} onChange={(event) => change("name", event.target.value)} /></label><label>Description<input required value={identity.description} onChange={(event) => change("description", event.target.value)} /></label><label>Rôle<input required value={identity.role} onChange={(event) => change("role", event.target.value)} /></label><label>Application<input pattern="[a-z0-9][a-z0-9-]{0,63}" required value={identity.application} onChange={(event) => change("application", event.target.value)} /></label><label>Portées RAG<input required value={identity.scopes} onChange={(event) => change("scopes", event.target.value)} /></label></>;
 }
 
-function createAgentDefinition(identity: AgentIdentityDraft, modelPolicy: ManagedAgent["model_policy"]): ManagedAgent {
+function createAgentDefinition(identity: AgentIdentityDraft, harness: AgentHarness, modelPolicy: ManagedAgent["model_policy"]): ManagedAgent {
   const scopes = identity.scopes.split(",").map((value) => value.trim()).filter(Boolean);
-  return { application: identity.application, autonomy_level: "controlled", description: identity.description, enabled: true, id: identity.id, knowledge_scopes: scopes, metadata: {}, model_policy: modelPolicy, name: identity.name, permissions: [], role: identity.role, system_instructions: [{ content: identity.description, id: "mission" }], tools: [] };
+  return { application: identity.application, autonomy_level: "controlled", description: identity.description, enabled: true, harness, id: identity.id, knowledge_scopes: scopes, metadata: {}, model_policy: modelPolicy, name: identity.name, permissions: [], role: identity.role, system_instructions: [{ content: identity.description, id: "mission" }], tools: [] };
 }
 
 function AgentFacts({ agent }: { agent: ManagedAgent }): ReactElement {

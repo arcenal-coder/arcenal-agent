@@ -117,23 +117,9 @@ class ApprovalSettings(StrictModel):
     mode: Literal["manual", "smart", "off"]
 
 
-class ModelSettings(StrictModel):
-    auxiliary: str | None = Field(default=None, max_length=240)
-    default: str | None = Field(default=None, max_length=240)
-    provider: str | None = Field(default=None, max_length=80)
-
-    @field_validator("default")
-    @classmethod
-    def validate_default_model(cls, value: str | None) -> str | None:
-        if value is not None and value.strip().casefold() == "auto":
-            raise ValueError("Choisissez un modèle précis ; « auto » n’est pas un identifiant de modèle.")
-        return value
-
-
 class ConfigurationPatch(StrictModel):
     approvals: ApprovalSettings | None = None
     arcenal: ProductSettings | None = None
-    models: ModelSettings | None = None
     providers: dict[str, ProviderSettings] | None = None
 
     @field_validator("providers")
@@ -165,7 +151,7 @@ def _snapshot(runtime) -> dict[str, object]:
     product["access_credentials"] = config.get("system", "access_credentials", [])
     return {
         "approvals": config.get("core", "approvals", {}), "arcenal": product,
-        "model": config.list("models"), "providers": config.list("providers"),
+        "providers": config.list("providers"),
     }
 
 
@@ -202,7 +188,6 @@ def write_configuration(payload: ConfigurationPatch) -> dict[str, bool]:
         _write_product(runtime.config, payload.arcenal)
         _write_providers(runtime.config, payload.providers)
         _write_single(runtime.config, "core", "approvals", payload.approvals)
-        _write_models(runtime, payload.models)
     except CORE.ArcConfigurationReadOnlyError as exc:
         raise HTTPException(status_code=409, detail="Le mode legacy Hermes est en lecture seule.") from exc
     return {"ok": True}
@@ -228,23 +213,6 @@ def _write_providers(store, providers: dict[str, ProviderSettings] | None) -> No
 def _write_single(store, namespace: str, key: str, value: BaseModel | None) -> None:
     if value is not None:
         store.set(namespace, key, value.model_dump(exclude_none=True, mode="json"))
-
-
-def _write_models(runtime, models: ModelSettings | None) -> None:
-    if models is None:
-        return
-    previous = runtime.config.get("models", "default")
-    for key, value in models.model_dump(exclude_none=True, mode="json").items():
-        runtime.config.set("models", key, value)
-    if isinstance(previous, str) and previous != models.default:
-        _invalidate_model("hermes-current")
-
-
-def _invalidate_model(model_id: str) -> None:
-    from hermes_constants import get_hermes_home
-
-    runtime = CORE.FrugalRuntime(get_hermes_home() / "arcenal" / "frugal")
-    runtime.cache.invalidate("model", model_id)
 
 
 def _validated_secret_key(key: str) -> str:

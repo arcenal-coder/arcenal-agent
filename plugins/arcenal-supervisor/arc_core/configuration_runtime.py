@@ -23,13 +23,6 @@ class ArcRuntimeConfiguration:
     backend: str = "arc"
     migration_state: str = "not_required"
 
-    def model_selection(self) -> tuple[str, str] | None:
-        provider = self.config.get("models", "provider")
-        model = self.config.get("models", "default")
-        if not isinstance(provider, str) or not isinstance(model, str):
-            return None
-        return provider, model
-
     def provider_enabled(self, provider_id: str, secret_key: str | None = None) -> bool:
         raw = self.config.get("providers", provider_id, {})
         if isinstance(raw, dict) and raw.get("enabled") is False:

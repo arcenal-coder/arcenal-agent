@@ -32,6 +32,12 @@ class InstructionBlock(StrictModel):
     content: str = Field(min_length=1, max_length=8_000)
 
 
+class AgentHarness(StrictModel):
+    context: str = Field(default="", max_length=16_000)
+    directives: str = Field(default="", max_length=16_000)
+    memory: str = Field(default="", max_length=32_000)
+
+
 class ModelPolicy(StrictModel):
     mode: str = Field(default="auto", pattern=r"^(auto|fixed)$")
     preferred_capability: CapabilityProfile = CapabilityProfile.STANDARD
@@ -63,6 +69,7 @@ class AgentDefinition(StrictModel):
     description: str = Field(min_length=1, max_length=500)
     role: str = Field(min_length=1, max_length=80)
     application: str
+    harness: AgentHarness = AgentHarness()
     system_instructions: tuple[InstructionBlock, ...]
     permissions: tuple[Permission, ...]
     tools: tuple[str, ...] = ()
@@ -84,6 +91,7 @@ class AgentUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     autonomy_level: AutonomyLevel | None = None
     enabled: bool | None = None
+    harness: AgentHarness | None = None
     model_policy: ModelPolicy | None = None
 
     @field_validator("autonomy_level", mode="before")

@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
 
 import pytest
 
@@ -28,19 +28,9 @@ def _load_plugin() -> ModuleType:
     return plugin
 
 
-def _managed_file(file_id: str) -> dict[str, object]:
-    return {
-        "content": f"{file_id}: " + ("directive contrôlée\n" * 300),
-        "file": {"filename": f"{file_id.upper()}.md"},
-    }
-
-
-def test_arc_prompt_sections_fit_the_real_hermes_budget(monkeypatch) -> None:
+def test_arc_prompt_contains_only_the_active_agent_harness(monkeypatch, tmp_path: Path) -> None:
     plugin = _load_plugin()
-    supervisor = SimpleNamespace(
-        managed_files=SimpleNamespace(read_managed_file=_managed_file)
-    )
-    monkeypatch.setattr(sys.modules[plugin.__name__ + ".tools"], "_supervisor_module", lambda: supervisor)
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     manager = PluginManager()
     context = PluginContext(
         PluginManifest(name="ARCenal Supervisor", key="arcenal-supervisor", source="builtin"),
@@ -48,15 +38,41 @@ def test_arc_prompt_sections_fit_the_real_hermes_budget(monkeypatch) -> None:
     )
 
     plugin.register(context)
-    rendered = manager.render_system_prompt_sections({"session_id": "preproduction"})
+    rendered = manager.render_system_prompt_sections({"profile_name": "default", "session_id": "preproduction"})
     sections = {section.id: section.content for section in rendered}
 
-    assert set(sections) == {"arcenal.directives", "arcenal.identity", "arcenal.memory"}
-    assert sections["arcenal.identity"] == plugin.ARC_SYSTEM_PROMPT.strip()
-    for filename in ("AGENTS.md", "RULES.md", "SECURITY.md", "TOOLS.md"):
-        assert filename in sections["arcenal.directives"]
-    assert "[Suite disponible via arcenal_context_search]" in sections["arcenal.directives"]
-    assert "[Suite disponible via arcenal_memory_search]" in sections["arcenal.memory"]
+    assert set(sections) == {"arcenal.harness"}
+    assert "architecte et superviseur" in sections["arcenal.harness"]
+    assert "# Contexte propre à l’agent" in sections["arcenal.harness"]
+    assert "AGENTS.md" not in sections["arcenal.harness"]
+
+
+def test_specialized_profile_uses_its_own_markdown_parameters(monkeypatch, tmp_path: Path) -> None:
+    plugin = _load_plugin()
+    root = tmp_path / "profiles" / "veille"
+    (root / "memories").mkdir(parents=True)
+    (root / "CONTEXT.md").write_text("Contexte veille", encoding="utf-8")
+    (root / "DIRECTIVES.md").write_text("Directive veille", encoding="utf-8")
+    (root / "memories" / "MEMORY.md").write_text("Mémoire veille", encoding="utf-8")
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+
+    rendered = plugin._agent_harness_prompt({"profile_name": "veille"})
+
+    assert "Contexte veille" in rendered
+    assert "Directive veille" in rendered
+    assert "Mémoire veille" in rendered
+
+
+def test_active_profile_home_is_used_directly(monkeypatch, tmp_path: Path) -> None:
+    plugin = _load_plugin()
+    root = tmp_path / "veille"
+    root.mkdir()
+    (root / "CONTEXT.md").write_text("Contexte du processus actif", encoding="utf-8")
+    monkeypatch.setenv("HERMES_HOME", str(root))
+
+    rendered = plugin._agent_harness_prompt({"profile_name": "veille"})
+
+    assert "Contexte du processus actif" in rendered
 
 
 def test_bounded_excerpt_keeps_short_content_unchanged() -> None:

@@ -46,6 +46,8 @@ class AgentManager:
             values["autonomy_level"] = update.autonomy_level
         if update.enabled is not None:
             values["enabled"] = update.enabled
+        if update.harness is not None:
+            values["harness"] = update.harness
         if update.model_policy is not None:
             values["model_policy"] = update.model_policy
         return values

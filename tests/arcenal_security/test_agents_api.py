@@ -63,6 +63,16 @@ class AgentMemoryTests(TestCase):
         with self.assertRaises(HTTPException):
             MODULE._profile_dir("../default")
 
+    def test_harness_round_trip_is_isolated_in_the_profile(self) -> None:
+        payload = {"context": "Contexte veille", "directives": "Directives veille", "memory": "Mémoire veille"}
+        with tempfile.TemporaryDirectory() as directory, patch.object(MODULE, "_profile_dir", return_value=Path(directory)):
+            client = _client()
+            written = client.put("/api/plugins/arcenal-supervisor/agents/veille/harness", json=payload)
+            read = client.get("/api/plugins/arcenal-supervisor/agents/veille/harness")
+
+        self.assertEqual(written.status_code, 200)
+        self.assertEqual(read.json(), {**payload, "profile": "veille"})
+
 
 class AgentRegistryApiTests(TestCase):
     def test_registry_lists_defaults_and_persists_admin_update(self) -> None:
@@ -83,6 +93,7 @@ class AgentRegistryApiTests(TestCase):
         payload = {
             "id": "veille", "name": "Veille", "description": "Surveille les exigences.",
             "role": "analyst", "application": "arcenal-system",
+            "harness": {"context": "Contexte veille", "directives": "Directives veille", "memory": ""},
             "system_instructions": [{"id": "mission", "content": "Analyser les exigences."}],
             "permissions": [], "tools": [], "knowledge_scopes": ["regulatory"],
             "model_policy": {"mode": "auto", "allowed_models": [], "allowed_providers": []},
@@ -93,6 +104,7 @@ class AgentRegistryApiTests(TestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()["model_policy"]["mode"], "auto")
+        self.assertEqual(response.json()["harness"]["context"], "Contexte veille")
 
     def test_registry_updates_an_agent_with_a_registered_fixed_model(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

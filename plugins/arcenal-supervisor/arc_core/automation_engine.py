@@ -56,7 +56,8 @@ class WorkflowEngine:
             return None
         updated = workflow.model_copy(update={"executions": workflow.executions + 1, "updated_at": datetime.now(timezone.utc)})
         self._store.save_workflow(updated)
-        return EngineOutput(response=values, usage={"workflow_id": workflow.id, "workflow_version": workflow.version})
+        delegated = any(step.operation == "agent_prompt" for step in workflow.steps)
+        return EngineOutput(response=values, usage={"workflow_agent_prompt": delegated, "workflow_id": workflow.id, "workflow_version": workflow.version})
 
     def _matches(self, workflow: AutomationWorkflow, context: EffectiveContext, message: str) -> bool:
         return workflow.status is WorkflowStatus.ACTIVE and workflow.agent_id == context.agent.id and workflow.approved_by is not None and workflow.trigger.casefold() in message.casefold()

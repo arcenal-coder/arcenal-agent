@@ -1,6 +1,8 @@
 import type { AuxiliaryModelsResponse, ProfileInfo } from "./api";
 
 export interface AgentDraft {
+  context: string;
+  directives: string;
   identity: string;
   mainModel: string;
   memory: string;
@@ -20,7 +22,7 @@ export class AgentDraftError extends Error {
 }
 
 export function emptyAgentDraft(provider = "openrouter"): AgentDraft {
-  return { identity: "", mainModel: "", memory: "", mission: "", name: "", provider, secondaryModel: "", skills: [], toolsets: [] };
+  return { context: "", directives: "", identity: "", mainModel: "", memory: "", mission: "", name: "", provider, secondaryModel: "", skills: [], toolsets: [] };
 }
 
 export function validateAgentDraft(draft: AgentDraft): AgentDraft {
@@ -28,7 +30,7 @@ export function validateAgentDraft(draft: AgentDraft): AgentDraft {
   if (!name) throw new AgentDraftError("L’identifiant de l’agent est obligatoire.");
   if (!draft.mission.trim()) throw new AgentDraftError("La mission de l’agent est obligatoire.");
   if (!draft.provider.trim() || !draft.mainModel.trim()) throw new AgentDraftError("Le fournisseur et le modèle principal sont obligatoires.");
-  return { ...draft, identity: draft.identity.trim(), mainModel: draft.mainModel.trim(), memory: draft.memory.trim(), mission: draft.mission.trim(), name, provider: draft.provider.trim(), secondaryModel: draft.secondaryModel.trim(), skills: unique(draft.skills), toolsets: unique(draft.toolsets) };
+  return { ...draft, context: draft.context.trim(), directives: draft.directives.trim(), identity: draft.identity.trim(), mainModel: draft.mainModel.trim(), memory: draft.memory.trim(), mission: draft.mission.trim(), name, provider: draft.provider.trim(), secondaryModel: draft.secondaryModel.trim(), skills: unique(draft.skills), toolsets: unique(draft.toolsets) };
 }
 
 export function specializedProfiles(profiles: ProfileInfo[]): ProfileInfo[] {

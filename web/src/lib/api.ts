@@ -645,6 +645,10 @@ export const api = {
     ),
   getArcenalAutomations: () =>
     fetchJSON<ArcenalAutomationsResponse>("/api/plugins/arcenal-supervisor/frugal/v1/automations"),
+  createArcenalWorkflow: (workflow: ArcenalWorkflowCreate) =>
+    fetchJSON<ArcenalWorkflow>("/api/plugins/arcenal-supervisor/frugal/v1/workflows", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(workflow),
+    }),
   transitionArcenalWorkflow: (workflowId: string, status: ArcenalWorkflowStatus) =>
     fetchJSON<ArcenalWorkflow>(
       `/api/plugins/arcenal-supervisor/frugal/v1/workflows/${encodeURIComponent(workflowId)}/transition`,
@@ -698,6 +702,15 @@ export const api = {
     fetchJSON<ArcenalAgentMemory>(
       `/api/plugins/arcenal-supervisor/agents/${encodeURIComponent(name)}/memory`,
       { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) },
+    ),
+  getArcenalAgentHarness: (name: string) =>
+    fetchJSON<ArcenalAgentHarness>(
+      `/api/plugins/arcenal-supervisor/agents/${encodeURIComponent(name)}/harness`,
+    ),
+  saveArcenalAgentHarness: (name: string, harness: Omit<ArcenalAgentHarness, "profile">) =>
+    fetchJSON<ArcenalAgentHarness>(
+      `/api/plugins/arcenal-supervisor/agents/${encodeURIComponent(name)}/harness`,
+      { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(harness) },
     ),
   getArcenalWiki: () =>
     fetchJSON<ArcenalKnowledgeOverview>(
@@ -2872,6 +2885,20 @@ export interface ArcenalWorkflow {
   exceptions: number;
 }
 
+export interface ArcenalWorkflowCreate {
+  agent_id: string;
+  autonomy: "automatic" | "controlled" | "approval_required";
+  description: string;
+  exceptions: number;
+  executions: number;
+  id: string;
+  name: string;
+  permissions: string[];
+  steps: Array<{ id: string; operation: "agent_prompt" | "template"; template: string; tool: null }>;
+  trigger: string;
+  version: number;
+}
+
 export interface ArcenalAutomationCandidate {
   id: string;
   name: string;
@@ -2960,6 +2987,13 @@ export interface ArcenalAgentMemory {
   content: string;
   profile: string;
   updated_at: string | null;
+}
+
+export interface ArcenalAgentHarness {
+  context: string;
+  directives: string;
+  memory: string;
+  profile: string;
 }
 
 export interface AnalyticsDailyEntry {

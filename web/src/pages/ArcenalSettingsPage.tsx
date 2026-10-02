@@ -6,10 +6,7 @@ import { ArcenalAccessManager } from "@/components/ArcenalAccessManager";
 import { ArcenalCapabilitiesSettings } from "@/components/ArcenalCapabilitiesSettings";
 import { ArcenalAppearanceSettingsPanel } from "@/components/ArcenalAppearanceSettings";
 import { ArcenalGeneralSettingsPanel } from "@/components/ArcenalGeneralSettings";
-import { ArcenalManagedFilesSettingsPanel } from "@/components/ArcenalManagedFilesSettings";
-import { ArcenalMemorySettingsPanel } from "@/components/ArcenalMemorySettings";
 import { ArcenalFrugalSettingsPanel } from "@/components/ArcenalFrugalSettings";
-import { ArcenalAutomationsSettingsPanel } from "@/components/ArcenalAutomationsSettings";
 import { ArcenalBackupSettingsPanel, ArcenalSystemSettingsPanel } from "@/components/ArcenalSystemSettings";
 import { ArcenalSecuritySettingsPanel } from "@/components/ArcenalSecuritySettings";
 import { isProviderStatusesResponse } from "@/lib/arcenal-provider-status";
@@ -29,19 +26,10 @@ interface SettingsState {
   providerStatuses: Record<string, ArcenalProviderProbe>;
   providerUrls: Record<string, string>;
   secrets: Record<string, string>;
-  selectedModels: Record<string, string>;
-  selectedSecondaryModels: Record<string, string>;
 }
 
 const EMPTY_OPTIONS: ModelOptionsResponse = { providers: [] };
-const INITIAL_STATE: SettingsState = { autonomy: "manual", busy: true, config: {}, customKey: "", customSecret: "", enabledProviders: {}, env: {}, error: "", models: EMPTY_OPTIONS, notice: "", providerStatuses: {}, providerUrls: {}, secrets: {}, selectedModels: {}, selectedSecondaryModels: {} };
-
-class ProviderModelSelectionError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ProviderModelSelectionError";
-  }
-}
+const INITIAL_STATE: SettingsState = { autonomy: "manual", busy: true, config: {}, customKey: "", customSecret: "", enabledProviders: {}, env: {}, error: "", models: EMPTY_OPTIONS, notice: "", providerStatuses: {}, providerUrls: {}, secrets: {} };
 
 export default function ArcenalSettingsPage(): ReactElement {
   const [state, setState] = useState<SettingsState>(INITIAL_STATE);
@@ -61,24 +49,11 @@ export default function ArcenalSettingsPage(): ReactElement {
 function loadedState(current: SettingsState, env: Record<string, { is_set: boolean }>, config: Record<string, unknown>, models: ModelOptionsResponse, providerStatuses: Record<string, ArcenalProviderProbe>): SettingsState {
   const providers = config.providers as Record<string, { base_url?: string; enabled?: boolean }> | undefined;
   const connections = buildProviderConnections(env, providers);
-  return { ...current, autonomy: autonomyFromConfig(config), busy: false, config, enabledProviders: Object.fromEntries(connections.map((item) => [item.id, item.enabled])), env, models, providerStatuses, providerUrls: Object.fromEntries(connections.map((item) => [item.id, providers?.[item.id]?.base_url || item.defaultBaseUrl])), selectedModels: nativeModelDefaults(config, models) };
+  return { ...current, autonomy: autonomyFromConfig(config), busy: false, config, enabledProviders: Object.fromEntries(connections.map((item) => [item.id, item.enabled])), env, models, providerStatuses, providerUrls: Object.fromEntries(connections.map((item) => [item.id, providers?.[item.id]?.base_url || item.defaultBaseUrl])) };
 }
 
 function secretStates(values: Record<string, boolean>): Record<string, { is_set: boolean }> {
   return Object.fromEntries(Object.entries(values).map(([key, configured]) => [key, { is_set: configured }]));
-}
-
-function modelDefaults(options: ModelOptionsResponse): Record<string, string> {
-  return Object.fromEntries((options.providers ?? []).map((provider) => [provider.slug, provider.slug === options.provider ? options.model ?? provider.models?.[0] ?? "" : provider.models?.[0] ?? ""]));
-}
-
-function nativeModelDefaults(config: Record<string, unknown>, options: ModelOptionsResponse): Record<string, string> {
-  const defaults = modelDefaults(options);
-  const model = config.model;
-  if (typeof model !== "object" || model === null || Array.isArray(model)) return defaults;
-  const values = model as Record<string, unknown>;
-  if (typeof values.provider !== "string" || typeof values.default !== "string") return defaults;
-  return { ...defaults, [values.provider]: values.default };
 }
 
 function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
@@ -92,15 +67,11 @@ function SettingsView({ state, setState, reload }: ViewProps): ReactElement {
     <nav aria-label="Sections des paramètres" className="arc-settings-tabs">{ARCENAL_SETTINGS_TABS.map((tab) => <button aria-pressed={activeTab === tab.id} key={tab.id} onClick={() => setActiveTab(tab.id)} type="button">{tab.label}</button>)}</nav>
     {activeTab === "general" && <ArcenalGeneralSettingsPanel config={state.config} onReload={reload} />}
     {activeTab === "appearance" && <ArcenalAppearanceSettingsPanel config={state.config} onReload={reload} />}
-    {activeTab === "context" && <ArcenalManagedFilesSettingsPanel category="context" key="context" />}
-    {activeTab === "memory" && <ArcenalMemorySettingsPanel />}
-    {activeTab === "directives" && <ArcenalManagedFilesSettingsPanel category="directive" key="directive" />}
     {activeTab === "providers" && <section className="arc-settings-section"><SectionTitle icon={<Network />} eyebrow="Moteurs IA" title="Connexions et API" description="Les connexions restent disponibles simultanément. Une clé enregistrée n’est jamais réaffichée." />
       <div className="arc-provider-grid">{connections.map((provider) => <ProviderCard key={provider.id} provider={provider} state={state} setState={setState} reload={reload} />)}</div>
       <CustomConnection state={state} setState={setState} reload={reload} />
     </section>}
     {activeTab === "frugal" && <ArcenalFrugalSettingsPanel />}
-    {activeTab === "automations" && <ArcenalAutomationsSettingsPanel />}
     {activeTab === "access" && <ArcenalAccessManager config={state.config} env={state.env} reload={reload} />}
     {activeTab === "tools" && <ArcenalCapabilitiesSettings />}
     {activeTab === "system" && <ArcenalSystemSettingsPanel />}
@@ -115,8 +86,8 @@ function SectionTitle({ icon, eyebrow, title, description }: { icon: ReactElemen
 
 function ProviderCard({ provider, state, setState, reload }: ProviderProps): ReactElement {
   const discovered = state.providerStatuses[provider.id]?.models ?? [];
-  const configured = state.models.providers?.find((item) => item.slug === provider.id)?.models ?? [];
-  const models = [...new Set([...configured, ...discovered])];
+  const catalogued = state.models.providers?.find((item) => item.slug === provider.id)?.models ?? [];
+  const available = [...new Set([...catalogued, ...discovered])];
   const secret = state.secrets[provider.id] ?? "";
   const save = (): void => { void saveProvider(provider, state, setState, reload); };
   const test = (): void => { void testProvider(provider, state, setState); };
@@ -125,9 +96,8 @@ function ProviderCard({ provider, state, setState, reload }: ProviderProps): Rea
     <header><span><Bot aria-hidden /></span><div><h3>{provider.label}</h3><small>{provider.local ? "Moteur local ou privé" : "Service externe"}</small></div><em data-state={status?.connection}>{provider.configured ? <><CheckCircle2 /> Configuré</> : "À connecter"}</em></header>
     {provider.configurableUrl && <ProviderUrlInput provider={provider} state={state} setState={setState} />}
     {provider.keyRequired && <SecretInput provider={provider} value={secret} setState={setState} />}
-    <DiscoveredModels models={discovered} />
-    <ModelSelect label="Modèle principal" provider={provider} models={models} state={state} setState={setState} />
-    <ModelSelect label="Modèle secondaire" provider={provider} models={models} secondary state={state} setState={setState} />
+    <DiscoveredModels models={available} />
+    <p className="arc-provider-model-note">Les modèles sont attribués dans le harnais de chaque agent.</p>
     <label className="arc-provider-toggle"><input checked={state.enabledProviders[provider.id] !== false} onChange={(event) => setState((current) => ({ ...current, enabledProviders: { ...current.enabledProviders, [provider.id]: event.target.checked } }))} type="checkbox" /><span>Connexion active</span></label>
     {status && <p className="arc-provider-status" data-state={status.connection}>{status.message}<small>Dernier test : {formatTestDate(status.tested_at)}</small></p>}
     <div className="arc-provider-actions"><button disabled={state.busy} onClick={test} type="button">Tester la connexion</button><button className="arc-primary-button" disabled={state.busy || (provider.keyRequired && !provider.configured && !secret.trim())} onClick={save} type="button">{state.busy ? <LoaderCircle className="arc-spin" /> : <KeyRound />} {provider.configured ? "Mettre à jour" : "Connecter"}</button></div>
@@ -149,13 +119,6 @@ function ProviderUrlInput({ provider, state, setState }: { provider: ProviderCon
   return <label className="arc-field"><span>Adresse du service</span><input onChange={change} placeholder={provider.defaultBaseUrl || "https://llm.interne/v1"} type="url" value={state.providerUrls[provider.id] ?? ""} /><small>Indiquez la racine compatible OpenAI, sans identifiants dans l’URL.</small></label>;
 }
 
-function ModelSelect({ label, provider, models, secondary = false, state, setState }: { label: string; provider: ProviderConnection; models: string[]; secondary?: boolean; state: SettingsState; setState: SetState }): ReactElement {
-  const collection = secondary ? state.selectedSecondaryModels : state.selectedModels;
-  const value = collection[provider.id] ?? "";
-  const change = (event: ChangeEvent<HTMLInputElement>): void => patchSelectedModel(provider.id, event.target.value, secondary, setState);
-  return <label className="arc-field"><span>{label}</span><input list={`models-${provider.id}`} onChange={change} placeholder={provider.local ? "ex. qwen3:8b" : "Choisir ou saisir un modèle"} value={value} /><datalist id={`models-${provider.id}`}>{models.map((model) => <option key={model} value={model} />)}</datalist></label>;
-}
-
 async function saveProvider(provider: ProviderConnection, state: SettingsState, setState: SetState, reload: () => Promise<void>): Promise<void> {
   setState((current) => ({ ...current, busy: true, error: "", notice: "" }));
   try {
@@ -163,32 +126,12 @@ async function saveProvider(provider: ProviderConnection, state: SettingsState, 
     if (provider.envKey && secret) await api.setArcenalSecret(provider.envKey, secret);
     const baseUrl = state.providerUrls[provider.id]?.trim();
     const providerConfig = { providers: { [provider.id]: { base_url: baseUrl || undefined, enabled: state.enabledProviders[provider.id] !== false } } };
-    const model = state.selectedModels[provider.id]?.trim();
-    const secondary = state.selectedSecondaryModels[provider.id]?.trim();
-    validateMainModel(model);
-    await synchronizeConversationModel(provider.id, model, baseUrl);
-    await api.saveArcenalConfiguration({ ...providerConfig, models: { auxiliary: secondary || undefined, default: model || undefined, provider: provider.id } });
+    await api.saveArcenalConfiguration(providerConfig);
     setState((current) => ({ ...current, notice: `${provider.label} est disponible pour ARC.`, secrets: { ...current.secrets, [provider.id]: "" } }));
     await reload();
   } catch (cause) {
     setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));
   }
-}
-
-function validateMainModel(model: string | undefined): asserts model is string {
-  if (!model) throw new ProviderModelSelectionError("Choisissez un modèle principal avant d’enregistrer.");
-  if (model.toLowerCase() === "auto") throw new ProviderModelSelectionError("Choisissez un modèle précis : « auto » ne peut pas être envoyé directement à un fournisseur.");
-}
-
-async function synchronizeConversationModel(provider: string, model: string, baseUrl?: string): Promise<void> {
-  const assignment = { base_url: baseUrl || undefined, model, provider, scope: "main" as const };
-  const result = await api.setModelAssignment(assignment);
-  if (!result.confirm_required && result.ok) return;
-  if (!result.confirm_required) throw new ProviderModelSelectionError("Le moteur conversationnel a refusé ce modèle.");
-  const message = result.confirm_message || "Ce modèle peut entraîner un coût important. Continuer ?";
-  if (!window.confirm(message)) throw new ProviderModelSelectionError("La sélection du modèle a été annulée.");
-  const confirmed = await api.setModelAssignment({ ...assignment, confirm_expensive_model: true });
-  if (!confirmed.ok) throw new ProviderModelSelectionError("Le moteur conversationnel a refusé ce modèle.");
 }
 
 async function testProvider(provider: ProviderConnection, state: SettingsState, setState: SetState): Promise<void> {
@@ -200,14 +143,6 @@ async function testProvider(provider: ProviderConnection, state: SettingsState, 
   } catch (cause) {
     setState((current) => ({ ...current, busy: false, error: errorMessage(cause) }));
   }
-}
-
-function patchSelectedModel(providerId: string, value: string, secondary: boolean, setState: SetState): void {
-  if (secondary) {
-    setState((current) => ({ ...current, selectedSecondaryModels: { ...current.selectedSecondaryModels, [providerId]: value } }));
-    return;
-  }
-  setState((current) => ({ ...current, selectedModels: { ...current.selectedModels, [providerId]: value } }));
 }
 
 function formatTestDate(value: string): string {

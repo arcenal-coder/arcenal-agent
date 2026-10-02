@@ -212,7 +212,7 @@ class FrugalMetrics(StrictModel):
 
 class WorkflowStep(StrictModel):
     id: str = Field(pattern=r"^[a-z][a-z0-9_.-]{0,63}$")
-    operation: str = Field(pattern=r"^(structured_value|template|status)$")
+    operation: str = Field(pattern=r"^(agent_prompt|structured_value|template|status)$")
     input_key: str | None = Field(default=None, max_length=80)
     template: str | None = Field(default=None, max_length=4_000)
     tool: str | None = Field(default=None, max_length=120)

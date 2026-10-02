@@ -178,6 +178,21 @@ describe("api.saveArcenalAgentMemory", () => {
   });
 });
 
+describe("api.saveArcenalAgentHarness", () => {
+  it("enregistre les paramètres propres au profil demandé", async () => {
+    const harness = { context: "Contexte", directives: "Directives", memory: "Mémoire" };
+    const fetchMock = jsonFetchMock({ ...harness, profile: "veille" });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.saveArcenalAgentHarness("veille", harness);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/plugins/arcenal-supervisor/agents/veille/harness",
+      expect.objectContaining({ body: JSON.stringify(harness), method: "PUT" }),
+    );
+  });
+});
+
 describe("api.transitionArcenalDocument", () => {
   it("utilise le circuit documentaire avec un motif", async () => {
     const fetchMock = jsonFetchMock({ document: {}, ok: true });

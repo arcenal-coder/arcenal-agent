@@ -4,6 +4,7 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from typing import Callable, TypedDict, cast
 
 import pytest
 
@@ -15,14 +16,21 @@ supervisor = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(supervisor)
 
 
+class PromptSection(TypedDict):
+    content: Callable[[dict[str, object]], str]
+    id: str
+    max_chars: int
+    position: str
+
+
 class PluginContext:
     def __init__(self) -> None:
         self.hooks: list[tuple[str, object]] = []
-        self.prompt_sections: list[dict[str, object]] = []
+        self.prompt_sections: list[PromptSection] = []
         self.tools: list[dict[str, object]] = []
 
     def register_system_prompt_section(self, **kwargs: object) -> None:
-        self.prompt_sections.append(kwargs)
+        self.prompt_sections.append(cast(PromptSection, kwargs))
 
     def register_tool(self, **kwargs: object) -> None:
         self.tools.append(kwargs)
@@ -76,6 +84,10 @@ def test_degraded_when_service_is_inactive(monkeypatch):
 def test_reports_stay_in_hermes_home(monkeypatch, tmp_path):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     assert supervisor._reports_dir() == tmp_path / "reports" / "supervision"
+
+
+def test_global_harness_api_is_not_exposed() -> None:
+    assert not hasattr(supervisor, "managed_files")
 
 
 def test_maintenance_catalog_requires_approval():
@@ -133,19 +145,21 @@ def test_maintenance_uses_the_authenticated_control_channel() -> None:
         raise AssertionError("L’ancien canal privilégié devait être fermé.")
 
 
-def test_plugin_specializes_the_agent_as_arc() -> None:
+def test_plugin_specializes_the_agent_as_arc(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     plugin = _load_plugin()
     context = PluginContext()
     plugin.register(context)
 
-    assert len(context.prompt_sections) == 3
-    assert all(int(item["max_chars"]) <= 4000 for item in context.prompt_sections)
-    section = next(item for item in context.prompt_sections if item["id"] == "arcenal.identity")
-    assert section["id"] == "arcenal.identity"
+    assert len(context.prompt_sections) == 1
+    assert all(item["max_chars"] <= 4000 for item in context.prompt_sections)
+    section = context.prompt_sections[0]
+    assert section["id"] == "arcenal.harness"
     assert section["position"] == "after_memory"
-    assert "Tu es ARC" in section["content"]
-    assert "panneau ARC authentifié" in section["content"]
-    assert "AACP/1" in section["content"]
+    content = section["content"]({"profile_name": "default"})
+    assert "Tu es ARC" in content
+    assert "# Contexte propre à l’agent" in content
+    assert "# Directives propre à l’agent" in content
     assert {tool["name"] for tool in context.tools} == {
         "arcenal_system_status",
         "arcenal_create_report",
@@ -158,6 +172,34 @@ def test_plugin_specializes_the_agent_as_arc() -> None:
         "arcenal_yunohost_query",
     }
     assert [name for name, _callback in context.hooks] == ["post_tool_call"]
+
+
+def test_specialized_agent_never_inherits_arc_harness(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    plugin = _load_plugin()
+    profile = tmp_path / "profiles" / "veille"
+    (profile / "memories").mkdir(parents=True)
+    (profile / "CONTEXT.md").write_text("Contexte veille réglementaire", encoding="utf-8")
+    (profile / "DIRECTIVES.md").write_text("Surveiller les publications", encoding="utf-8")
+    (profile / "memories" / "MEMORY.md").write_text("Dernier contrôle : conforme", encoding="utf-8")
+
+    harness = plugin._harness_for_profile("veille")
+
+    assert harness.context == "Contexte veille réglementaire"
+    assert harness.directives == "Surveiller les publications"
+    assert harness.memory == "Dernier contrôle : conforme"
+    assert "Tu es ARC" not in str(harness)
+
+
+def test_unknown_agent_receives_an_empty_harness(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    plugin = _load_plugin()
+
+    harness = plugin._harness_for_profile("agent-inconnu")
+
+    assert harness.context == ""
+    assert harness.directives == ""
+    assert harness.memory == ""
 
 
 def test_access_catalog_reports_availability_without_secret() -> None:

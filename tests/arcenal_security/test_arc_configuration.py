@@ -195,17 +195,15 @@ def test_runtime_rejects_an_unknown_backend(monkeypatch: pytest.MonkeyPatch) -> 
         CORE.runtime_configuration()
 
 
-def test_provider_resolution_uses_arc_config_and_vault(tmp_path: Path) -> None:
+def test_provider_resolution_uses_only_connection_config_and_vault(tmp_path: Path) -> None:
     config = CORE.ArcNativeConfigStore(tmp_path / "config.json")
     vault = CORE.ArcFileVault(tmp_path / ".env")
-    config.set("models", "provider", "openrouter")
-    config.set("models", "default", "openrouter/auto")
     config.set("providers", "openrouter", {"enabled": True})
     vault.set_secret("OPENROUTER_API_KEY", "secret")
     runtime = CORE.ArcRuntimeConfiguration(config, vault)
 
     assert runtime.provider_enabled("openrouter", "OPENROUTER_API_KEY") is True
-    assert runtime.model_selection() == ("openrouter", "openrouter/auto")
+    assert not hasattr(runtime, "model_selection")
     vault.delete_secret("OPENROUTER_API_KEY")
     assert runtime.provider_enabled("openrouter", "OPENROUTER_API_KEY") is False
 
