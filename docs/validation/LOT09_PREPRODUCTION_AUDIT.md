@@ -2,7 +2,7 @@
 
 Date : 2026-10-02  
 Branche : `arcenal`  
-Candidate publiée au début de l'audit : `v0.21.0-arcenal29` / `0.21.0~ynh47`, canal `preview`
+Candidate publiée : `v0.21.0-arcenal30` / `0.21.0~ynh48`, canal `preview`
 
 ## Objet
 
@@ -113,10 +113,11 @@ en `preview`, la recette réelle doit encore confirmer sur YunoHost :
 - la conservation des fournisseurs, agents, secrets, RAG et mémoire après
   redémarrage du seul service ARCenal.
 
-Le flux brut preview référence actuellement le paquet
-`9c9ff6044d0c4585b62b349425f6958a9d84d79a` et annonce la version
-`0.21.0~ynh47`. Une nouvelle candidate devra intégrer les corrections de cet
-audit avant la recette réelle. Le canal stable reste inchangé.
+Le flux brut preview référence le paquet
+`d38d66c62396ca33efa4b1eafb1c41ffec092360` et annonce la version
+`0.21.0~ynh48`. Cette candidate intègre les corrections de l'audit et doit
+maintenant être validée sur le serveur YunoHost réel. Le canal stable reste
+inchangé.
 
 ## Verdict
 
