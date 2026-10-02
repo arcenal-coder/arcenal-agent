@@ -1,5 +1,28 @@
 # État du projet ARCenal Agent
 
+## Fournisseur Codex — connexion par lien d’appareil
+
+- Date : 2026-10-02 ; branche `arcenal`, source
+  `v0.21.0-arcenal29` / paquet YunoHost `0.21.0~ynh47` publié en preview.
+- Paramètres > Fournisseurs IA propose OpenAI Codex par code d’appareil. La
+  connexion OAuth ne définit aucun modèle global : les modèles découverts sont
+  affectés dans le harnais AUTO ou FIXED de chaque agent.
+- L’interface distingue désormais l’authentification OpenAI de la finalisation
+  ARC. Elle n’annonce « Configuré » qu’après synchronisation du catalogue et
+  activation du fournisseur ; un échec reste reprenable avec « À finaliser ».
+- Un verrou empêche les doubles synchronisations lors d’un re-rendu lent. Aucun
+  fragment de jeton Codex n’est renvoyé au navigateur.
+- Validation : Ruff et ESLint sans erreur, TypeScript et compilation Python
+  réussis, 54 tests backend et 53 tests frontend ciblés, build de production,
+  scripts du paquet et 20 tests Python YunoHost, 13 tests catalogue.
+- Revue indépendante : aucun constat bloquant ou important après trois passes.
+- Publication vérifiée : source `a7ddd9759112b3b7efee41439b23c9358645595a`,
+  paquet `9c9ff6044d0c4585b62b349425f6958a9d84d79a`, catalogue preview
+  `ad4e53e`. Le flux brut annonce `0.21.0~ynh47`.
+- Le canal stable reste inchangé jusqu’à la recette réelle de la candidate.
+- Le fichier utilisateur `contributors/emails/agent@Agents-Mac-mini.local`
+  reste exclu du lot.
+
 ## Correctif — chat ARC natif et repli multi-fournisseurs
 
 - Date : 2026-10-02 ; branche `arcenal`, source
