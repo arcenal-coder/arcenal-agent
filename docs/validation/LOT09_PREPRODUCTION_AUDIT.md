@@ -2,7 +2,7 @@
 
 Date : 2026-10-02  
 Branche : `arcenal`  
-Candidate publiée : `v0.21.0-arcenal31` / `0.21.0~ynh49`, canal `preview`
+Candidate publiée : `v0.21.0-arcenal32` / `0.21.0~ynh50`, canal `preview`
 
 ## Objet
 
@@ -106,8 +106,8 @@ Secret inclus dans le registre : NON
 | Ruff ciblé | PASS |
 | TypeScript Web et Dashboard | PASS |
 | Compilation Python | PASS |
-| Tests Python ARCenal | 217 réussis |
-| Tests frontend impactés | 22 réussis |
+| Tests Python impactés | 65 réussis |
+| Tests frontend | 456 réussis |
 | Build de production | PASS |
 | Tests paquet YunoHost | 9 scripts et 20 tests Python réussis |
 | `git diff --check` | PASS |
@@ -125,8 +125,8 @@ en `preview`, la recette réelle doit encore confirmer sur YunoHost :
   redémarrage du seul service ARCenal.
 
 Le flux brut preview référence le paquet
-`8637acf983854f333e7b3b20372d5fdbf3500725` et annonce la version
-`0.21.0~ynh49`. Cette candidate intègre les corrections de l'audit et doit
+`240d687e8952e3885a36bc6ef1b1302ea35c1d9b` et annonce la version
+`0.21.0~ynh50`. Cette candidate intègre les corrections de l'audit et doit
 maintenant être validée sur le serveur YunoHost réel. Le canal stable reste
 inchangé.
 
