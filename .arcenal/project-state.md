@@ -1,5 +1,24 @@
 # État du projet ARCenal Agent
 
+## Correctif — saturation temporaire des fournisseurs IA
+
+- Date : 2026-10-02 ; branche `arcenal`, source `v0.21.0-arcenal26`, paquet
+  YunoHost `0.21.0~ynh44` publié dans le canal `preview`.
+- Les réponses HTTP 500, 502, 503 et 504 sont classées comme indisponibilité
+  temporaire. En mode AUTO, ARC poursuit avec le prochain modèle autorisé ; en
+  l’absence de repli, le chat affiche une erreur claire et reste utilisable.
+- Les erreurs Gemini 503 ne restent plus bloquées sur « ARC analyse votre
+  demande… ». Les secrets sont expurgés, y compris lorsqu’un fournisseur les
+  sérialise dans un fragment JSON.
+- Validation : Ruff et ESLint sans erreur, `ty`, TypeScript, compilation
+  Python et build de production réussis ; 24 tests moteur et 17 tests de chat
+  ciblés passent. La revue indépendante ne relève aucun BLOCKER, HIGH ou MEDIUM.
+- Publication vérifiée : source `f396975074fad49cfc068781a6422b530ece5c00`,
+  paquet `5fc0b7511cf942f1f7d2c3dd581be24c45c9bba8`, catalogue preview
+  `1921ec6`. Le flux brut annonce bien `0.21.0~ynh44`.
+- Le fichier utilisateur `contributors/emails/agent@Agents-Mac-mini.local`
+  reste exclu du lot.
+
 ## Lot — Harnais par agent et tâches planifiées
 
 - Date : 2026-10-02 ; branche `arcenal`, source `v0.21.0-arcenal25`, paquet
