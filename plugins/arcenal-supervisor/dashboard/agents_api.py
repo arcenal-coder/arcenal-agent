@@ -271,7 +271,7 @@ def query_dashboard_agent(agent_id: str, message: str, session_id: str, user_id:
 
 
 def _translate_error(exc: Exception) -> HTTPException:
-    from arcenal_arc_core.errors import AgentAccessDeniedError, AgentContractError, AgentDisabledError, AgentExecutionError, AgentNotFoundError, ApplicationAuthenticationError
+    from arcenal_arc_core.errors import AgentAccessDeniedError, AgentContractError, AgentDisabledError, AgentExecutionError, AgentNotFoundError, ApplicationAuthenticationError, ModelRoutingError
 
     if isinstance(exc, AgentNotFoundError):
         return HTTPException(status_code=404, detail=str(exc))
@@ -282,6 +282,8 @@ def _translate_error(exc: Exception) -> HTTPException:
     if isinstance(exc, AgentAccessDeniedError):
         return HTTPException(status_code=403, detail=str(exc))
     if isinstance(exc, (AgentContractError, ValueError)):
+        return HTTPException(status_code=422, detail=str(exc))
+    if isinstance(exc, ModelRoutingError):
         return HTTPException(status_code=422, detail=str(exc))
     if isinstance(exc, AgentExecutionError):
         return HTTPException(status_code=503, detail=str(exc))

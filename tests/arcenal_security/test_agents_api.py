@@ -139,6 +139,14 @@ class AgentRegistryApiTests(TestCase):
 
         self.assertEqual(response.status_code, 422)
 
+    def test_model_routing_error_is_exposed_as_configuration_error(self) -> None:
+        error = MODULE.CORE.ModelRoutingError("Aucun modèle ARC configuré.")
+
+        translated = MODULE._translate_error(error)
+
+        self.assertEqual(translated.status_code, 422)
+        self.assertEqual(translated.detail, "Aucun modèle ARC configuré.")
+
     def test_runtime_uses_the_model_assigned_to_arc_instead_of_hermes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -193,6 +201,14 @@ class AgentRegistryApiTests(TestCase):
             (knowledge / "ats.md").write_text("---\nreference: PR-RH-004\ntitre: Validation candidature\nversion: 2\nstatut: Applicable\nknowledge_scopes: [ats, recruitment]\nconfidentialite: internal\nsource_type: lda\n---\n# Validation\nLa candidature est validée par les RH.\n", encoding="utf-8")
             environment = {"ARCENAL_APP_ARCENAL_ATS_TOKEN": STRONG_TOKEN, "HERMES_HOME": directory}
             with patch.dict(os.environ, environment, clear=False), patch.object(MODULE, "_registry_path", return_value=home / "agents.json"), patch.object(MODULE, "_audit_writer", return_value=None), patch(engine_path, return_value=output) as engine:
+                MODULE._frugal_runtime().registry.upsert(MODULE.CORE.ModelDescriptor(
+                    id="ollama-local", provider="ollama", model_name="qwen3:8b",
+                    capabilities=(MODULE.CORE.CapabilityProfile.STANDARD,), context_window=32_000,
+                    availability=MODULE.CORE.ModelAvailability.AVAILABLE,
+                    catalog_source=MODULE.CORE.ModelCatalogSource.CONFIGURED,
+                    privacy_class=MODULE.CORE.ConfidentialityLevel.INTERNAL,
+                    location=MODULE.CORE.ModelLocation.LOCAL,
+                ))
                 response = _client().post("/api/v1/agents/ats/query", headers=_headers(), json={"message": "Validation candidature", "context": {"candidate": "42"}})
 
         self.assertEqual(response.status_code, 200)

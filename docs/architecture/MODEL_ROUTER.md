@@ -6,4 +6,6 @@ Le routeur filtre successivement l'état, la capacité, la fenêtre de contexte,
 
 Le classement favorise un modèle local lorsqu'il est demandé, puis applique la priorité du fournisseur, le coût déclaré et la priorité du modèle. La décision contient une raison technique et la liste des fallbacks éligibles. Elle ne contient aucune chaîne de pensée.
 
-Le modèle Hermes actif est importé une seule fois comme entrée de compatibilité lorsque sa configuration fournit un couple fournisseur/modèle. Si une installation historique ne fournit pas encore ces métadonnées et que le registre est vide, ARC conserve temporairement l'appel Hermes existant et trace explicitement cette route de compatibilité. Cette tolérance est refusée dès qu'une contrainte `local_only`, fournisseur, modèle ou coût existe. Dès qu'une entrée est enregistrée, tout appel passe par les politiques du Model Router.
+Le fournisseur ne définit aucun modèle par défaut. Le modèle est toujours choisi par la politique AUTO ou FIXED de l'agent. Un registre vide provoque une erreur de configuration explicite et n'autorise jamais un appel direct à l'ancien fournisseur Hermes. Les installations historiques doivent connecter un fournisseur, synchroniser ses modèles puis attribuer une politique à chaque agent.
+
+Une attribution FIXED est validée avant persistance : le modèle doit être actif, appartenir au fournisseur annoncé, respecter la contrainte locale et accepter le niveau de confidentialité exigé par l'agent. Le même contrôle est réappliqué à l'exécution par le Model Router.

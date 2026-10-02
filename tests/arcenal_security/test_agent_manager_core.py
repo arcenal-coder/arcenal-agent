@@ -157,7 +157,7 @@ def test_model_policy_rejects_fixed_auto_and_missing_model() -> None:
         CORE.ModelPolicy(mode="fixed", allowed_providers=("gemini",))
 
 
-def _model_descriptor(identifier: str, provider: str, location: str) -> object:
+def _model_descriptor(identifier: str, provider: str, location: str, privacy: str = "internal") -> object:
     return CORE.ModelDescriptor(
         id=identifier,
         provider=provider,
@@ -167,9 +167,22 @@ def _model_descriptor(identifier: str, provider: str, location: str) -> object:
         catalog_source=CORE.ModelCatalogSource.CONFIGURED,
         capabilities=(CORE.CapabilityProfile.STANDARD,),
         context_window=None,
-        privacy_class=CORE.ConfidentialityLevel.INTERNAL,
+        privacy_class=CORE.ConfidentialityLevel(privacy),
         location=CORE.ModelLocation(location),
     )
+
+
+def test_fixed_policy_respects_agent_confidentiality(tmp_path: Path) -> None:
+    registry = CORE.ModelRegistry(tmp_path / "models.json")
+    registry.upsert(_model_descriptor("internal", "openrouter", "remote"))
+    registry.upsert(_model_descriptor("admin", "openrouter", "remote", "admin"))
+    manager = CORE.AgentManager(CORE.AgentRepository(tmp_path / "agents.json", CORE.default_agents()), registry)
+
+    with pytest.raises(ERRORS.AgentContractError, match="confidentialité"):
+        manager.update("arc", CORE.AgentUpdate(model_policy=CORE.ModelPolicy(mode="fixed", allowed_providers=("openrouter",), allowed_models=("internal",))))
+    updated = manager.update("arc", CORE.AgentUpdate(model_policy=CORE.ModelPolicy(mode="fixed", allowed_providers=("openrouter",), allowed_models=("admin",))))
+
+    assert updated.model_policy.allowed_models == ("admin",)
 
 
 def test_registry_rejects_unknown_disabled_and_corrupt_agents(tmp_path: Path) -> None:

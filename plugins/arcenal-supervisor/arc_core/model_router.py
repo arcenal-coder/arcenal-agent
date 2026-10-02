@@ -39,17 +39,14 @@ class ModelRouter:
         self._local_only = local_only
         self._providers = providers
 
-    def has_models(self) -> bool:
-        return bool(self._registry.list())
-
     def model(self, model_id: str) -> ModelDescriptor | None:
         return self._registry.get(model_id)
 
-    def allows_unregistered_model(self) -> bool:
-        return not self._allowed_providers and not self._denied_providers and not self._local_only
-
     def route(self, need: RoutingNeed) -> RoutingDecision:
-        eligible = tuple(item for item in self._registry.list() if self._eligible(item, need))
+        registered = self._registry.list()
+        if not registered:
+            raise ModelRoutingError("Aucun modèle n’est enregistré dans ARC. Connectez un fournisseur puis attribuez un modèle à l’agent.")
+        eligible = tuple(item for item in registered if self._eligible(item, need))
         if not eligible:
             raise ModelRoutingError("Aucun modèle activé ne respecte la capacité et la confidentialité requises.")
         ranked = tuple(sorted(eligible, key=lambda item: self._rank(item, need)))

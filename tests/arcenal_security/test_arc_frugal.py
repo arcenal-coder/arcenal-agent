@@ -131,8 +131,19 @@ def test_empty_registry_compatibility_never_bypasses_local_only(tmp_path: Path) 
     engine = CORE.FrugalAgentEngine(llm, CORE.DeterministicEngine(), CORE.FrugalCache(tmp_path / "cache.json"), CORE.WorkflowEngine(store), CORE.ModelRouter(CORE.ModelRegistry(tmp_path / "models.json")), CORE.FrugalMetricsRepository(tmp_path / "metrics.json"), CORE.ProcessObserver(store))
     context = _context().model_copy(update={"model_policy": CORE.ModelPolicy(local_only=True)})
 
-    with pytest.raises(Exception, match="Aucun modèle activé"):
+    with pytest.raises(Exception, match="Aucun modèle n’est enregistré dans ARC"):
         engine.execute(context, "Rédige un message")
+    assert llm.calls == 0
+
+
+def test_empty_registry_never_falls_back_to_hermes_provider(tmp_path: Path) -> None:
+    llm = CountingEngine()
+    store = CORE.AutomationStore(tmp_path)
+    router = CORE.ModelRouter(CORE.ModelRegistry(tmp_path / "models.json"))
+    engine = CORE.FrugalAgentEngine(llm, CORE.DeterministicEngine(), CORE.FrugalCache(tmp_path / "cache.json"), CORE.WorkflowEngine(store), router, CORE.FrugalMetricsRepository(tmp_path / "metrics.json"), CORE.ProcessObserver(store))
+
+    with pytest.raises(CORE.ModelRoutingError, match="Aucun modèle n’est enregistré dans ARC"):
+        engine.execute(_context(), "Rédige un message")
     assert llm.calls == 0
 
 

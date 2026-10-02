@@ -2,7 +2,7 @@
 
 Date : 2026-10-02  
 Branche : `arcenal`  
-Candidate publiée : `v0.21.0-arcenal28` / `0.21.0~ynh46`, canal `preview`
+Candidate publiée au début de l'audit : `v0.21.0-arcenal29` / `0.21.0~ynh47`, canal `preview`
 
 ## Objet
 
@@ -44,12 +44,21 @@ Les erreurs Gemini HTTP 503 sont classées comme indisponibilités temporaires.
 En mode AUTO, ARC essaie ensuite les autres modèles autorisés, dans l'ordre du
 routeur. Un test reproduit explicitement le parcours `Gemini 503 → OpenRouter`.
 
+L'audit a également découvert un ancien chemin de compatibilité : lorsque le
+registre des modèles était vide, ARC appelait directement Hermes, qui pouvait
+réutiliser son fournisseur global Gemini. Ce chemin est supprimé. Un registre
+vide retourne désormais une erreur de configuration claire sans appeler
+Gemini, OpenRouter ou un autre fournisseur.
+
 ### Confidentialité des modèles
 
 ARC exige un modèle autorisé pour la confidentialité du contexte traité. Le
 catalogue permet maintenant à l'administrateur de déclarer le niveau maximal
 de données accepté par chaque modèle. Un modèle limité aux données internes ne
 peut pas recevoir silencieusement un contexte d'administration.
+
+Cette contrainte est aussi contrôlée à l'enregistrement d'une politique FIXED.
+Une attribution impossible est refusée avant d'être sauvegardée.
 
 ### Propriété du modèle
 
@@ -72,6 +81,9 @@ Historique persistant et archivable : PASS
 Permissions historique 0600 : PASS
 Niveau de confidentialité des modèles modifiable : PASS
 Modèle global imposé par le paquet YunoHost : SUPPRIMÉ
+Fallback silencieux vers le fournisseur Hermes : SUPPRIMÉ
+Registre vide sans appel fournisseur : PASS
+Politique FIXED incompatible refusée : PASS
 Secret inclus dans le registre : NON
 ```
 
@@ -101,9 +113,10 @@ en `preview`, la recette réelle doit encore confirmer sur YunoHost :
 - la conservation des fournisseurs, agents, secrets, RAG et mémoire après
   redémarrage du seul service ARCenal.
 
-Le flux brut preview référence le paquet
-`e7c4fd58868bb6cd788d7550e9e8a4f66f14f3f9` et annonce la version
-`0.21.0~ynh46`. Le canal stable reste inchangé.
+Le flux brut preview référence actuellement le paquet
+`9c9ff6044d0c4585b62b349425f6958a9d84d79a` et annonce la version
+`0.21.0~ynh47`. Une nouvelle candidate devra intégrer les corrections de cet
+audit avant la recette réelle. Le canal stable reste inchangé.
 
 ## Verdict
 

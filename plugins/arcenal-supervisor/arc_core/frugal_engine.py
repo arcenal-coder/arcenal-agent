@@ -63,8 +63,6 @@ class FrugalAgentEngine:
     def _execute_llm(self, context: EffectiveContext, message: str, task_type: TaskType, started: float) -> EngineOutput:
         routing_started = perf_counter()
         capability = self._capability(context, task_type, message)
-        if not self._router.has_models() and self._compatibility_allowed(context):
-            return self._execute_compatibility(context, message, task_type, capability, started, routing_started)
         decision = self._router.route(self._need(context, task_type, capability))
         routing_duration = (perf_counter() - routing_started) * 1_000
         output = self._execute_decision(context, message, decision)
@@ -101,19 +99,6 @@ class FrugalAgentEngine:
 
     def _router_model(self, model_id: str) -> ModelDescriptor | None:
         return self._router.model(model_id)
-
-    def _execute_compatibility(self, context: EffectiveContext, message: str, task_type: TaskType, capability: CapabilityProfile, started: float, routing_started: float) -> EngineOutput:
-        reason = "Registre vide : configuration Hermes existante conservée"
-        routing_duration = (perf_counter() - routing_started) * 1_000
-        output = self._llm.execute(context, message)
-        enriched = self._enrich(output, ExecutionMode.LLM, reason, capability, routing_duration, "")
-        self._cache.store(context, message, enriched)
-        return self._finish(context, task_type, ExecutionMode.LLM, enriched, started, reason, routing_duration)
-
-    def _compatibility_allowed(self, context: EffectiveContext) -> bool:
-        policy = context.model_policy
-        unrestricted = not policy.local_only and not policy.allowed_providers and not policy.denied_providers and not policy.allowed_models and policy.max_cost is None
-        return policy.mode == "auto" and unrestricted and self._router.allows_unregistered_model()
 
     def _finish(self, context: EffectiveContext, task_type: TaskType, mode: ExecutionMode, output: EngineOutput, started: float, reason: str, routing_ms: float = 0) -> EngineOutput:
         duration = (perf_counter() - started) * 1_000

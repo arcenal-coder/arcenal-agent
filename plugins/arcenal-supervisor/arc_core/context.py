@@ -26,6 +26,16 @@ class GlobalAgentPolicy:
     forbidden_permissions: frozenset[str] = frozenset()
 
 
+def required_confidentiality(permissions: tuple[str, ...]) -> ConfidentialityLevel:
+    if "system.admin" in permissions:
+        return ConfidentialityLevel.ADMIN
+    if "knowledge.confidential" in permissions:
+        return ConfidentialityLevel.CONFIDENTIAL
+    if "knowledge.restricted" in permissions:
+        return ConfidentialityLevel.RESTRICTED
+    return ConfidentialityLevel.INTERNAL
+
+
 class ContextBuilder:
     def __init__(self, policy: GlobalAgentPolicy, retriever: KnowledgeRetriever | None = None) -> None:
         self._policy = policy
@@ -96,7 +106,7 @@ class ContextBuilder:
             permissions=identity.permissions,
             document_statuses=self._statuses(message, identity.permissions),
             source_types=self._source_types(identity.permissions),
-            confidentiality_level=self._confidentiality(identity.permissions),
+            confidentiality_level=required_confidentiality(identity.permissions),
             query=message.strip() or "contexte général",
             max_context_size=ContextBudget(),
         )
@@ -116,16 +126,6 @@ class ContextBuilder:
         if history_requested and "lda.history" in permissions:
             return (DocumentStatus.APPLICABLE, DocumentStatus.ARCHIVED)
         return (DocumentStatus.APPLICABLE,)
-
-    def _confidentiality(self, permissions: tuple[str, ...]) -> ConfidentialityLevel:
-        if "system.admin" in permissions:
-            return ConfidentialityLevel.ADMIN
-        if "knowledge.confidential" in permissions:
-            return ConfidentialityLevel.CONFIDENTIAL
-        if "knowledge.restricted" in permissions:
-            return ConfidentialityLevel.RESTRICTED
-        return ConfidentialityLevel.INTERNAL
-
 
 def _harness_sections(agent: AgentDefinition) -> tuple[str, ...]:
     values = (

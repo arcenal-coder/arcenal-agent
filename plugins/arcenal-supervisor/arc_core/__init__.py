@@ -2,7 +2,7 @@
 
 from .audit_adapter import append_agent_event
 from .catalog import default_agents
-from .context import ContextBuilder, GlobalAgentPolicy
+from .context import ContextBuilder, GlobalAgentPolicy, required_confidentiality
 from .manager import AgentManager
 from .knowledge_index import KnowledgeIndexer, KnowledgeIndexRepository
 from .knowledge_metrics import KnowledgeMetricsRepository
@@ -100,7 +100,7 @@ from .provider_adapter import HermesProviderAdapter, ProviderAdapter, ProviderEx
 from .provider_models import AuthenticationType, ProviderAttempt, ProviderCapability, ProviderDescriptor, ProviderHealth
 from .provider_registry import ProviderRegistry
 from .task_classifier import classify_task, required_capability
-from .errors import ApplicationAuthenticationError, ProviderExecutionError
+from .errors import ApplicationAuthenticationError, ModelRoutingError, ProviderExecutionError
 from .auth import ApplicationAuthenticator
 from .configuration import (
     ArcConfigStore,
@@ -207,6 +207,7 @@ __all__ = [
     "ModelLocation",
     "ModelRegistry",
     "ModelRouter",
+    "ModelRoutingError",
     "ProviderAdapter",
     "ProviderAttempt",
     "ProviderCapability",
@@ -255,6 +256,7 @@ __all__ = [
     "migration_status",
     "rebuild_index",
     "required_capability",
+    "required_confidentiality",
     "runtime_configuration",
     "transition_workflow",
 ]
