@@ -4,19 +4,21 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Callable, Mapping
 
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from security import ACTION_CATALOG, ActionRequest, Actor, evaluate_action
+from security import ACTION_CATALOG, ActionRequest, Actor, AuthorizationLevel, evaluate_action
 from security.approvals import ApprovalError, consume_approval, issue_approval, pending_approvals
 from security.audit import AuditWriteError, append_event, read_events
-from security.broker_client import BrokerUnavailableError, execute
+from security.broker_client import BrokerUnavailableError, execute, execute_readonly
 from security.identity import AdministratorDeniedError, AdministratorLookupError, administrator_actor
 from security.models import SecurityContractError
 
 
 app = FastAPI(title="ARCenal Control API", docs_url=None, redoc_url=None)
+BrokerExecutor = Callable[[Mapping[str, object], float], dict[str, object]]
 
 
 class ActionPayload(BaseModel):
@@ -132,9 +134,9 @@ def _confirmed(request: ExecuteRequest, actor: Actor) -> bool:
 def _execute_authorized(request: ExecuteRequest, actor: Actor) -> dict[str, object]:
     append_event("action.requested", actor.username, {"action_id": request.action_id, "target": request.target})
     try:
-        result = execute(
+        result = _broker_executor(request.action_id)(
             {"action_id": request.action_id, "target": request.target},
-            timeout=_broker_timeout(request.action_id),
+            _broker_timeout(request.action_id),
         )
     except BrokerUnavailableError as exc:
         append_event("action.failed", actor.username, {"action_id": request.action_id, "reason": str(exc)})
@@ -144,6 +146,11 @@ def _execute_authorized(request: ExecuteRequest, actor: Actor) -> dict[str, obje
     if not result["ok"]:
         raise HTTPException(status_code=500, detail=str(result.get("error") or "L'action a échoué."))
     return {"status": "completed", "action": _public_action(request.action_id), "result": result}
+
+
+def _broker_executor(action_id: str) -> BrokerExecutor:
+    action = ACTION_CATALOG[action_id]
+    return execute_readonly if action.authorization is AuthorizationLevel.READ else execute
 
 
 def _broker_timeout(action_id: str) -> float:
