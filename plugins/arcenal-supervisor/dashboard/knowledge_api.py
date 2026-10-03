@@ -7,10 +7,14 @@ import os
 import re
 import sys
 import tempfile
+import fcntl
+import threading
+import unicodedata
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, Iterator
 from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
@@ -40,6 +44,7 @@ STATUS_TRANSITIONS = {
     "Applicable": {"Archivé"},
     "Archivé": {"En révision"},
 }
+KNOWLEDGE_WRITE_LOCK = threading.RLock()
 
 
 class DocumentWrite(BaseModel):
@@ -71,6 +76,19 @@ def knowledge_root() -> Path:
     root = home / "knowledge"
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     return root.resolve()
+
+
+@contextmanager
+def _knowledge_write_lock() -> Iterator[None]:
+    with KNOWLEDGE_WRITE_LOCK:
+        lock_path = knowledge_root() / ".integrity.lock"
+        with lock_path.open("a+b") as handle:
+            lock_path.chmod(0o600)
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 def _safe_path(relative_path: str, writable: bool = False) -> Path:
@@ -161,7 +179,7 @@ def _document_summary(path: Path) -> dict[str, Any]:
         "reference": metadata.get("reference", ""),
         "title": _title(metadata, body, path),
         "type": metadata.get("type", "Note"),
-        "version": metadata.get("version", "1"),
+        "version": metadata.get("version", metadata.get("revision", "1")),
         "activity": metadata.get("activite", metadata.get("perimetre", "")),
         "number": metadata.get("numerotation", metadata.get("reference", "")),
         "change_type": metadata.get("nature", "Création"),
@@ -351,9 +369,10 @@ def read_document(relative_path: str) -> dict[str, Any]:
     return {"document": _document_summary(target), "content": content}
 
 
-def write_document(payload: DocumentWrite, allow_status_change: bool = True) -> dict[str, Any]:
+def _write_document_locked(payload: DocumentWrite, allow_status_change: bool = True) -> dict[str, Any]:
     _validate_content(payload.content)
     target = _safe_path(payload.path, writable=True)
+    _assert_unique_document_identity(payload.content, target)
     if target.is_file() and not allow_status_change:
         _reject_direct_status_change(target, payload.content)
     _archive_existing(target)
@@ -362,24 +381,33 @@ def write_document(payload: DocumentWrite, allow_status_change: bool = True) -> 
     return {"ok": True, "document": _document_summary(target)}
 
 
-def create_document(payload: DocumentWrite) -> dict[str, Any]:
+def write_document(payload: DocumentWrite, allow_status_change: bool = True) -> dict[str, Any]:
+    with _knowledge_write_lock():
+        return _write_document_locked(payload, allow_status_change)
+
+
+def _create_document_locked(payload: DocumentWrite) -> dict[str, Any]:
     payload = _versioned_payload(payload)
     target = _safe_path(payload.path, writable=True)
     if target.exists():
         raise HTTPException(status_code=409, detail="Un document existe déjà à cet emplacement.")
-    return write_document(payload)
+    return _write_document_locked(payload)
+
+
+def create_document(payload: DocumentWrite) -> dict[str, Any]:
+    with _knowledge_write_lock():
+        return _create_document_locked(payload)
 
 
 def _versioned_payload(payload: DocumentWrite) -> DocumentWrite:
     target = _safe_path(payload.path, writable=True)
+    reference, version = _document_identity(payload.content)
+    _assert_unique_document_identity(payload.content, target)
     if not target.exists():
         return payload
-    reference, version = _document_identity(payload.content)
     current_reference, _current_version = _document_identity(target.read_text(encoding="utf-8"))
-    if not reference or reference != current_reference:
+    if not reference or _normalize_identity(reference) != _normalize_identity(current_reference):
         raise HTTPException(status_code=409, detail="Un document existe déjà à cet emplacement.")
-    if any(item["reference"] == reference and str(item["version"]) == version for item in list_documents()):
-        raise HTTPException(status_code=409, detail="Cette version documentaire existe déjà.")
     version_slug = re.sub(r"[^a-z0-9]+", "-", version.casefold()).strip("-")
     if not version_slug:
         raise HTTPException(status_code=422, detail="La version documentaire est obligatoire.")
@@ -390,6 +418,23 @@ def _versioned_payload(payload: DocumentWrite) -> DocumentWrite:
 def _document_identity(content: str) -> tuple[str, str]:
     metadata, _body = _frontmatter(content)
     return metadata.get("reference", "").strip(), metadata.get("version", metadata.get("revision", "")).strip()
+
+
+def _normalize_identity(value: str) -> str:
+    return unicodedata.normalize("NFKC", value).strip().casefold()
+
+
+def _assert_unique_document_identity(content: str, target: Path) -> None:
+    reference, version = _document_identity(content)
+    if not reference or not version:
+        return
+    identity = (_normalize_identity(reference), _normalize_identity(version))
+    for document in list_documents():
+        if _safe_path(str(document["path"])) == target:
+            continue
+        candidate = (_normalize_identity(str(document["reference"])), _normalize_identity(str(document["version"])))
+        if candidate == identity:
+            raise HTTPException(status_code=409, detail="Cette référence et cette version documentaires existent déjà.")
 
 
 def _reject_initial_publication(content: str) -> None:
@@ -492,24 +537,22 @@ def _authenticated_actor(request: Request) -> str:
 def create_document_with_attachment(
     payload: DocumentWrite, filename: str, media_type: str, data: bytes
 ) -> dict[str, Any]:
-    payload = _versioned_payload(payload)
-    target = _safe_path(payload.path, writable=True)
-    if target.exists():
-        raise HTTPException(status_code=409, detail="Un document existe déjà à cet emplacement.")
-    safe_name = _safe_attachment_name(filename)
-    _validate_attachment(data, safe_name)
-    relative = _attachment_relative_path(payload.path, safe_name)
-    attachment = _safe_attachment_path(relative.as_posix())
-    if attachment.exists():
-        raise HTTPException(status_code=409, detail="Cette pièce jointe existe déjà.")
-    _atomic_write_bytes(attachment, data)
-    try:
-        enriched = _with_attachment(payload.content, relative, safe_name, media_type, len(data))
-        enriched = _with_extracted_content(enriched, safe_name, data)
-        return create_document(DocumentWrite(path=payload.path, content=enriched))
-    except Exception:
-        attachment.unlink(missing_ok=True)
-        raise
+    with _knowledge_write_lock():
+        payload = _versioned_payload(payload)
+        safe_name = _safe_attachment_name(filename)
+        _validate_attachment(data, safe_name)
+        relative = _attachment_relative_path(payload.path, safe_name)
+        attachment = _safe_attachment_path(relative.as_posix())
+        if attachment.exists():
+            raise HTTPException(status_code=409, detail="Cette pièce jointe existe déjà.")
+        _atomic_write_bytes(attachment, data)
+        try:
+            enriched = _with_attachment(payload.content, relative, safe_name, media_type, len(data))
+            enriched = _with_extracted_content(enriched, safe_name, data)
+            return _create_document_locked(DocumentWrite(path=payload.path, content=enriched))
+        except Exception:
+            attachment.unlink(missing_ok=True)
+            raise
 
 
 def _validate_attachment(data: bytes, filename: str) -> None:
