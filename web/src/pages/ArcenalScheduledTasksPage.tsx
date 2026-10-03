@@ -56,7 +56,14 @@ function TaskComposer({ agents, profiles, draft, busy, onChange, onSubmit }: { a
 
 function TaskInventory({ state, reload, setState }: { state: TaskWorkspaceState; reload: () => Promise<void>; setState: TaskStateSetter }): ReactElement {
   if (state.busy) return <section className="arc-task-inventory"><p>Chargement des automatisations…</p></section>;
-  return <section className="arc-task-inventory"><header><div><small>Registre central</small><h2>{state.jobs.length + state.workflows.length} automatisation{state.jobs.length + state.workflows.length === 1 ? "" : "s"}</h2></div></header><div className="arc-task-grid">{state.jobs.map((job) => <ScheduledJobCard job={job} key={`cron-${job.id}`} reload={reload} setState={setState} />)}{state.workflows.map((workflow) => <TriggeredWorkflowCard workflow={workflow} key={`workflow-${workflow.id}`} reload={reload} setState={setState} />)}{state.jobs.length + state.workflows.length === 0 && <p>Aucune automatisation enregistrée.</p>}</div></section>;
+  const jobs = unmanagedJobs(state);
+  const count = jobs.length + state.workflows.length;
+  return <section className="arc-task-inventory"><header><div><small>Registre central</small><h2>{count} automatisation{count === 1 ? "" : "s"}</h2></div></header><div className="arc-task-grid">{jobs.map((job) => <ScheduledJobCard job={job} key={`cron-${job.id}`} reload={reload} setState={setState} />)}{state.workflows.map((workflow) => <TriggeredWorkflowCard workflow={workflow} key={`workflow-${workflow.id}`} reload={reload} setState={setState} />)}{count === 0 && <p>Aucune automatisation enregistrée.</p>}</div></section>;
+}
+
+function unmanagedJobs(state: TaskWorkspaceState): CronJob[] {
+  const managedIds = new Set(state.workflows.map((workflow) => workflow.cron_job_id).filter(Boolean));
+  return state.jobs.filter((job) => !managedIds.has(job.id));
 }
 
 function ScheduledJobCard({ job, reload, setState }: TaskCardProps): ReactElement {

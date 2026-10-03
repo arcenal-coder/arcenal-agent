@@ -99,4 +99,24 @@ describe("tâches planifiées ARCenal", () => {
     render(<ArcenalScheduledTasksPage />);
     expect((await screen.findByRole("alert")).textContent).toContain("Registre indisponible");
   });
+
+  it("masque le cron technique piloté par un workflow gouverné", async () => {
+    apiMocks.getCronJobs.mockResolvedValue([
+      { id: "managed-cron", name: "Rapport gouverné", enabled: true, schedule_display: "every 2m" },
+      { id: "standalone-cron", name: "Tâche autonome", enabled: true, schedule_display: "every day" },
+    ]);
+    apiMocks.getArcenalAutomations.mockResolvedValue({ candidates: [], workflows: [{
+      agent_id: "arc", approved_by: "admin", autonomy: "controlled", created_at: "2026-10-03T20:00:00Z",
+      cron_job_id: "managed-cron", description: "Rapport gouverné", exceptions: 0, executions: 1,
+      id: "managed-workflow", name: "Rapport gouverné", permissions: [], profile_name: "default",
+      schedule: "every 2m", status: "active", steps: [], trigger: "Planification : every 2m",
+      updated_at: "2026-10-03T20:00:00Z", version: 1,
+    }] });
+
+    render(<ArcenalScheduledTasksPage />);
+
+    await screen.findByRole("heading", { name: "2 automatisations" });
+    expect(screen.getAllByRole("button", { name: /Supprimer/ })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /Désactiver/ })).toBeTruthy();
+  });
 });

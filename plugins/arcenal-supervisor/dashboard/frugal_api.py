@@ -168,7 +168,10 @@ def _cron_dashboard() -> ModuleType:
 def _create_cron_job(workflow: AutomationWorkflow) -> str:
     from hermes_cli.web_models import CronJobCreate
 
-    body = CronJobCreate(prompt=workflow.description, schedule=workflow.schedule, name=workflow.name, deliver="local")
+    schedule = workflow.schedule
+    if schedule is None:
+        raise CORE.AutomationPolicyError("Une planification est requise pour créer la tâche exécutable.")
+    body = CronJobCreate(prompt=workflow.description, schedule=schedule, name=workflow.name, deliver="local")
     job = _cron_dashboard()._create_cron_job_sync(body, workflow.profile_name or "default")
     return str(job["id"])
 
@@ -187,10 +190,22 @@ def _update_cron_state(workflow: AutomationWorkflow, status: WorkflowStatus) -> 
     dashboard._pause_cron_job_sync(workflow.cron_job_id, profile)
 
 
+def _cron_job_exists(workflow: AutomationWorkflow) -> bool:
+    if workflow.cron_job_id is None:
+        return False
+    try:
+        _cron_dashboard()._get_cron_job_sync(workflow.cron_job_id, workflow.profile_name or "default")
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return False
+        raise
+    return True
+
+
 def _synchronize_scheduled_workflow(current: AutomationWorkflow, updated: AutomationWorkflow) -> AutomationWorkflow:
     if updated.schedule is None:
         return updated
-    if updated.status is CORE.WorkflowStatus.ACTIVE and current.cron_job_id is None:
+    if updated.status is CORE.WorkflowStatus.ACTIVE and not _cron_job_exists(current):
         return updated.model_copy(update={"cron_job_id": _create_cron_job(updated)})
     _update_cron_state(current, updated.status)
     return updated

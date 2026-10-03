@@ -4,7 +4,7 @@ import importlib.util
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -101,3 +101,19 @@ def test_disabling_an_approved_workflow_pauses_its_cron_job(monkeypatch: pytest.
     api._synchronize_scheduled_workflow(current, disabled)
 
     assert observed == [("123456789abc", CORE.WorkflowStatus.DISABLED)]
+
+
+def test_activation_recreates_a_missing_managed_cron_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    api = _load_frugal_api()
+    current = _scheduled_workflow(CORE.WorkflowStatus.TESTING).model_copy(update={"cron_job_id": "missing-cron"})
+    active = CORE.transition_workflow(current, CORE.WorkflowStatus.ACTIVE, "admin@example.test")
+    def missing_job(*_args: object) -> None:
+        raise api.HTTPException(status_code=404)
+
+    dashboard = SimpleNamespace(_get_cron_job_sync=missing_job)
+    monkeypatch.setattr(api, "_cron_dashboard", lambda: dashboard)
+    monkeypatch.setattr(api, "_create_cron_job", lambda _workflow: "replacement-cron")
+
+    synchronized = api._synchronize_scheduled_workflow(current, active)
+
+    assert synchronized.cron_job_id == "replacement-cron"
