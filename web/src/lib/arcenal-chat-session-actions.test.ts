@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { archiveConversation, SessionArchiveError } from "../../../plugins/arcenal-supervisor/dashboard/src/session-actions";
+import { archiveConversation, resumeConversation, SessionArchiveError, SessionResumeError } from "../../../plugins/arcenal-supervisor/dashboard/src/session-actions";
 
 describe("archivage du chat ARC", () => {
   it("archive la conversation active", async () => {
@@ -22,5 +22,30 @@ describe("archivage du chat ARC", () => {
     const fetcher = vi.fn().mockRejectedValue(new Error("service indisponible"));
     await expect(archiveConversation(fetcher, "conversation-1"))
       .rejects.toThrow("L’archivage a échoué : service indisponible");
+  });
+});
+
+describe("reprise du chat ARC", () => {
+  it("recharge la conversation sélectionnée", async () => {
+    const session = { id: "conversation-1", messages: [{ id: "message-1" }] };
+    const fetcher = vi.fn().mockResolvedValue(session);
+    await expect(resumeConversation(fetcher, session.id)).resolves.toEqual(session);
+    expect(fetcher).toHaveBeenCalledWith("/chat/sessions/conversation-1");
+  });
+
+  it("encode les identifiants spéciaux", async () => {
+    const fetcher = vi.fn().mockResolvedValue({ id: "conversation/été" });
+    await resumeConversation(fetcher, "conversation/été");
+    expect(fetcher).toHaveBeenCalledWith("/chat/sessions/conversation%2F%C3%A9t%C3%A9");
+  });
+
+  it("refuse un identifiant vide", async () => {
+    await expect(resumeConversation(vi.fn(), "   ")).rejects.toBeInstanceOf(SessionResumeError);
+  });
+
+  it("restitue un échec de reprise compréhensible", async () => {
+    const fetcher = vi.fn().mockRejectedValue(new Error("service indisponible"));
+    await expect(resumeConversation(fetcher, "conversation-1"))
+      .rejects.toThrow("La reprise de la conversation a échoué : service indisponible");
   });
 });

@@ -1,4 +1,5 @@
 import { canSubmitMessage, chatMessagePresentation, completeMaintenance, providerErrorMessage, type ArcenalChatMessage, type ArcenalChatState, type ChatConnectionState, type PendingApproval, type PendingMaintenance } from "./chat-state";
+import { resumeConversation } from "./session-actions";
 
 type ReactApi = typeof import("react");
 
@@ -168,8 +169,9 @@ function ArcenalChatPage(): ReturnType<typeof h> {
   React.useEffect(() => { void api<Overview>("/overview").then(setOverview).catch(() => setOverview(null)); }, []);
   const resume = async (storedId: string): Promise<void> => {
     try {
-      const session = await api<ChatSession>(`/chat/sessions/${encodeURIComponent(storedId)}`);
+      const session = await resumeConversation<ChatSession>(api, storedId);
       setChat(sessionChat(session));
+      setConnection("open");
     } catch (cause) {
       setChat((current) => ({ ...current, error: errorMessage(cause) }));
     }
