@@ -51,7 +51,18 @@ class FrugalStorageError(RuntimeError):
 class ProviderExecutionError(RuntimeError):
     """Signale un échec fournisseur expurgé et exploitable par le fallback."""
 
+    RETRYABLE_CODES = frozenset({"rate_limited", "timeout", "unavailable", "invalid_response"})
+    FALLBACK_CODES = frozenset({"rate_limited", "timeout", "unavailable"})
+
     def __init__(self, message: str, code: str, attempts: tuple[ProviderAttempt, ...] = ()) -> None:
         super().__init__(message)
         self.code = code
         self.attempts = attempts
+
+    @property
+    def retryable(self) -> bool:
+        return self.code in self.RETRYABLE_CODES
+
+    @property
+    def fallback_allowed(self) -> bool:
+        return self.code in self.FALLBACK_CODES

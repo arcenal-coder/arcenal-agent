@@ -1,5 +1,16 @@
 # Décisions structurantes ARCenal Agent
 
+## LLM-RESILIENCE-001 — Repli limité aux erreurs transitoires
+
+- Date : 2026-10-03
+- Décision : une nouvelle tentative peut traiter une réponse invalide, mais le
+  passage à un autre fournisseur est limité à `rate_limited`, `timeout` et
+  `unavailable`.
+- Sécurité : les erreurs d'authentification, de configuration, de politique,
+  d'ACL ou de secret absent restent explicites et n'autorisent aucun repli.
+- Conséquence : une mauvaise clé ou un modèle inexistant ne peut plus être
+  masqué par la réponse d'un autre fournisseur.
+
 ## SEC-001 — Identité administrateur
 
 - Date : 2026-09-28

@@ -93,6 +93,8 @@ class FrugalAgentEngine:
         try:
             output, attempts = self._executor.execute(context, message, provider, model.model_name)
         except ProviderExecutionError as exc:
+            if not exc.fallback_allowed:
+                raise
             return ProviderCandidateResult(None, provider.id, len(exc.attempts))
         usage = {**output.usage, "provider": provider.id, "model": model.model_name}
         return ProviderCandidateResult(output.model_copy(update={"usage": usage}), provider.id, len(attempts))

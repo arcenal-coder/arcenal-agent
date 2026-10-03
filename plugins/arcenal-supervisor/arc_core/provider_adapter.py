@@ -50,16 +50,19 @@ class ProviderExecutor:
             if result[0] is not None:
                 self._set_health(provider.id, ProviderHealth.HEALTHY)
                 return result[0], tuple(attempts)
+            if result[2] is not None and not result[2].retryable:
+                raise ProviderExecutionError(str(result[2]), result[2].code, tuple(attempts))
             if attempt <= self._retries:
                 sleep(self._retry_delay_seconds)
         self._set_health(provider.id, ProviderHealth.DEGRADED)
-        raise ProviderExecutionError("Le fournisseur IA est indisponible après une nouvelle tentative.", "unavailable", tuple(attempts))
+        code = result[2].code if result[2] is not None else "unavailable"
+        raise ProviderExecutionError("Le fournisseur IA est indisponible après une nouvelle tentative.", code, tuple(attempts))
 
     def _set_health(self, provider_id: str, health: ProviderHealth) -> None:
         if self._registry is not None:
             self._registry.update_health(provider_id, health)
 
-    def _attempt(self, context: EffectiveContext, message: str, provider: ProviderDescriptor, model: str, attempt: int) -> tuple[EngineOutput | None, ProviderAttempt]:
+    def _attempt(self, context: EffectiveContext, message: str, provider: ProviderDescriptor, model: str, attempt: int) -> tuple[EngineOutput | None, ProviderAttempt, ProviderExecutionError | None]:
         started = perf_counter()
         try:
             output = self._adapter.execute(context, message, provider, model)
@@ -67,11 +70,12 @@ class ProviderExecutor:
                 raise ProviderExecutionError("Le fournisseur a retourné une réponse vide.", "invalid_response")
         except Exception as exc:
             error = _provider_error(exc)
-            return None, self._trace(provider.id, model, attempt, error.code, started)
-        return output, self._trace(provider.id, model, attempt, "success", started)
+            return None, self._trace(provider.id, model, attempt, error.code, started), error
+        return output, self._trace(provider.id, model, attempt, "success", started), None
 
     def _trace(self, provider: str, model: str, attempt: int, status: str, started: float) -> ProviderAttempt:
-        normalized = status if status in {"success", "failed", "rate_limited", "timeout", "unavailable", "invalid_response"} else "failed"
+        accepted = {"success", "failed", "rate_limited", "timeout", "unavailable", "invalid_response", "authentication", "configuration"}
+        normalized = status if status in accepted else "failed"
         error_code = None if normalized == "success" else normalized
         return ProviderAttempt(provider=provider, model=model, attempt=attempt, status=normalized, duration_ms=(perf_counter() - started) * 1_000, error_code=error_code)
 
@@ -83,17 +87,48 @@ def provider_is_available(provider: ProviderDescriptor) -> bool:
 def _provider_error(exc: Exception) -> ProviderExecutionError:
     if isinstance(exc, ProviderExecutionError):
         return exc
-    chain: BaseException | None = exc
-    while chain is not None:
-        status = getattr(chain, "status_code", None)
-        if status == 429:
-            return ProviderExecutionError("Le fournisseur limite temporairement les requêtes.", "rate_limited")
-        if status in {500, 502, 503, 504} or _looks_unavailable(chain):
-            return ProviderExecutionError("Le fournisseur est temporairement indisponible.", "unavailable")
-        if isinstance(chain, TimeoutError) or "timeout" in type(chain).__name__.casefold():
+    chain = _error_chain(exc)
+    explicit_error = _explicit_provider_error(chain)
+    if explicit_error is not None:
+        return explicit_error
+    for error in chain:
+        if isinstance(error, TimeoutError) or "timeout" in type(error).__name__.casefold():
             return ProviderExecutionError("Le fournisseur n’a pas répondu dans le délai imparti.", "timeout")
-        chain = chain.__cause__
+        if _looks_rate_limited(error):
+            return ProviderExecutionError("Le fournisseur limite temporairement les requêtes.", "rate_limited")
+        if _looks_unavailable(error):
+            return ProviderExecutionError("Le fournisseur est temporairement indisponible.", "unavailable")
     return ProviderExecutionError("Échec contrôlé du fournisseur IA.", "failed")
+
+
+def _error_chain(error: BaseException) -> tuple[BaseException, ...]:
+    chain: list[BaseException] = []
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        chain.append(current)
+        seen.add(id(current))
+        current = current.__cause__
+    return tuple(chain)
+
+
+def _explicit_provider_error(chain: tuple[BaseException, ...]) -> ProviderExecutionError | None:
+    statuses = tuple(getattr(error, "status_code", None) for error in chain)
+    if any(status in {401, 403} for status in statuses):
+        return ProviderExecutionError("Le fournisseur a refusé l’authentification.", "authentication")
+    if any(status in {400, 404, 405, 409, 422} for status in statuses):
+        return ProviderExecutionError("La configuration du fournisseur est invalide.", "configuration")
+    if 429 in statuses:
+        return ProviderExecutionError("Le fournisseur limite temporairement les requêtes.", "rate_limited")
+    if any(status in {500, 502, 503, 504} for status in statuses):
+        return ProviderExecutionError("Le fournisseur est temporairement indisponible.", "unavailable")
+    return None
+
+
+def _looks_rate_limited(error: BaseException) -> bool:
+    message = str(error).casefold()
+    markers = ("http 429", "resource_exhausted", "rate limit", "too many requests", "quota exceeded")
+    return any(marker in message for marker in markers)
 
 
 def _looks_unavailable(error: BaseException) -> bool:

@@ -124,7 +124,7 @@ def test_local_preference_and_secure_multi_provider_fallback(tmp_path: Path) -> 
     models.upsert(_model("qwen-remote", "openrouter", "remote", priority=1))
     decision = CORE.ModelRouter(models, providers=providers).route(_need(local_preferred=True))
 
-    adapter = FakeAdapter(failing=("ollama",))
+    adapter = FakeAdapter(unavailable=("ollama",))
     executor = CORE.ProviderExecutor(adapter, retries=0, registry=providers)
     store = CORE.AutomationStore(tmp_path)
     engine = CORE.FrugalAgentEngine(adapter, CORE.DeterministicEngine(), CORE.FrugalCache(tmp_path / "cache.json"), CORE.WorkflowEngine(store), CORE.ModelRouter(models, providers=providers), CORE.FrugalMetricsRepository(tmp_path / "metrics.json"), CORE.ProcessObserver(store), providers, executor)
@@ -186,6 +186,77 @@ def test_auto_mode_falls_back_after_gemini_503(tmp_path: Path) -> None:
     assert adapter.calls == ["gemini", "openrouter"]
 
 
+def test_auto_mode_falls_back_after_gemini_textual_429(tmp_path: Path) -> None:
+    providers, models = _registries(tmp_path)
+    providers.upsert(_provider("gemini", "remote"))
+    providers.upsert(_provider("openrouter", "remote"))
+    models.upsert(_model("gemini-fast", "gemini", "remote", priority=1))
+    models.upsert(_model("openrouter-fast", "openrouter", "remote", priority=2))
+    adapter = TextualRateLimitThenSuccessAdapter()
+    store = CORE.AutomationStore(tmp_path)
+    executor = CORE.ProviderExecutor(adapter, retries=0, registry=providers)
+    engine = CORE.FrugalAgentEngine(adapter, CORE.DeterministicEngine(), CORE.FrugalCache(tmp_path / "cache.json"), CORE.WorkflowEngine(store), CORE.ModelRouter(models, providers=providers), CORE.FrugalMetricsRepository(tmp_path / "metrics.json"), CORE.ProcessObserver(store), providers, executor)
+
+    output = engine.execute(_context(), "Rédige une réponse courte")
+
+    assert output.usage["provider"] == "openrouter"
+    assert adapter.calls == ["gemini", "openrouter"]
+
+
+@pytest.mark.parametrize("adapter", ["authentication", "configuration"])
+def test_auto_mode_never_falls_back_on_non_temporary_provider_errors(tmp_path: Path, adapter: str) -> None:
+    providers, models = _registries(tmp_path)
+    providers.upsert(_provider("gemini", "remote"))
+    providers.upsert(_provider("openrouter", "remote"))
+    models.upsert(_model("gemini-fast", "gemini", "remote", priority=1))
+    models.upsert(_model("openrouter-fast", "openrouter", "remote", priority=2))
+    selected_adapter = AuthenticationAdapter() if adapter == "authentication" else ConfigurationAdapter()
+    store = CORE.AutomationStore(tmp_path)
+    executor = CORE.ProviderExecutor(selected_adapter, retries=1, registry=providers, retry_delay_seconds=0)
+    engine = CORE.FrugalAgentEngine(selected_adapter, CORE.DeterministicEngine(), CORE.FrugalCache(tmp_path / "cache.json"), CORE.WorkflowEngine(store), CORE.ModelRouter(models, providers=providers), CORE.FrugalMetricsRepository(tmp_path / "metrics.json"), CORE.ProcessObserver(store), providers, executor)
+
+    with pytest.raises(CORE.ProviderExecutionError) as captured:
+        engine.execute(_context(), "Rédige une réponse courte")
+
+    assert captured.value.code == adapter
+    assert selected_adapter.calls == ["gemini"]
+
+
+def test_wrapped_authentication_error_takes_priority_over_unavailable_message(tmp_path: Path) -> None:
+    providers, models = _registries(tmp_path)
+    providers.upsert(_provider("gemini", "remote"))
+    providers.upsert(_provider("openrouter", "remote"))
+    models.upsert(_model("gemini-fast", "gemini", "remote", priority=1))
+    models.upsert(_model("openrouter-fast", "openrouter", "remote", priority=2))
+    adapter = WrappedAuthenticationAdapter()
+    store = CORE.AutomationStore(tmp_path)
+    executor = CORE.ProviderExecutor(adapter, retries=0, registry=providers)
+    engine = CORE.FrugalAgentEngine(adapter, CORE.DeterministicEngine(), CORE.FrugalCache(tmp_path / "cache.json"), CORE.WorkflowEngine(store), CORE.ModelRouter(models, providers=providers), CORE.FrugalMetricsRepository(tmp_path / "metrics.json"), CORE.ProcessObserver(store), providers, executor)
+
+    with pytest.raises(CORE.ProviderExecutionError) as captured:
+        engine.execute(_context(), "Rédige une réponse courte")
+
+    assert captured.value.code == "authentication"
+    assert adapter.calls == ["gemini"]
+
+
+def test_auto_mode_falls_back_after_provider_timeout(tmp_path: Path) -> None:
+    providers, models = _registries(tmp_path)
+    providers.upsert(_provider("gemini", "remote"))
+    providers.upsert(_provider("openrouter", "remote"))
+    models.upsert(_model("gemini-fast", "gemini", "remote", priority=1))
+    models.upsert(_model("openrouter-fast", "openrouter", "remote", priority=2))
+    adapter = TimeoutThenSuccessAdapter()
+    store = CORE.AutomationStore(tmp_path)
+    executor = CORE.ProviderExecutor(adapter, retries=0, registry=providers)
+    engine = CORE.FrugalAgentEngine(adapter, CORE.DeterministicEngine(), CORE.FrugalCache(tmp_path / "cache.json"), CORE.WorkflowEngine(store), CORE.ModelRouter(models, providers=providers), CORE.FrugalMetricsRepository(tmp_path / "metrics.json"), CORE.ProcessObserver(store), providers, executor)
+
+    output = engine.execute(_context(), "Rédige une réponse courte")
+
+    assert output.usage["provider"] == "openrouter"
+    assert adapter.calls == ["gemini", "openrouter"]
+
+
 def test_runtime_enables_provider_from_process_secret(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-secret-never-persisted")
     runtime = CORE.FrugalRuntime(tmp_path)
@@ -219,6 +290,62 @@ class RateLimitedAdapter:
 class UnavailableAdapter:
     def execute(self, context: object, message: str, provider: object, model: str) -> NoReturn:
         raise RuntimeError("Gemini HTTP 503 (UNAVAILABLE): high demand api_key=secret-test")
+
+
+class ProviderHttpError(RuntimeError):
+    def __init__(self, message: str, status_code: int) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class AuthenticationAdapter:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def execute(self, context: object, message: str, provider: ProviderLike, model: str) -> NoReturn:
+        self.calls.append(provider.id)
+        raise ProviderHttpError("HTTP 401: invalid API key secret-test", 401)
+
+
+class ConfigurationAdapter:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def execute(self, context: object, message: str, provider: ProviderLike, model: str) -> NoReturn:
+        self.calls.append(provider.id)
+        raise ProviderHttpError("HTTP 404: model missing", 404)
+
+
+class TextualRateLimitThenSuccessAdapter:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def execute(self, context: object, message: str, provider: ProviderLike, model: str) -> object:
+        self.calls.append(provider.id)
+        if provider.id == "gemini":
+            raise RuntimeError("Gemini HTTP 429 (RESOURCE_EXHAUSTED): quota exceeded")
+        return CORE.EngineOutput(response="Réponse de repli", usage={})
+
+
+class WrappedAuthenticationAdapter:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def execute(self, context: object, message: str, provider: ProviderLike, model: str) -> NoReturn:
+        self.calls.append(provider.id)
+        cause = ProviderHttpError("HTTP 401: invalid API key secret-test", 401)
+        raise RuntimeError("temporarily unavailable wrapper") from cause
+
+
+class TimeoutThenSuccessAdapter:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def execute(self, context: object, message: str, provider: ProviderLike, model: str) -> object:
+        self.calls.append(provider.id)
+        if provider.id == "gemini":
+            raise TimeoutError("provider timeout")
+        return CORE.EngineOutput(response="Réponse de repli", usage={})
 
 
 def _context() -> object:

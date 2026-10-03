@@ -1,5 +1,29 @@
 # État du projet ARCenal Agent
 
+## LOT 10 — recette Preview et résilience LLM
+
+- Date : 2026-10-03 ; version serveur `0.21.0-arcenal35`, paquet
+  `0.21.0~ynh53`, source `ff93c4c59f` sur le canal preview.
+- Verdict : `HARDENING REQUIRED`. Le rapport factuel est
+  `docs/validation/LOT10_PREVIEW_ACCEPTANCE.md`.
+- Gemini et OpenRouter répondent réellement en HTTP 200. Le repli 429, 503 et
+  timeout est validé localement, ainsi que l'interdiction de repli pour les
+  erreurs d'authentification et de configuration.
+- Un défaut HIGH de classification des erreurs fournisseur est corrigé
+  localement, mais reste non publié et non recetté sur YunoHost.
+- Le redémarrage contrôlé conserve configuration, agents, conversations et
+  secrets. Les services, permissions 0700/0600, UMask 0077 et journaux sont
+  conformes ; dix lectures simultanées répondent HTTP 200 sans verrou SQLite.
+- Validation : Ruff et ESLint sans erreur, `ty`, TypeScript et build réussis,
+  242 tests Python ARCenal, 463 tests frontend, 20 tests Python et 9 scripts du
+  paquet, 13 tests catalogue. ShellCheck reste indisponible.
+- Restent à prouver : parcours navigateur, changement réel de modèle,
+  automatisations, versioning LDA, SilverBullet, mémoire de recette, action et
+  refus broker, puis cycle paquet sur instance jetable.
+- Aucun commit, tag, push ou changement de catalogue n'a été effectué. Le
+  fichier utilisateur `contributors/emails/agent@Agents-Mac-mini.local` reste
+  exclu.
+
 ## LOT 09R final — recette YunoHost réelle
 
 - Date : 2026-10-03 ; branche `arcenal`, source `v0.21.0-arcenal35`, paquet

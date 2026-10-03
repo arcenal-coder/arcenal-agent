@@ -1,5 +1,19 @@
 # Points ouverts
 
+## LOT10-ACCEPTANCE-001 — Preuves d'industrialisation incomplètes
+
+- État : ouvert, verdict `HARDENING REQUIRED`.
+- Impact : le défaut HIGH de repli sur erreur d'authentification ou de
+  configuration est corrigé localement, mais la correction n'est ni publiée
+  en preview ni recettée sur YunoHost.
+- Preuves encore manquantes : parcours navigateur, changement réel de modèle,
+  tâches et automatisations, versioning documentaire, SilverBullet, mémoire
+  de recette, autorisation/refus broker et cycle destructif sur instance
+  jetable.
+- Prochaine étape : publier une seule candidate preview de hardening, la
+  recetter sans nouveau développement fonctionnel, puis lever chaque réserve
+  dans `docs/validation/LOT10_PREVIEW_ACCEPTANCE.md`.
+
 ## CHAT-MODEL-001 — Recette réelle du modèle Gemini
 
 - État : la candidate `arcenal24` / `0.21.0~ynh42` restaure le catalogue des
