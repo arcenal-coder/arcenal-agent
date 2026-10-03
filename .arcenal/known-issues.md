@@ -135,16 +135,11 @@
 
 ## LOT09R-DEPLOY-001 — Lot 09 absent du serveur principal
 
-- État : ouvert et bloquant pour le verdict de recette, observé le 2026-10-01.
-- Symptôme : l'accès SSH sur le port 2403 fonctionne et les services ARCenal
-  sont actifs, mais le bundle servi ne contient aucun marqueur de l'API native
-  `/configuration/v1`. Les services ont été démarrés avant la création locale
-  du Lot 09.
-- Impact : backend ARC, absence de Hermes Config, restart, persistance, ARC et
-  ATS ne peuvent pas être validés sur cette version. Les UMask réels `0022`,
-  `0007`, `0022` sont également antérieurs au durcissement `0077` attendu.
-- Contrôles indépendants : SSOwat, anti-usurpation, état systemd et suites
-  locales passent. Les journaux et modes des fichiers sensibles nécessitent
-  encore une élévation non interactive indisponible.
-- Prochaine étape : déployer de manière contrôlée le Lot 09, puis reprendre les
-  seules preuves système manquantes avec une voie d'élévation autorisée.
+- État : fermé le 2026-10-03.
+- Résolution : le serveur exécute le paquet preview `0.21.0~ynh53`, version
+  applicative `0.21.0-arcenal35`, révision source
+  `ff93c4c59f4307274163a264a94e44473b0ca2d0`.
+- Preuves : backend `arc`, migration complète, coffre prêt, UMask `0077`,
+  restart contrôlé, persistance, permissions, absence de secret dans les logs,
+  parcours ARC corrélé et exécution ATS cloisonnée validés sur le serveur.
+- Rapport : `docs/validation/LOT09R_PRODUCTION_COMPATIBILITY.md`.

@@ -1,152 +1,214 @@
 # Lot 09R — Compatibilité de production YunoHost
 
-Date de recette : 2026-10-01
-Branche locale : `arcenal`
-Environnement visé : YunoHost principal `onyx-ingenierie.com`
+Date de recette : 2026-10-03
 
-## Verdict courant
+Branche locale : `arcenal`
+
+Environnement : YunoHost principal `mail.onyx-ingenierie.com`
+
+Application publique : `https://onyx-ingenierie.com/arcenal/`
+
+## Verdict
 
 ```text
-LOT 09 HARDENING REQUIRED
+READY FOR LOT 10
 ```
 
-Ce verdict ne signale pas une régression locale. L'accès SSH sur le port 2403
-a permis de prouver que la version installée est antérieure au Lot 09. La
-recette de cette bascule ne peut donc pas être exécutée honnêtement sur ce code.
-Aucun redémarrage, changement de secret ou paramètre de production n'a été
-effectué sur cette version insuffisante.
+La candidate historique `0.21.0~ynh36` décrite dans le premier protocole LOT
+09R a été remplacée par plusieurs correctifs preview. Le serveur exécutait déjà
+la candidate `0.21.0~ynh53` au début de cette reprise. Aucune rétrogradation n'a
+été tentée : la recette a porté sur cette version supérieure, dont les
+révisions correspondent exactement au dépôt source, au paquet YunoHost et au
+catalogue preview.
 
-## Contexte et règles appliquées
+Le canal stable n'a pas été modifié. Aucun fresh install, uninstall, restore,
+redémarrage complet du serveur ou changement global de Nginx/SSOwat n'a été
+effectué.
 
-- Le serveur principal a été utilisé pour les contrôles HTTP publics autorisés.
-- Aucune installation, restauration, désinstallation ou modification globale
-  de YunoHost, Nginx ou SSOwat n'a été effectuée.
-- Aucun secret, cookie, jeton ou mot de passe n'est conservé dans ce document.
-- Les changements des Lots 01 à 09 restent locaux et non publiés. L'inventaire
-  système confirme que leur présence sur le serveur ne peut pas être affirmée.
+## A. Versions prouvées
 
-## État initial observable
+| Composant | Version ou révision réelle |
+|---|---|
+| Application ARCenal | `0.21.0-arcenal35` |
+| Tag source | `v0.21.0-arcenal35` |
+| Révision source | `ff93c4c59f4307274163a264a94e44473b0ca2d0` |
+| Paquet YunoHost | `0.21.0~ynh53` |
+| Révision package | `b1e10a61bff97d7c6d06afbdeb6f4bb4b568d92a` |
+| Révision catalogue preview | `9768e38db5944bbc659980071497745818d61850` |
+| YunoHost | `12.1.40.1` stable |
+| YunoHost Admin | `12.1.15` |
+| SSOwat | `12.1.1` |
 
-| Mesure | Résultat réel | État | Preuve |
-|---|---|---|---|
-| HTTPS public | disponible | PASS | `https://onyx-ingenierie.com` répond via Nginx |
-| Protection `/arcenal/` | redirection SSOwat | PASS | HTTP 302 vers `/yunohost/sso` |
-| Faux `Remote-User` | aucune élévation | PASS | même HTTP 302 avec `Remote-User: forged-admin` |
-| Charge HTTP légère | 10 réponses cohérentes | PASS | 10 HTTP 302, 66,5 à 79,8 ms |
-| Session d'administration | application visible dans YunoHost | PASS partiel | titre de page Firefox authentifiée |
-| SSH | disponible | PASS | port 2403, compte `guillaume.hausknecht`, clé dédiée |
-| Version YunoHost | 12.1.40.1 | PASS | `dpkg-query`, sans élévation |
-| Noyau | Debian 6.1.187-1 | PASS | `uname -a` |
-| Version ARCenal installée | antérieure au Lot 09 | FAIL | bundle sans `/configuration/v1`, services démarrés le 28 septembre |
-| Révision exacte installée | non lisible sans élévation | NON PROUVÉ | sources privées ; bundle `index-Bg7VDNUX.js` sans chaîne de version |
-| Service ARCenal | actif, aucun restart systemd | PASS état | PID 1371300, `NRestarts=0` |
-| Service de contrôle | actif | PASS état | PID 1371197 |
-| Broker privilégié | actif | PASS état | PID 1371094 |
-| Backend de configuration | ARC natif absent du bundle installé | FAIL | marqueurs Lot 09 absents des dix bundles JS déployés |
-| État du coffre | coffre Lot 09 non prouvé sur la version installée | FAIL | diagnostic natif indisponible |
-| UMask principal / broker | `0022` / `0022` | FAIL | propriétés systemd réelles ; attendu `0077` |
-| UMask contrôle | `0007` | FAIL | attendu `0077` pour le Lot 09 |
-| RAM systemd | 494 784 512 / 44 597 248 / 22 917 120 octets | PASS mesure | ARC / contrôle / broker avant restart |
-| Première réponse locale | 4,5 ms, HTTP 200 | PASS mesure | `127.0.0.1:9121/` |
+La révision source exposée par `arcenal.service` correspond à la tête locale et
+au tag. Le catalogue preview annonce le paquet `ynh53` et la révision package
+ci-dessus. Le serveur dispose de 622 Gio libres sur 934 Gio.
 
-## Matrice de recette
+## B. Sauvegarde et mise à jour
 
-| ID | Test | Résultat attendu | Résultat réel | État | Preuve |
-|---|---|---|---|---|---|
-| R09R-001 | ARC Native par défaut | backend `arc` | fonctionnalité Lot 09 absente du bundle installé | FAIL serveur | `/configuration/v1` absente |
-| R09R-002 | Hermes Config absent du démarrage nominal | aucun chargement | non démontrable sur la version antérieure | FAIL serveur | diagnostic natif absent |
-| R09R-003 | Paramètres généraux | lecture, écriture, persistance | API locale validée, écran serveur non manipulé | NON TESTÉ serveur | tests API Configuration |
-| R09R-004 | Apparence | sauvegarde et restitution | API locale validée | NON TESTÉ serveur | tests de configuration et branding |
-| R09R-005 | Onboarding | sauvegarde et restitution | API locale validée | NON TESTÉ serveur | tests API Configuration |
-| R09R-006 | Accès | sauvegarde sans fuite | API locale validée | NON TESTÉ serveur | tests Vault et API |
-| R09R-007 | Providers | configurations relues | neuf familles validées localement | NON TESTÉ serveur | tests fournisseurs multi-provider |
-| R09R-008 | Modèles | modèle principal persistant | comportement local validé | NON TESTÉ serveur | tests API et invalidation ciblée |
-| R09R-009 | Vault | prêt, secret non exposé | comportement local validé | NON TESTÉ serveur | tests Vault nominal/limites/rejet |
-| R09R-010 | Rotation secret test | create/rotate/delete | comportement local validé | NON TESTÉ serveur | tests de rotation du paquet et API |
-| R09R-011 | OpenRouter réel | appel court mesuré | credential et diagnostic serveur inaccessibles | NON TESTÉ | aucun secret réel manipulé |
-| R09R-012 | `local_only` | zéro appel distant | validé localement | PASS local | tests ARC Frugal |
-| R09R-013 | Agent ARC | réponse avec Config/RAG/mémoire | version Lot 09 non déployée | NON TESTÉ — version serveur insuffisante | arrêt de recette imposé |
-| R09R-014 | Agent ATS et ACL | scopes bornés | version Lot 09 non déployée | NON TESTÉ — version serveur insuffisante | arrêt de recette imposé |
-| R09R-015 | RAG LDA Applicable | bonne version, citation, ACL | validé localement | PASS local | tests RAG et LDA |
-| R09R-016 | Enterprise Memory | créer, lire, corriger | validé localement | PASS local | tests mémoire d'entreprise |
-| R09R-017 | Route déterministe | zéro appel LLM | validé localement | PASS local | tests ARC Frugal |
-| R09R-018 | Cache | second appel sans LLM | validé localement | PASS local | tests ARC Frugal |
-| R09R-019 | Workflow | exécution et exception contrôlée | validé localement | PASS local | tests du moteur d'automatisation |
-| R09R-020 | Route LLM | fournisseur routé | adaptateurs validés sans appel payant | PASS local | tests Provider Architecture |
-| R09R-021 | Changement de modèle | cache dépendant invalidé | validé localement | PASS local | tests Configuration API |
-| R09R-022 | Pas d'invalidation globale | RAG/mémoire préservés | validé par contrat local | PASS local | invalidation limitée à `hermes-current` |
-| R09R-023 | Restart ARC | service actif après redémarrage | volontairement non exécuté sur la version antérieure | NON TESTÉ — version serveur insuffisante | arrêt avant mutation |
-| R09R-024 | Persistance après restart | valeurs et secrets conservés | non exécutable sans Lot 09 déployé | NON TESTÉ — version serveur insuffisante | dépend de R09R-023 |
-| R09R-025 | Permissions | 0700/0600 et UMask 0077 | UMask principal, contrôle et broker non conformes | FAIL serveur | `0022`, `0007`, `0022` |
-| R09R-026 | Logs sans secret | aucune donnée sensible | journaux nécessitant sudo non accessibles | NON TESTÉ | sudo exige un mot de passe |
-| R09R-027 | Migration legacy | conversion complète | validé localement | PASS local | tests de migration et commande dédiée |
-| R09R-028 | Migration idempotente | trois passages identiques | validé localement | PASS local | test en trois exécutions |
-| R09R-029 | Conflit ARC/Hermes | ARC gagne sans fuite | validé localement | PASS local | test de conflit et journalisation |
-| R09R-030 | Aucun fallback silencieux | erreur ARC propagée | validé localement | PASS local | test de configuration corrompue |
-| R09R-031 | Mode legacy | explicite et lecture seule | validé localement | PASS local | test `ARCENAL_CONFIG_BACKEND=hermes` |
-| R09R-032 | Health | arc/ready/complete | schéma local validé | NON TESTÉ serveur | API de santé locale |
-| R09R-033 | SSO | utilisateur requis | redirection SSOwat observée | PASS | HTTP 302 |
-| R09R-034 | Anti-usurpation | faux header refusé | redirection SSOwat inchangée | PASS | HTTP 302 avec faux `Remote-User` |
-| R09R-035 | Core YunoHost inchangé | aucune mutation globale | aucune mutation exécutée par la recette | PASS recette | contrôles strictement en lecture |
-| R09R-036 | Charge légère | 5 à 10 requêtes stables | 10 réponses cohérentes | PASS SSO | 66,5 à 79,8 ms, aucune erreur |
+```text
+PASS
+```
 
-## Non-régression automatique
+- La version installée provient de la voie YunoHost preview normale.
+- L'état installé correspond exactement aux révisions publiées ; aucune copie
+  manuelle de sources n'a été utilisée.
+- Une sauvegarde pré-recette a été créée avec succès :
+  `arcenal-lot09r-current-20261003`, 221 527 977 octets.
+- Aucun restore n'a été tenté.
 
-| Contrôle | Résultat |
+## C. ARC Native
+
+```text
+backend = arc
+migration = complete
+vault = ready
+```
+
+La migration rapporte sept valeurs copiées, aucune valeur inchangée et aucun
+conflit. La configuration native conserve les espaces `core`, `models`,
+`providers`, `system` et `ui`. Gemini et OpenRouter sont configurés et leurs
+secrets sont présents dans le coffre sans avoir été affichés.
+
+## D. Hermes Config
+
+```text
+chargé en nominal : NON
+```
+
+Après un redémarrage réel, le runtime installé retourne toujours
+`backend=arc`, `migration=complete` et `vault=ready`. Le service ne définit pas
+de repli legacy et aucun message de fallback n'apparaît dans les journaux.
+L'adaptateur `HermesConfigAdapter` reste limité au mode legacy explicite et à
+la migration initiale.
+
+## E. Fonctionnel
+
+| Fonction | État | Preuve réelle |
+|---|---:|---|
+| Paramètres ARC | PASS | écriture, lecture, restart, relecture puis suppression d'une sonde non sensible |
+| Vault | PASS | création, rotation et suppression d'un secret de recette ; coffre final en `0600` |
+| Providers | PASS | Gemini et OpenRouter configurés, secrets résolus par ARC Vault |
+| OpenRouter réel | PASS | HTTP 200, modèle gratuit, 16 tokens en entrée, 8 en sortie, coût nul, 0,892 s |
+| Model Router ARC | PASS | ARC résout `hermes-current` vers `gemini-3-flash-preview` |
+| ARC E2E | PASS | une requête corrélée traverse Agent Manager, Context Builder, RAG documentaire, Enterprise Memory, ARC Frugal, Model Router et Gemini ; deux sources distinctes et une réponse sont présentes |
+| Historique ARC | PASS | conversation de recette persistée puis archivée sans toucher aux conversations existantes |
+| ATS | PASS | agent actif ; requête réelle, réponse présente, portées exactes `ats`, `company`, `recruitment` |
+| Cloisonnement ATS | PASS | la même requête sélectionne la source ATS ; source finance restreinte et contenu interdit absents des sources et de la réponse |
+| RAG | PASS | note Applicable temporaire indexée et retrouvée avec source et portée `company` |
+| LDA | PASS | note Applicable présente dans la LDA pendant le test |
+| Wiki | PASS | même version Applicable publiée dans la vue wiki pendant le test |
+| Enterprise Memory | PASS | création, lecture, correction version 2, historique et suppression physique de la sonde |
+| Frugal déterministe/cache/workflow | PASS tests package | contrats du runtime exact validés par la suite ciblée publiée avec la candidate |
+| `local_only` | PASS tests package | registre sans modèle local rejeté avant tout appel distant |
+
+Toutes les sondes temporaires de configuration, RAG, ATS et mémoire ont été
+supprimées. L'index de connaissances a été reconstruit après nettoyage.
+
+### Parcours corrélés ARC et ATS
+
+Le parcours ARC a été exécuté sous l'utilisateur système `arcenal`, avec le
+même environnement que le service. Une requête unique a sélectionné deux
+sources temporaires identifiables : un document Applicable et une entrée
+Enterprise Memory. L'audit porte le même identifiant de requête depuis la
+recherche RAG jusqu'à `agent.query.completed`. ARC Frugal a produit un plan,
+le Model Router a choisi Gemini, cinq appels ont été comptabilisés et la
+conversation finale contient les rôles `user` et `assistant`.
+
+Le parcours ATS a également été exécuté sous `arcenal`. Une source de
+recrutement autorisée a été sélectionnée, tandis qu'une source finance
+restreinte n'apparaît ni dans les citations ni dans la réponse. ARC Frugal a
+routé l'exécution vers Gemini, trois appels ont été comptabilisés et la réponse
+est présente. Les quatre sondes documentaires et mémoire ont ensuite disparu
+du coffre et de l'index reconstruit.
+
+### Appel OpenRouter borné
+
+```text
+provider = openrouter
+HTTP = 200
+request_id = gen-1791016269-1UBLi3EuYUsOBFBpzokc
+model = apodex/apodex-1.1-mini:free
+tokens input = 16
+tokens output = 8
+cost = 0
+latency = 0,892 s
+```
+
+Le prompt ne contenait aucune donnée de production et demandait uniquement une
+réponse courte. La clé n'a été ni affichée ni journalisée.
+
+## F. Système
+
+| Contrôle | État | Résultat réel |
+|---|---:|---|
+| Restart ARCenal seul | PASS | PID `22190` remplacé par `42011`, service actif |
+| Santé après restart | PASS | HTTP 200 sur `/api/health`, 2,2 ms |
+| Persistance | PASS | valeur A conservée après restart puis valeur initiale restaurée |
+| Data dir | PASS | `0700 arcenal:arcenal` |
+| Configuration sensible | PASS | `0600 arcenal:arcenal` |
+| Vault `.env` | PASS | `0600 arcenal:arcenal` |
+| Agents et conversations | PASS | fichiers `0600 arcenal:arcenal` |
+| Base mémoire | PASS | `0600 arcenal:arcenal`, `PRAGMA quick_check = ok` |
+| Base sessions | PASS | `0600 arcenal:arcenal`, `PRAGMA quick_check = ok` |
+| Audit | PASS | dossier `0700`, journal `0600` |
+| UMask | PASS | `0077` |
+| Logs sans secret | PASS | deux valeurs réelles recherchées, zéro correspondance dans journal et audit |
+| SSO anonyme | PASS | HTTP 302 vers `/yunohost/sso` |
+| Faux `Remote-User` local | PASS | HTTP 401, aucune usurpation possible |
+| Core YunoHost | PASS | aucun patch du cœur, de SSOwat ou de Nginx global par cette recette |
+
+Les journaux du service ne contiennent aucune alerte depuis le restart. La
+ligne `Hermes Web UI` au démarrage appartient encore au moteur commun conservé
+par ARCenal ; elle ne constitue pas un chargement du backend Hermes Config.
+
+## G. Ressources
+
+| Mesure | Valeur |
 |---|---:|
-| Ruff ARC | PASS |
-| ESLint | PASS, 0 erreur et 28 avertissements hérités |
-| Syntaxe Bash | PASS |
-| `ty` ciblé | PASS |
-| TypeScript Web | PASS |
-| TypeScript Dashboard | PASS |
-| Compilation Python | PASS |
-| Python ARC | 216 tests réussis |
-| Frontend | 423 tests réussis, 64 fichiers |
-| YunoHost shell | 9 scénarios réussis |
-| Broker privilégié | 16 tests réussis |
+| RAM avant restart | 256 487 424 octets |
+| RAM juste après restart | 144 941 056 octets |
+| RAM stabilisée | 139 706 368 octets |
+| CPU au repos après recette | 0,5 % |
+| Premier contrôle HTTP après restart | 2,2 ms |
+| 10 contrôles HTTP concurrents | HTTP 200, 2,6 à 7,4 ms |
+| Erreurs pendant charge légère | 0 |
+| Alertes systemd après charge | 0 |
 
-Une première invocation de `ty` sur tout le dossier plugin ne configurait pas
-la racine d'import du plugin et a produit des erreurs de résolution. La
-commande ciblée avec `--extra-search-path plugins/arcenal-supervisor`, conforme
-au périmètre Lot 09, réussit. Aucun code n'a été modifié pour contourner ce
-problème de commande.
+La charge légère n'a produit ni erreur HTTP, ni blocage SQLite, ni arrêt du
+service. Il n'existe pas de mesure comparable antérieure à l'installation de
+`ynh53` : les valeurs « avant » et « après » désignent ici le restart contrôlé,
+pas une comparaison entre deux versions du paquet.
 
-## Bugs trouvés
+## H. Bugs et observations
 
-Aucun bug applicatif reproductible du Lot 09 n'a été trouvé pendant les tests
-locaux. L'écart serveur est classé `BLOCKER` de recette : le Lot 09 n'est pas
-réellement déployé. Les UMask observés confirment également que le paquet
-installé précède le durcissement attendu.
+| ID | Sévérité | État | Cause et traitement |
+|---|---|---|---|
+| LOT09R-OBS-01 | LOW | OUVERT surveillé | SQLite système 3.40.1 est antérieur aux versions corrigeant le défaut WAL-reset. Le runtime détecte ce cas et impose `journal_mode=DELETE`, les deux bases contrôlées répondent `ok`. Aucun contournement système ni mise à jour hors YunoHost n'a été tenté. |
 
-## Contrôles restant obligatoires
+Aucun BLOCKER, HIGH ou MEDIUM n'est ouvert à l'issue de la recette.
 
-1. Déployer de manière contrôlée une version contenant réellement le Lot 09.
-2. Fournir `sudo` pour les lectures système et le restart encadré.
-3. Relever backend, migration, coffre, disque et modes des fichiers sensibles.
-4. Tester les écrans Paramètres et leur persistance réelle.
-5. Tester un secret non critique dans le coffre du serveur.
-6. Tester ARC, ATS, RAG, mémoire et ARC Frugal sur le runtime Lot 09.
-7. Redémarrer le service puis vérifier persistance, permissions et journaux.
-8. Contrôler l'absence de secrets et mesurer la RAM après redémarrage.
-
-Tant que ces preuves manquent, les conditions de passage au Lot 10 ne sont pas
-réunies et le commit final du Lot 09R ne doit pas être créé.
-
-## Synthèse demandée
+## I. Synthèse
 
 ```yaml
-Backend ARC serveur : FAIL
-Hermes Config absent démarrage nominal : FAIL
-Restart service : NON TESTÉ — version serveur insuffisante
-Persistance : NON TESTÉ — version serveur insuffisante
-Permissions : FAIL
-Logs sans secret : NON TESTÉ — élévation requise
-ARC réel : NON TESTÉ — version serveur insuffisante
-ATS réel : NON TESTÉ — version serveur insuffisante
-Version Lot 09 réellement déployée : NON
+Backend ARC serveur : PASS
+Hermes Config absent démarrage nominal : PASS
+Restart service : PASS
+Persistance : PASS
+Permissions : PASS
+Logs sans secret : PASS
+ARC réel : PASS
+ATS réel : PASS
+Parcours ARC corrélé RAG / mémoire / Frugal / routeur / provider : PASS
+Cloisonnement ATS sur requête réelle : PASS
+RAG / LDA / Wiki : PASS
+Enterprise Memory : PASS
+OpenRouter réel : PASS
+Version Lot 09 réellement déployée : OUI — candidate corrective ynh53
 ```
 
 ```text
-LOT 09 HARDENING REQUIRED
+READY FOR LOT 10
 ```
+
+La candidate reste dans le canal preview. Toute promotion stable exige une
+instruction explicite distincte.

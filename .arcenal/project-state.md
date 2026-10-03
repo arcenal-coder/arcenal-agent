@@ -1,5 +1,37 @@
 # État du projet ARCenal Agent
 
+## LOT 09R final — recette YunoHost réelle
+
+- Date : 2026-10-03 ; branche `arcenal`, source `v0.21.0-arcenal35`, paquet
+  YunoHost `0.21.0~ynh53` installé depuis le catalogue preview.
+- Verdict : `READY FOR LOT 10`. Rapport actualisé dans
+  `docs/validation/LOT09R_PRODUCTION_COMPATIBILITY.md` ; aucun BLOCKER, HIGH ou
+  MEDIUM ouvert.
+- Le harnais d’ARC est en mode FIXED sur `hermes-current`, fournisseur Gemini,
+  seul modèle actif classé `admin` lors de la recette. Le routage résout
+  `gemini-3-flash-preview` sans modèle global porté par le fournisseur.
+- Recette serveur : sauvegarde YunoHost créée, service ARCenal seul redémarré,
+  backend `arc`, migration complète, coffre prêt, persistance prouvée, UMask
+  `0077`, données sensibles `0700/0600` et aucune fuite des deux secrets réels
+  recherchés dans le journal ou l’audit.
+- Une requête ARC corrélée traverse réellement Agent Manager, Context Builder,
+  RAG, Enterprise Memory, ARC Frugal, Model Router et Gemini. Une requête ATS
+  réelle sélectionne sa source recrutement sans exposer la source finance.
+  OpenRouter répond HTTP 200 sur un modèle gratuit. Toutes les sondes ont été
+  intégralement nettoyées.
+- Charge légère : dix réponses HTTP 200 simultanées en 2,6 à 7,4 ms, sans
+  alerte ni blocage SQLite. SQLite 3.40.1 reste une observation LOW, compensée
+  par le repli automatique en `journal_mode=DELETE` ; les bases répondent `ok`.
+- Publication : source `ff93c4c59f4307274163a264a94e44473b0ca2d0`,
+  paquet `b1e10a61bff97d7c6d06afbdeb6f4bb4b568d92a`, catalogue preview
+  `9768e38`.
+- Validation courante : ESLint sans erreur, TypeScript Web et dashboard, 131
+  tests Python ARC ciblés, Ruff/Bash/compilation et 20 tests package, Ruff/
+  compilation et 13 tests catalogue. `git diff --check` requis avant commit.
+- Le canal stable reste inchangé. Les fichiers générés `__pycache__` et le
+  fichier utilisateur `contributors/emails/agent@Agents-Mac-mini.local`
+  restent exclus des commits.
+
 ## Fournisseur Codex — connexion par lien d’appareil
 
 - Date : 2026-10-02 ; branche `arcenal`, source
