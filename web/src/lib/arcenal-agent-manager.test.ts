@@ -1,14 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchJSON, type ArcenalModelDescriptor } from "./api";
-import { buildAgentModelPolicy, createManagedAgent, loadManagedAgents, modelsForProvider, updateManagedAgent, type ManagedAgent } from "./arcenal-agent-manager";
+import { buildAgentModelPolicy, createManagedAgent, loadManagedAgents, modelsForAgent, modelsForPrivacy, modelsForProvider, requiredAgentPrivacy, updateManagedAgent, type ManagedAgent } from "./arcenal-agent-manager";
 
 vi.mock("./api", () => ({ fetchJSON: vi.fn() }));
 
 const MODELS: ArcenalModelDescriptor[] = [
+  { id: "public-model", provider: "openrouter", model_name: "public", display_name: "Public", enabled: true, availability: "available", catalog_source: "configured", capabilities: ["standard"], context_window: null, supports_tools: false, supports_structured_output: false, supports_vision: false, privacy_class: "public", location: "remote", hosting_region: null, input_cost: 0, output_cost: 0, priority: 30 },
   { id: "gemini-flash", provider: "gemini", model_name: "gemini-flash", display_name: "Gemini Flash", enabled: true, availability: "available", catalog_source: "discovered", capabilities: ["standard"], context_window: null, supports_tools: true, supports_structured_output: true, supports_vision: false, privacy_class: "internal", location: "remote", hosting_region: null, input_cost: 0, output_cost: 0, priority: 10 },
   { id: "gemini-disabled", provider: "gemini", model_name: "gemini-disabled", display_name: "Gemini désactivé", enabled: false, availability: "available", catalog_source: "configured", capabilities: ["standard"], context_window: null, supports_tools: false, supports_structured_output: false, supports_vision: false, privacy_class: "internal", location: "remote", hosting_region: null, input_cost: 0, output_cost: 0, priority: 20 },
   { id: "ollama-local", provider: "ollama", model_name: "qwen3:8b", display_name: "Qwen local", enabled: true, availability: "available", catalog_source: "discovered", capabilities: ["standard"], context_window: null, supports_tools: true, supports_structured_output: false, supports_vision: false, privacy_class: "internal", location: "local", hosting_region: null, input_cost: 0, output_cost: 0, priority: 5 },
+  { id: "openrouter-admin", provider: "openrouter", model_name: "admin", display_name: "Administration", enabled: true, availability: "available", catalog_source: "configured", capabilities: ["standard"], context_window: null, supports_tools: true, supports_structured_output: true, supports_vision: false, privacy_class: "admin", location: "remote", hosting_region: null, input_cost: 0, output_cost: 0, priority: 1 },
 ];
+
+const ARC_AGENT: ManagedAgent = {
+  application: "arcenal-system", autonomy_level: "approval_required", description: "Architecte", enabled: true,
+  harness: { context: "", directives: "", memory: "" }, id: "arc", knowledge_scopes: ["system"], metadata: {},
+  model_policy: { allowed_models: [], allowed_providers: [], denied_providers: [], local_only: false, local_preferred: true, mode: "auto" },
+  name: "ARC", permissions: ["system.admin"], role: "architect", system_instructions: [], tools: [],
+};
 
 describe("registre ARC Core", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -72,5 +81,20 @@ describe("registre ARC Core", () => {
 
   it("filtre les modèles activés et disponibles par fournisseur", () => {
     expect(modelsForProvider(MODELS, "gemini").map((model) => model.id)).toEqual(["gemini-flash"]);
+  });
+
+  it("exclut les modèles incompatibles avec la confidentialité de l’agent", () => {
+    expect(requiredAgentPrivacy(ARC_AGENT)).toBe("admin");
+    expect(modelsForAgent(MODELS, ARC_AGENT).map((model) => model.id)).toEqual(["openrouter-admin"]);
+  });
+
+  it("conserve le niveau interne pour un agent sans permission sensible", () => {
+    const agent = { ...ARC_AGENT, permissions: [] };
+    expect(requiredAgentPrivacy(agent)).toBe("internal");
+    expect(modelsForAgent([], agent)).toEqual([]);
+  });
+
+  it("écarte les modèles publics lors de la création d’un agent", () => {
+    expect(modelsForPrivacy(MODELS, "internal").map((model) => model.id)).not.toContain("public-model");
   });
 });

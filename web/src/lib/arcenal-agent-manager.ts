@@ -44,6 +44,16 @@ export interface ManagedAgentUpdate {
   model_policy?: AgentModelPolicy;
 }
 
+type PrivacyClass = ArcenalModelDescriptor["privacy_class"];
+
+const PRIVACY_RANK: Readonly<Record<PrivacyClass, number>> = {
+  public: 0,
+  internal: 1,
+  restricted: 2,
+  confidential: 3,
+  admin: 4,
+};
+
 const REGISTRY_URL = "/api/plugins/arcenal-supervisor/agents/registry";
 
 export async function loadManagedAgents(): Promise<ManagedAgent[]> {
@@ -71,6 +81,22 @@ export function modelsForProvider(models: ArcenalModelDescriptor[], provider: st
   return models.filter((model) => (
     model.provider === provider && model.enabled && model.availability !== "unavailable"
   ));
+}
+
+export function requiredAgentPrivacy(agent: ManagedAgent): PrivacyClass {
+  if (agent.permissions.includes("system.admin")) return "admin";
+  if (agent.permissions.includes("knowledge.confidential")) return "confidential";
+  if (agent.permissions.includes("knowledge.restricted")) return "restricted";
+  return "internal";
+}
+
+export function modelsForAgent(models: ArcenalModelDescriptor[], agent: ManagedAgent): ArcenalModelDescriptor[] {
+  return modelsForPrivacy(models, requiredAgentPrivacy(agent));
+}
+
+export function modelsForPrivacy(models: ArcenalModelDescriptor[], privacy: PrivacyClass): ArcenalModelDescriptor[] {
+  const minimum = PRIVACY_RANK[privacy];
+  return models.filter((model) => PRIVACY_RANK[model.privacy_class] >= minimum);
 }
 
 export function buildAgentModelPolicy(
