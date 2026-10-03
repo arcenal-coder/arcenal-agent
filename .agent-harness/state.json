@@ -1,0 +1,440 @@
+{
+  "schema": "agent-harness/state.v1",
+  "goal": "Fermer avec preuves r\u00e9elles les trois d\u00e9fauts HIGH du LOT 10.1 \u2014 automatisations gouvern\u00e9es et r\u00e9ellement ex\u00e9cut\u00e9es, versionnement LDA V1\u2192V2 sans collision, routage read-only correct du broker \u2014 sans nouvelle architecture, sans r\u00e9gression, sans modification du core YunoHost.",
+  "domain": "engineering",
+  "plan_file": ".agent-harness/plan.json",
+  "created_at": "2026-10-03T19:59:33Z",
+  "iteration": 20,
+  "max_loop_iterations": 24,
+  "status": "closed",
+  "tasks": [
+    {
+      "id": "T1",
+      "skill": "arcenal-gauntlet",
+      "objective": "Reproduire et localiser les trois d\u00e9fauts sur la candidate LOT 10.1 sans modifier les donn\u00e9es de production.",
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Preuves de reproduction serveur et localisation des trois causes dans le code."
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T19:59:39Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1
+        },
+        {
+          "at": "2026-10-03T19:59:39Z",
+          "phase": "verify-run",
+          "checks": [],
+          "attempt": 1
+        },
+        {
+          "at": "2026-10-03T19:59:39Z",
+          "phase": "verify",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "LOT10_PREVIEW_ACCEPTANCE.md prouve: cr\u00e9ation cron active sans approbation et last_run_at nul; upload V2 HTTP 409 sur le chemin canonique; action READ pr\u00e9par\u00e9e puis refus\u00e9e car control_api utilise le socket privil\u00e9gi\u00e9. Causes localis\u00e9es respectivement dans la cr\u00e9ation Cron directe, knowledge_api et control_api._execute_authorized."
+        }
+      ]
+    },
+    {
+      "id": "T2",
+      "skill": "agent-harness",
+      "objective": "Faire respecter le circuit brouillon \u2192 test \u2192 approbation \u2192 actif et ex\u00e9cuter r\u00e9ellement les automatisations approuv\u00e9es.",
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "scripts/run_tests.sh tests/arcenal_security/test_automation_hardening.py -q",
+          "expect_exit": 0
+        },
+        {
+          "kind": "smoke",
+          "cmd": "npm --prefix web test -- --run src/lib/arcenal-scheduled-tasks.test.ts src/pages/ArcenalScheduledTasksPage.test.tsx",
+          "expect_exit": 0
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T20:03:06Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1
+        },
+        {
+          "at": "2026-10-03T20:03:08Z",
+          "phase": "verify-run",
+          "checks": [
+            {
+              "cmd": "scripts/run_tests.sh tests/arcenal_security/test_automation_hardening.py -q",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "  <1s: 1 files (100%)  <2s: 1 files (100%)",
+                "  Top 10 slowest:",
+                "      0.35s  tests/arcenal_security/test_automation_hardening.py"
+              ]
+            },
+            {
+              "cmd": "npm --prefix web test -- --run src/lib/arcenal-scheduled-tasks.test.ts src/pages/ArcenalScheduledTasksPage.test.tsx",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:",
+                "  - `__dirname` (vitest.config.ts:17:25). Use `import.meta.dirname` instead",
+                "Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning."
+              ]
+            }
+          ],
+          "attempt": 1
+        }
+      ]
+    },
+    {
+      "id": "T3",
+      "skill": "rag-architect",
+      "objective": "Permettre le d\u00e9p\u00f4t d'une V2 portant la m\u00eame r\u00e9f\u00e9rence LDA sans collision et pr\u00e9server l'historique V1.",
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "scripts/run_tests.sh tests/arcenal_security/test_knowledge_workflow.py -q",
+          "expect_exit": 0
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T20:04:03Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1
+        },
+        {
+          "at": "2026-10-03T20:04:04Z",
+          "phase": "verify-run",
+          "checks": [
+            {
+              "cmd": "scripts/run_tests.sh tests/arcenal_security/test_knowledge_workflow.py -q",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "  <1s: 1 files (100%)  <2s: 1 files (100%)",
+                "  Top 10 slowest:",
+                "      0.44s  tests/arcenal_security/test_knowledge_workflow.py"
+              ]
+            }
+          ],
+          "attempt": 1
+        }
+      ]
+    },
+    {
+      "id": "T4",
+      "skill": "observability-designer",
+      "objective": "Router les actions READ vers le socket read-only et conserver le socket privil\u00e9gi\u00e9 pour les actions contr\u00f4l\u00e9es ou confirm\u00e9es.",
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "scripts/run_tests.sh tests/arcenal_security/test_control_api.py -q",
+          "expect_exit": 0
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T20:05:06Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1
+        },
+        {
+          "at": "2026-10-03T20:05:07Z",
+          "phase": "verify-run",
+          "checks": [
+            {
+              "cmd": "scripts/run_tests.sh tests/arcenal_security/test_control_api.py -q",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "  <1s: 1 files (100%)  <2s: 1 files (100%)",
+                "  Top 10 slowest:",
+                "      0.32s  tests/arcenal_security/test_control_api.py"
+              ]
+            }
+          ],
+          "attempt": 1
+        }
+      ]
+    },
+    {
+      "id": "T5",
+      "skill": "agent-harness",
+      "objective": "Ex\u00e9cuter les tests cibl\u00e9s des trois correctifs dans l'ordre linter, typage, tests.",
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": ".venv/bin/ruff check plugins/arcenal-supervisor tests/arcenal_security",
+          "expect_exit": 0
+        },
+        {
+          "kind": "smoke",
+          "cmd": ".venv/bin/ty check --extra-search-path plugins/arcenal-supervisor plugins/arcenal-supervisor/arc_core/automation_engine.py plugins/arcenal-supervisor/arc_core/frugal_models.py plugins/arcenal-supervisor/dashboard/frugal_api.py plugins/arcenal-supervisor/dashboard/knowledge_api.py plugins/arcenal-supervisor/control_api.py tests/arcenal_security/test_automation_hardening.py tests/arcenal_security/test_control_api.py tests/arcenal_security/test_knowledge_workflow.py",
+          "expect_exit": 0
+        },
+        {
+          "kind": "smoke",
+          "cmd": "scripts/run_tests.sh tests/arcenal_security -q",
+          "expect_exit": 0
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T20:05:54Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Linter PASS; typage initial trop large rejet\u00e9 car il couvrait deux modules hors p\u00e9rim\u00e8tre avec diagnostics historiques; gate born\u00e9 aux fichiers modifi\u00e9s et PASS."
+        },
+        {
+          "at": "2026-10-03T20:05:58Z",
+          "phase": "verify-run",
+          "checks": [
+            {
+              "cmd": ".venv/bin/ruff check plugins/arcenal-supervisor tests/arcenal_security",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "All checks passed!"
+              ]
+            },
+            {
+              "cmd": ".venv/bin/ty check --extra-search-path plugins/arcenal-supervisor plugins/arcenal-supervisor/arc_core/automation_engine.py plugins/arcenal-supervisor/arc_core/frugal_models.py plugins/arcenal-supervisor/dashboard/frugal_api.py plugins/arcenal-supervisor/dashboard/knowledge_api.py plugins/arcenal-supervisor/control_api.py tests/arcenal_security/test_automation_hardening.py tests/arcenal_security/test_control_api.py tests/arcenal_security/test_knowledge_workflow.py",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "All checks passed!"
+              ]
+            },
+            {
+              "cmd": "scripts/run_tests.sh tests/arcenal_security -q",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "      1.96s  tests/arcenal_security/test_provider_connections.py",
+                "      1.89s  tests/arcenal_security/test_knowledge_workflow.py",
+                "      1.88s  tests/arcenal_security/test_provider_architecture.py"
+              ]
+            }
+          ],
+          "attempt": 1
+        }
+      ]
+    },
+    {
+      "id": "T6",
+      "skill": "agent-harness",
+      "objective": "Ex\u00e9cuter les tests de non-r\u00e9gression backend, frontend et build impact\u00e9s.",
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "npm --prefix web run lint",
+          "expect_exit": 0
+        },
+        {
+          "kind": "smoke",
+          "cmd": "npm --prefix web run typecheck",
+          "expect_exit": 0
+        },
+        {
+          "kind": "smoke",
+          "cmd": "npm --prefix web test -- --run",
+          "expect_exit": 0
+        },
+        {
+          "kind": "smoke",
+          "cmd": "npm --prefix web run build",
+          "expect_exit": 0
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T20:06:17Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1
+        },
+        {
+          "at": "2026-10-03T20:06:36Z",
+          "phase": "verify-run",
+          "checks": [
+            {
+              "cmd": "npm --prefix web run lint",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "  586:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components",
+                "",
+                "\u2716 28 problems (0 errors, 28 warnings)"
+              ]
+            },
+            {
+              "cmd": "npm --prefix web run typecheck",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "> web@0.0.0 typecheck",
+                "> tsc -p . --noEmit"
+              ]
+            },
+            {
+              "cmd": "npm --prefix web test -- --run",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:",
+                "  - `__dirname` (vitest.config.ts:17:25). Use `import.meta.dirname` instead",
+                "Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning."
+              ]
+            },
+            {
+              "cmd": "npm --prefix web run build",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:",
+                "  - `__dirname` (vite.config.ts:80:25). Use `import.meta.dirname` instead",
+                "Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning."
+              ]
+            }
+          ],
+          "attempt": 1
+        }
+      ]
+    },
+    {
+      "id": "T7",
+      "skill": "arcenal-gauntlet",
+      "objective": "Publier uniquement en Preview par la cha\u00eene normale puis r\u00e9aliser une recette non destructive sur YunoHost.",
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Version install\u00e9e, ex\u00e9cution automatisation, LDA V1\u2192V2 et lecture broker prouv\u00e9es sur YunoHost."
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T20:38:38Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1
+        },
+        {
+          "at": "2026-10-03T20:38:38Z",
+          "phase": "verify",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Serveur mail.onyx-ingenierie.com sur 0.21.0-arcenal37/0.21.0~ynh56 : workflow draft\u2192testing\u2192active ex\u00e9cut\u00e9 \u00e0 20:36:55 UTC avec sortie AUTOMATISATION GOUVERN\u00c9E OK puis d\u00e9sactiv\u00e9 ; LDA V1 et V2 s\u00e9par\u00e9es et V2 Applicable visible dans le wiki ; yunohost.version.read achev\u00e9e par le socket read-only. Aucun essai destructif."
+        }
+      ]
+    },
+    {
+      "id": "T8",
+      "skill": "pr-review-expert",
+      "objective": "Faire relire ind\u00e9pendamment le diff et les preuves finales.",
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Revue ind\u00e9pendante document\u00e9e avec classement de s\u00e9v\u00e9rit\u00e9."
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T20:58:38Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1
+        },
+        {
+          "at": "2026-10-03T20:58:38Z",
+          "phase": "verify",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Revue ind\u00e9pendante apr\u00e8s 3904adf3fb : aucun BLOCKER/HIGH restant. Deux MEDIUM document\u00e9s : atomicit\u00e9 cr\u00e9ation cron/persistance et unicit\u00e9 globale LDA r\u00e9f\u00e9rence+version."
+        }
+      ]
+    },
+    {
+      "id": "T9",
+      "skill": "runbook-generator",
+      "objective": "Clore le hardening, actualiser le rapport et la m\u00e9moire projet, puis v\u00e9rifier l'hygi\u00e8ne Git.",
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "git diff --check",
+          "expect_exit": 0
+        },
+        {
+          "kind": "manual-evidence",
+          "description": "Rapport LOT 10.1 et m\u00e9moires ARCenal mis \u00e0 jour ; fichier utilisateur hors p\u00e9rim\u00e8tre absent des commits."
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T21:00:37Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Rapport LOT10.1 et m\u00e9moires actualis\u00e9s avec ynh58 r\u00e9ellement install\u00e9, registre UI \u00e0 deux cartes, revue ind\u00e9pendante et limites MEDIUM."
+        },
+        {
+          "at": "2026-10-03T21:00:37Z",
+          "phase": "verify-run",
+          "checks": [
+            {
+              "cmd": "git diff --check",
+              "exit": 0,
+              "passed": true,
+              "tail": []
+            }
+          ],
+          "attempt": 1
+        },
+        {
+          "at": "2026-10-03T21:00:42Z",
+          "phase": "verify",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "git diff --check PASS ; rapport et m\u00e9moires actualis\u00e9s ; fichier utilisateur contributors/emails/agent@Agents-Mac-mini.local explicitement exclu du staging."
+        }
+      ]
+    }
+  ],
+  "closed_at": "2026-10-03T21:00:42Z"
+}

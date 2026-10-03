@@ -17,18 +17,18 @@ historiques et ne sont pas présentées comme des preuves LOT 10.1.
 ## Version publiée
 
 ```text
-ARCenal : 0.21.0-arcenal36
-Package YunoHost : 0.21.0~ynh54
-Révision source : 4b7acf426fda42fd8576dbc764dd2360b6f3502a
-Révision package : d2a3c0c5f0fe1506123f0f6ccb253b27ca386a39
-Tag : v0.21.0-arcenal36
-SHA-256 archive : 6e533aa82f518a5e7fd20755fb761e7c34a63a857851897cad61a8269755bc74
+ARCenal : 0.21.0-arcenal38
+Package YunoHost : 0.21.0~ynh58
+Révision source : 3904adf3fbdaf723fb69bc91d0b6671e1d49286d
+Révision package : bdc6a340d6b74eb30c96045135001df65075e920
+Tag : v0.21.0-arcenal38
+SHA-256 archive : 6ddf3f9024b231b9feb9addde13ca04929e5e7c589e97df4e8ce2fce01cc2452
 Canal : preview
 ```
 
-Le manifeste public Preview annonce bien `0.21.0~ynh54` et la révision package
-attendue. Les workflows GitHub du catalogue `Verify` (37145603259) et `Publish`
-(37145603380) sont réussis. Aucun changement ARCenal n'a été promu sur Stable.
+Le manifeste public Preview annonce bien `0.21.0~ynh58` et la révision package
+attendue. Les workflows GitHub du catalogue `Verify` (37152957153) et `Publish`
+(37152957170) sont réussis. Aucun changement ARCenal n'a été promu sur Stable.
 Le dépôt applicatif ne déclenche pas de workflow sur la branche `arcenal` et le
 dépôt du paquet n'expose pas de workflow : cette absence est une limite de
 preuve CI, pas un succès implicite.
@@ -36,12 +36,12 @@ preuve CI, pas un succès implicite.
 ## Mise à jour YunoHost
 
 La mise à jour a été effectuée avec le catalogue Preview et la commande normale
-YunoHost. La sauvegarde de pré-mise à jour a été créée, puis le paquet ynh54 a
+YunoHost. La sauvegarde de pré-mise à jour a été créée, puis le paquet ynh58 a
 été installé avec succès.
 
 ```text
-Version réellement installée : 0.21.0-arcenal36 / 0.21.0~ynh54
-Révision réellement installée : 4b7acf426fda42fd8576dbc764dd2360b6f3502a
+Version réellement installée : 0.21.0-arcenal38 / 0.21.0~ynh58
+Révision réellement installée : 3904adf3fbdaf723fb69bc91d0b6671e1d49286d
 Backend : arc
 Migration : complete
 Service principal : active/running
@@ -99,18 +99,22 @@ harnais de chaque agent.
 ## Automatisations
 
 ```text
-Tâches : FAIL — la tâche de recette est créée active malgré le libellé
-         « Créer en brouillon » et n'est pas exécutée à l'échéance
-Workflow : FAIL — aucun circuit draft → approval → active n'est relié aux
-           tâches planifiées de l'interface
-Historique : FAIL — aucun historique d'exécution exploitable dans l'écran
-Suspension : PASS — la tâche 639f8a02d310 est finalement suspendue
+Tâches : PASS — la création produit un workflow brouillon gouverné
+Workflow : PASS — draft → testing → active avec approbateur identifié
+Exécution : PASS — job 1ee8e858c1b3 exécuté à 20:36:55 UTC
+Résultat : PASS — sortie exacte « AUTOMATISATION GOUVERNÉE OK »
+Suspension : PASS — workflow et deux recettes cron remis en veille
+Registre UI : PASS — 2 cartes visibles, sans doublon technique du workflow
 ```
 
-La tâche non dangereuse demandait uniquement un bref état de disponibilité
-d'ARC. Elle avait une cadence d'une minute ; `last_run_at` est resté nul après
-l'échéance. Les marqueurs du ticker étaient anciens. Aucun état n'a été modifié
-directement pour simuler une réussite.
+La contre-recette a créé le workflow
+`recette-hardening-gouvernance-arc-musunpes` depuis l'interface. Son activation
+a créé le job planifié, qui a utilisé le fournisseur configuré et produit son
+fichier de sortie réel. La désactivation du workflow a suspendu le job associé.
+Aucun état n'a été modifié directement pour simuler une réussite. Après
+installation de ynh58 et rechargement sans cache, le registre affiche seulement
+la tâche historique autonome et le workflow gouverné ; son cron technique
+`1ee8e858c1b3` n'expose plus de commande directe de suppression ou d'activation.
 
 ## Documents
 
@@ -118,34 +122,33 @@ directement pour simuler une réussite.
 Upload : PASS — fichier Markdown non sensible chargé et extrait
 RAG : NOT TESTED REAL — quota Gemini épuisé et repli réel indisponible
 Citation : NOT TESTED REAL
-LDA : PARTIAL — document V1 stocké en 0600 et placé « À approuver »
-V1/V2 : FAIL — le chargement de V2 renvoie HTTP 409 car le chemin dérivé du
-        titre existe déjà ; V1 ne peut donc pas devenir obsolète au profit de V2
-Wiki : FAIL — aucune V2 Applicable à publier
+LDA : PASS — V1 et V2 portent la même référence métier sans collision
+V1/V2 : PASS — chemins `procedure-recette-lot-10.md` et
+        `procedure-recette-lot-10-v2.md`, pièces jointes séparées
+Wiki : PASS — V2 approuvée, Applicable et seule version publiée dans le wiki
 SilverBullet : NOT TESTED — connecteur non configuré, aucun état de
                synchronisation ni coffre SilverBullet présent sur le serveur
 ```
 
-Le champ de numérotation `REC-LDA-LOT10` est bien conservé dans les métadonnées,
-mais le chemin canonique est dérivé du titre (`procedure-recette-lot-10.md`). Le
-second dépôt utilisant le même titre est refusé avant le circuit de version.
+La contre-recette utilise la référence `PROCEDURE-RECETTE-LOT-10`. Le second
+dépôt conserve cette référence, reçoit la version 2 et un chemin suffixé stable.
+La V2 a suivi le circuit d'approbation avant sa publication dans le wiki.
 
 ## Supervision
 
 ```text
 Diagnostic : PASS — santé du canal de contrôle et catalogue fermé de 16 actions
 Autorisation : PASS — préparation de yunohost.version.read renvoie ready
-Action : FAIL — le broker refuse ensuite cette action allowlistée avec
-         « Action privilégiée non autorisée »
-Audit : PASS — action.requested puis action.failed, intégrité déclarée vraie
+Action : PASS — yunohost.version.read se termine avec `ok=true` et `code=0`
+Routage : PASS — les niveaux READ utilisent le socket read-only
+Audit : PASS — cycle d'action corrélé sans secret
 Refus hors allowlist : PASS — shell.root.execute refusé en HTTP 422
 ```
 
-Le refus hors allowlist est correct. En revanche, l'API de contrôle envoie
-toutes les exécutions vers le socket privilégié, y compris les actions de
-lecture prévues pour le socket read-only. Le broker refuse donc correctement la
-lecture sur le mauvais canal ; la chaîne complète de supervision n'est pas
-validée.
+Le refus hors allowlist reste inchangé. L'API de contrôle sélectionne maintenant
+le client read-only pour une action `READ`. Le paquet autorise uniquement
+l'écriture technique du journal CLI YunoHost dans `/var/log/yunohost`, nécessaire
+à cette lecture, sans ouvrir d'autre chemin système au broker.
 
 ## Package
 
@@ -193,11 +196,12 @@ ESLint : PASS — 0 erreur, 28 avertissements historiques
 ty : PASS
 TypeScript web : PASS
 TypeScript dashboard : PASS
-Python ARCenal : 242 PASS
-Frontend : 463 PASS
+Python ARCenal : 248 PASS
+Frontend : 464 PASS
 Build production : PASS
 Paquet YunoHost : 20 tests Python PASS et 9 scripts PASS
 Catalogue : 13 PASS
+Hardening ciblé : 13 tests Python et 7 tests frontend PASS
 Reproductibilité des canaux : PASS
 git diff --check : PASS avant publication
 ```
@@ -210,28 +214,34 @@ git diff --check : PASS avant publication
 - cause : l'écran crée directement un job cron actif au lieu d'un
   `AutomationCandidate` brouillon soumis à approbation ; le scheduler n'exécute
   pas le job créé ;
-- correction : aucune dans ce lot ;
-- preuve : libellé « Créer en brouillon », état actif immédiat, puis
-  `last_run_at=null` après échéance ;
-- état : OUVERT.
+- correction : l'écran crée un workflow gouverné ; l'activation approuvée crée
+  ou reprend son job cron et la désactivation le suspend ;
+- preuve : cycle navigateur draft → testing → active, exécution réelle à
+  20:36:55 UTC et sortie attendue ; le cron technique piloté est masqué de
+  l'interface et recréé s'il manque lors d'une activation ;
+- état : FERMÉ.
 
 ### LOT10.1-BUG-003 — Collision du versionnement LDA
 
 - sévérité : HIGH ;
 - cause : l'upload transforme le titre en chemin unique et refuse un document
   déjà présent avant de créer une nouvelle version ;
-- correction : aucune dans ce lot ;
-- preuve : V1 créée, V2 de même référence refusée en HTTP 409 ;
-- état : OUVERT.
+- correction : une nouvelle révision reçoit un chemin versionné et un répertoire
+  de pièces jointes distinct ; une version déjà présente reste refusée ;
+- preuve : V1 et V2 chargées sous la même référence, V2 Applicable et visible
+  dans le wiki ;
+- état : FERMÉ.
 
 ### LOT10.1-BUG-004 — Action de lecture envoyée au mauvais socket
 
 - sévérité : HIGH ;
 - cause : `control_api.py` utilise le client du socket privilégié pour toutes
   les actions, au lieu d'utiliser `execute_readonly` pour les actions READ ;
-- correction : aucune dans ce lot ;
-- preuve : préparation `ready`, exécution HTTP 500, audit `action.failed` ;
-- état : OUVERT.
+- correction : le niveau `READ` sélectionne `execute_readonly` et l'unité broker
+  autorise le seul journal CLI requis par YunoHost ;
+- preuve : préparation `ready`, exécution terminée avec `ok=true`, `code=0` et
+  version YunoHost retournée ;
+- état : FERMÉ.
 
 ### LOT10.1-BUG-005 — Erreur fournisseur trop technique
 
@@ -250,27 +260,50 @@ git diff --check : PASS avant publication
 - preuve : recette navigateur et contrôle serveur ;
 - état : OUVERT.
 
+### LOT10.1-BUG-007 — Atomicité création cron / persistance workflow
+
+- sévérité : MEDIUM ;
+- cause : lors d'une activation, le cron est créé avant la persistance du
+  workflow et de son audit, sans compensation si cette seconde étape échoue ;
+- correction : aucune dans ce lot, le scénario nominal est validé ;
+- preuve : revue indépendante du chemin d'activation après `3904adf3fb` ;
+- état : OUVERT.
+
+### LOT10.1-BUG-008 — Unicité globale référence/version LDA
+
+- sévérité : MEDIUM ;
+- cause : l'unicité `référence + version` est contrôlée lors du versionnement
+  d'un chemin existant, mais pas encore globalement pour deux titres distincts ;
+- correction : aucune dans ce lot, le scénario V1→V2 demandé est validé ;
+- preuve : revue indépendante de la création documentaire après `795e3f3233` ;
+- état : OUVERT.
+
 ## Skills réellement utilisées
 
 ```text
 arcenal-gauntlet — conduite du diagnostic, validation et mémoire projet
-piloter-projet-digital — matrice de recette et contrôle du périmètre
+agent-harness — plan persistant T1–T9, tentatives bornées et preuves
+skill-security-auditor — audit avant installation des skills externes
+rag-architect — analyse ciblée du versionnement LDA
+observability-designer — analyse ciblée du routage broker et de l'audit
+pr-review-expert — revue finale indépendante du diff et des preuves
 ```
 
-`agent-harness` et les skills tierces suggérées n'étaient pas disponibles ;
-elles n'ont été ni installées ni déclarées comme utilisées.
+Les skills conditionnelles de dépendance, performance et incident n'ont pas été
+activées : aucune dépendance n'a changé, aucun risque de performance nouveau et
+aucun incident serveur n'ont été constatés.
 
 ## Verdict
 
 ```text
-HARDENING REQUIRED
+THREE HIGH DEFECTS CLOSED
 ```
 
-Motifs déterminants : trois défauts HIGH ouverts, chat OpenRouter non prouvé,
-fallback réel non recetté, automatisations non gouvernées et non exécutées,
-versionnement documentaire bloqué, supervision allowlistée inexécutable et
-SilverBullet non configuré.
+Les trois défauts HIGH du hardening ciblé sont corrigés et prouvés sur la
+candidate Preview réellement installée. Les limites antérieures hors périmètre
+restent documentées : fallback réel non recetté, message fournisseur trop
+technique, détection YunoHost incohérente, atomicité cron/workflow, unicité
+globale référence/version LDA et SilverBullet non configuré.
 
-Suite unique proposée : `hardening supplémentaire`, limité à la correction et
-à la contre-recette de ces écarts. Aucun lot fonctionnel suivant ne doit être
-commencé et aucune promotion Stable ne doit être effectuée.
+Cette clôture n'autorise ni promotion Stable ni nouveau lot fonctionnel. Elle
+ferme uniquement les trois HIGH explicitement confiés à ce hardening.

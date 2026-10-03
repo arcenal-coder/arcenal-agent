@@ -169,29 +169,27 @@
 
 ## LOT10.1-AUTOMATION-001 — Tâches hors circuit d'approbation
 
-- État : ouvert, HIGH.
-- Impact : « Créer en brouillon » crée un cron actif ; le job de recette n'a
-  pourtant pas été exécuté et aucun historique n'est présenté.
-- Suite : relier l'écran au cycle `draft → approval → active → execution →
-  audit → suspend` et au scheduler réellement lancé par le paquet.
+- État : fermé, anciennement HIGH.
+- Correction : l'écran crée un workflow brouillon ; les transitions gouvernées
+  pilotent le job cron associé.
+- Preuve : cycle réel draft → testing → active, exécution réussie sur ynh56,
+  sortie attendue, puis désactivation et suspension du job.
 
 ## LOT10.1-LDA-001 — V2 refusée sur le chemin de la V1
 
-- État : ouvert, HIGH.
-- Impact : le second dépôt de même titre est rejeté en HTTP 409 avant la
-  création d'une version ; V1 ne peut pas devenir obsolète au profit de V2.
-- Suite : adresser les documents par référence stable et enregistrer les
-  révisions dans l'historique gouverné avant publication du wiki.
+- État : fermé, anciennement HIGH.
+- Correction : les révisions partagent une référence stable et reçoivent des
+  chemins et répertoires de pièces jointes versionnés.
+- Preuve : V1 et V2 chargées sans collision ; V2 approuvée, Applicable et seule
+  version publiée dans le wiki.
 
 ## LOT10.1-BROKER-001 — Lectures envoyées sur le socket privilégié
 
-- État : ouvert, HIGH.
-- Impact : l'API prépare `yunohost.version.read` comme action autorisée, puis
-  utilise le socket privilégié au lieu du socket read-only ; le broker la refuse
-  et la supervision sûre ne peut pas terminer son cycle.
-- Protection : les actions hors catalogue restent correctement refusées.
-- Suite : router les niveaux READ vers `execute_readonly`, puis rejouer la
-  lecture, la vérification et l'audit sur YunoHost.
+- État : fermé, anciennement HIGH.
+- Correction : l'API route `READ` vers `execute_readonly` ; le paquet autorise
+  le journal CLI YunoHost requis sans élargir le catalogue d'actions.
+- Preuve : `yunohost.version.read` répond `ok=true`, `code=0` sur ynh56 ; les
+  actions hors catalogue restent refusées.
 
 ## LOT10.1-CHAT-001 — Erreur fournisseur trop technique
 
@@ -208,3 +206,22 @@
   12.1.40.1 pourtant correctement reconnue par le paquet et les services.
 - Suite : tracer la source de l'indicateur UI et la comparer à la détection
   serveur sans ajouter de privilège ni de lecture globale.
+
+## LOT10.1-AUTOMATION-002 — Activation non atomique
+
+- État : ouvert, MEDIUM.
+- Impact : une erreur de persistance ou d'audit après la création du cron peut
+  laisser un job technique sans liaison durable avec son workflow.
+- Protection : la recette nominale et la recréation d'un cron manquant passent ;
+  le cron piloté est masqué de l'interface générale.
+- Suite : ajouter une compensation bornée ou une persistance transactionnelle
+  sans nouvelle base ni nouveau service.
+
+## LOT10.1-LDA-002 — Unicité référence/version non globale
+
+- État : ouvert, MEDIUM.
+- Impact : deux titres distincts pourraient enregistrer la même référence et la
+  même version si leurs chemins canoniques diffèrent.
+- Protection : le cycle demandé V1→V2 d'un même document refuse les doublons et
+  conserve des chemins et pièces jointes distincts.
+- Suite : contrôler globalement la paire `référence + version` avant écriture.

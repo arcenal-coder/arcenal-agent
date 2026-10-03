@@ -156,3 +156,17 @@
 - Conséquence : la candidate ynh54 reste en Preview avec le verdict
   `HARDENING REQUIRED` jusqu'à l'attribution explicite d'un second modèle
   admissible et une preuve réelle de bout en bout.
+
+## LOT10.1-HARDENING-001 — Fermeture limitée aux trois HIGH
+
+- Date : 2026-10-03
+- Décision : fermer les trois défauts HIGH uniquement après contre-recette de la
+  candidate Preview réellement installée.
+- Automatisations : l'interface crée un workflow brouillon gouverné ; seul le
+  passage approuvé à `active` crée ou reprend le job planifié.
+- LDA : une référence métier peut porter plusieurs révisions, chacune avec un
+  chemin et des pièces jointes distincts ; une même version reste unique.
+- Broker : une action `READ` emprunte exclusivement le socket read-only. Le
+  paquet n'ouvre en écriture que le journal CLI requis par YunoHost.
+- Conséquence : cette fermeture ne vaut ni promotion Stable ni acceptation des
+  limites MEDIUM et preuves hors périmètre encore ouvertes.

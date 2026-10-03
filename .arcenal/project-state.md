@@ -1,5 +1,26 @@
 # État du projet ARCenal Agent
 
+## Hardening ciblé après LOT 10.1
+
+- Date : 2026-10-03 ; version serveur `0.21.0-arcenal38`, paquet
+  `0.21.0~ynh58`, source `3904adf3fbdaf723fb69bc91d0b6671e1d49286d` sur
+  le canal Preview.
+- Les trois défauts HIGH ciblés sont fermés et contre-recettés sur YunoHost :
+  workflow gouverné réellement exécuté, LDA V1→V2 sans collision avec V2
+  publiée dans le wiki, et lecture YunoHost achevée par le broker read-only.
+- Le workflow de recette a suivi `draft → testing → active`, produit
+  « AUTOMATISATION GOUVERNÉE OK », puis a été désactivé. Les deux jobs de
+  recette sont en veille après la preuve. Le registre ynh58 n'affiche plus le
+  cron technique du workflow comme une troisième automatisation administrable.
+- Le paquet ynh58 ajoute uniquement `/var/log/yunohost` aux chemins inscriptibles
+  du broker, car la CLI YunoHost initialise son journal pendant une lecture.
+- Aucun nouveau service, base, framework, dépendance ou changement du cœur
+  YunoHost n'a été introduit. Aucune promotion Stable n'a été effectuée.
+- La revue indépendante ne relève plus aucun BLOCKER/HIGH. Elle conserve deux
+  MEDIUM ciblés : atomicité cron/workflow et unicité globale
+  `référence + version` dans la LDA. Les autres limites et preuves hors
+  périmètre restent ouvertes ; le verdict vaut uniquement pour les trois HIGH.
+
 ## LOT 10 — recette Preview et résilience LLM
 
 - Date : 2026-10-03 ; version serveur `0.21.0-arcenal35`, paquet
@@ -656,10 +677,11 @@ un adaptateur HERMES temporaire et sans dupliquer les composants ARC existants.
   `4b7acf426fda42fd8576dbc764dd2360b6f3502a`.
 - Gemini, la reprise et l'archivage des conversations, AUTO/FIXED, la
   persistance, le thème clair et la charge HTTP légère passent en usage réel.
-- Trois défauts HIGH restent ouverts : tâches planifiées hors gouvernance et
-  non exécutées, collision V1/V2 dans la LDA et routage des lectures vers le
-  mauvais socket du broker. Le fallback réel reste non recetté faute d'avoir
-  qualifié un second modèle `admin` avec le contrôle existant.
+- À cette révision ynh54, trois défauts HIGH restaient ouverts : tâches
+  planifiées hors gouvernance et non exécutées, collision V1/V2 dans la LDA et
+  routage des lectures vers le mauvais socket du broker. Ils sont désormais
+  fermés par le hardening ynh58 décrit en tête de ce fichier. Le fallback réel
+  reste non recetté faute d'avoir qualifié un second modèle `admin`.
 - SilverBullet n'est pas configuré et le cycle destructif du paquet reste
   réservé à une instance YunoHost jetable.
 - Verdict : `HARDENING REQUIRED`. Aucune promotion Stable et aucun lot

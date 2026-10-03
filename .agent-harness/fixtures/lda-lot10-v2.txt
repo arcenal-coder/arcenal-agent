@@ -1,0 +1,4 @@
+Procédure recette LOT 10
+
+Version 2 — preuve de versionnement LDA après hardening.
+Cette révision confirme la conservation de V1 et la publication contrôlée de V2.

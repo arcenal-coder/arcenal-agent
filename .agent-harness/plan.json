@@ -1,0 +1,177 @@
+{
+  "schema": "agent-harness/plan.v1",
+  "goal": "Fermer avec preuves réelles les trois défauts HIGH du LOT 10.1 — automatisations gouvernées et réellement exécutées, versionnement LDA V1→V2 sans collision, routage read-only correct du broker — sans nouvelle architecture, sans régression, sans modification du core YunoHost.",
+  "domain": "engineering",
+  "constraints": [
+    "Ne pas modifier le cœur YunoHost, SSOwat global, Nginx global, SSH ou le réseau.",
+    "Ne pas commencer ArcAgentRuntime, le connecteur ATS ou une refonte ARC Core.",
+    "Ne pas ajouter de dépendance, base de données, service ou framework.",
+    "Ne jamais modifier contributors/emails/agent@Agents-Mac-mini.local.",
+    "Ne pas promouvoir le canal Stable.",
+    "Limiter les changements aux trois défauts HIGH du LOT 10.1."
+  ],
+  "loop": {
+    "max_attempts_per_task": 3,
+    "max_loop_iterations": 24,
+    "budget_justification": "Le contrôleur agent-harness compte séparément l'exécution et la vérification. Les neuf tâches imposées nécessitent donc 18 transitions au minimum ; 24 laisse six transitions de reprise sans dépasser trois tentatives par tâche."
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "skill": "arcenal-gauntlet",
+      "objective": "Reproduire et localiser les trois défauts sur la candidate LOT 10.1 sans modifier les données de production.",
+      "observable_result": "Les trois causes sont reliées à un chemin d'exécution précis et consignées dans le rapport LOT 10.1.",
+      "max_attempts": 3,
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Preuves de reproduction serveur et localisation des trois causes dans le code."
+        }
+      ]
+    },
+    {
+      "id": "T2",
+      "skill": "agent-harness",
+      "objective": "Faire respecter le circuit brouillon → test → approbation → actif et exécuter réellement les automatisations approuvées.",
+      "observable_result": "Une automatisation non approuvée ne s'exécute pas ; une automatisation approuvée s'exécute et conserve un historique exploitable.",
+      "max_attempts": 3,
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "scripts/run_tests.sh tests/arcenal_security/test_automation_hardening.py -q",
+          "expect_exit": 0
+        },
+        {
+          "kind": "smoke",
+          "cmd": "npm --prefix web test -- --run src/lib/arcenal-scheduled-tasks.test.ts src/pages/ArcenalScheduledTasksPage.test.tsx",
+          "expect_exit": 0
+        }
+      ]
+    },
+    {
+      "id": "T3",
+      "skill": "rag-architect",
+      "objective": "Permettre le dépôt d'une V2 portant la même référence LDA sans collision et préserver l'historique V1.",
+      "observable_result": "V1 puis V2 sont acceptées, V2 reçoit un chemin distinct et la version applicable la plus récente devient la source officielle.",
+      "max_attempts": 3,
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "scripts/run_tests.sh tests/arcenal_security/test_knowledge_workflow.py -q",
+          "expect_exit": 0
+        }
+      ]
+    },
+    {
+      "id": "T4",
+      "skill": "observability-designer",
+      "objective": "Router les actions READ vers le socket read-only et conserver le socket privilégié pour les actions contrôlées ou confirmées.",
+      "observable_result": "Une lecture allowlistée aboutit sur le socket read-only ; une action hors allowlist reste refusée et auditée.",
+      "max_attempts": 3,
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "scripts/run_tests.sh tests/arcenal_security/test_control_api.py -q",
+          "expect_exit": 0
+        }
+      ]
+    },
+    {
+      "id": "T5",
+      "skill": "agent-harness",
+      "objective": "Exécuter les tests ciblés des trois correctifs dans l'ordre linter, typage, tests.",
+      "observable_result": "Les contrôles ciblés passent sans erreur ni test neutralisé.",
+      "max_attempts": 3,
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": ".venv/bin/ruff check plugins/arcenal-supervisor tests/arcenal_security",
+          "expect_exit": 0
+        },
+        {
+          "kind": "smoke",
+          "cmd": ".venv/bin/ty check --extra-search-path plugins/arcenal-supervisor plugins/arcenal-supervisor/arc_core/automation_engine.py plugins/arcenal-supervisor/arc_core/frugal_models.py plugins/arcenal-supervisor/dashboard/frugal_api.py plugins/arcenal-supervisor/dashboard/knowledge_api.py plugins/arcenal-supervisor/control_api.py tests/arcenal_security/test_automation_hardening.py tests/arcenal_security/test_control_api.py tests/arcenal_security/test_knowledge_workflow.py",
+          "expect_exit": 0
+        },
+        {
+          "kind": "smoke",
+          "cmd": "scripts/run_tests.sh tests/arcenal_security -q",
+          "expect_exit": 0
+        }
+      ]
+    },
+    {
+      "id": "T6",
+      "skill": "agent-harness",
+      "objective": "Exécuter les tests de non-régression backend, frontend et build impactés.",
+      "observable_result": "Les suites ARCenal et frontend ainsi que le build de production passent.",
+      "max_attempts": 3,
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "npm --prefix web run lint",
+          "expect_exit": 0
+        },
+        {
+          "kind": "smoke",
+          "cmd": "npm --prefix web run typecheck",
+          "expect_exit": 0
+        },
+        {
+          "kind": "smoke",
+          "cmd": "npm --prefix web test -- --run",
+          "expect_exit": 0
+        },
+        {
+          "kind": "smoke",
+          "cmd": "npm --prefix web run build",
+          "expect_exit": 0
+        }
+      ]
+    },
+    {
+      "id": "T7",
+      "skill": "arcenal-gauntlet",
+      "objective": "Publier uniquement en Preview par la chaîne normale puis réaliser une recette non destructive sur YunoHost.",
+      "observable_result": "Les trois parcours corrigés passent sur la version réellement installée et les preuves sont consignées sans secret.",
+      "max_attempts": 3,
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Version installée, exécution automatisation, LDA V1→V2 et lecture broker prouvées sur YunoHost."
+        }
+      ]
+    },
+    {
+      "id": "T8",
+      "skill": "pr-review-expert",
+      "objective": "Faire relire indépendamment le diff et les preuves finales.",
+      "observable_result": "Aucun BLOCKER ou HIGH n'est ouvert sur les trois correctifs.",
+      "max_attempts": 3,
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Revue indépendante documentée avec classement de sévérité."
+        }
+      ]
+    },
+    {
+      "id": "T9",
+      "skill": "runbook-generator",
+      "objective": "Clore le hardening, actualiser le rapport et la mémoire projet, puis vérifier l'hygiène Git.",
+      "observable_result": "Le rapport final contient les preuves réelles, le verdict et aucune donnée privée n'est incluse.",
+      "max_attempts": 3,
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "git diff --check",
+          "expect_exit": 0
+        },
+        {
+          "kind": "manual-evidence",
+          "description": "Rapport LOT 10.1 et mémoires ARCenal mis à jour ; fichier utilisateur hors périmètre absent des commits."
+        }
+      ]
+    }
+  ]
+}
