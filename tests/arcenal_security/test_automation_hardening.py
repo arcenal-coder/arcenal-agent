@@ -211,12 +211,59 @@ def test_activation_aligns_repeat_limit_with_schedule(
     assert observed == [{"schedule": schedule, "repeat": repeat}]
 
 
+def test_transition_replaces_a_completed_recurring_cron_after_commit(monkeypatch: pytest.MonkeyPatch) -> None:
+    api = _load_frugal_api()
+    current = _scheduled_workflow(CORE.WorkflowStatus.DISABLED).model_copy(update={"cron_job_id": "completed-cron"})
+    store = _WorkflowStore(current)
+    deleted: list[str] = []
+    dashboard = SimpleNamespace(
+        _get_cron_job_sync=lambda *_args: {"id": "completed-cron", "state": "completed"},
+        _delete_cron_job_sync=lambda job_id, _profile: deleted.append(job_id),
+    )
+    monkeypatch.setattr(api, "_runtime", lambda: SimpleNamespace(automations=store))
+    monkeypatch.setattr(api, "_cron_dashboard", lambda: dashboard)
+    monkeypatch.setattr(api, "_create_cron_job", lambda _workflow: "replacement-cron")
+    monkeypatch.setattr(api.CORE, "append_agent_event", lambda *_args: None)
+
+    result = api.change_workflow(current.id, api.WorkflowTransition(status="testing"), _admin_request())
+
+    assert result["cron_job_id"] == "replacement-cron"
+    assert store.workflow.cron_job_id == "replacement-cron"
+    assert deleted == ["completed-cron"]
+
+
+def test_cleanup_failure_does_not_rollback_a_committed_transition(monkeypatch: pytest.MonkeyPatch) -> None:
+    api = _load_frugal_api()
+    current = _scheduled_workflow(CORE.WorkflowStatus.DISABLED).model_copy(update={"cron_job_id": "completed-cron"})
+    store = _WorkflowStore(current)
+
+    def fail_cleanup(_job_id: str, _profile: str) -> None:
+        raise RuntimeError("scheduler unavailable")
+
+    dashboard = SimpleNamespace(
+        _get_cron_job_sync=lambda *_args: {"id": "completed-cron", "state": "completed"},
+        _delete_cron_job_sync=fail_cleanup,
+    )
+    monkeypatch.setattr(api, "_runtime", lambda: SimpleNamespace(automations=store))
+    monkeypatch.setattr(api, "_cron_dashboard", lambda: dashboard)
+    monkeypatch.setattr(api, "_create_cron_job", lambda _workflow: "replacement-cron")
+    monkeypatch.setattr(api.CORE, "append_agent_event", lambda *_args: None)
+
+    result = api.change_workflow(current.id, api.WorkflowTransition(status="testing"), _admin_request())
+
+    assert result["cron_job_id"] == "replacement-cron"
+    assert store.workflow.cron_job_id == "replacement-cron"
+
+
 def test_disabling_an_approved_workflow_pauses_its_cron_job(monkeypatch: pytest.MonkeyPatch) -> None:
     api = _load_frugal_api()
     current = _scheduled_workflow(CORE.WorkflowStatus.ACTIVE).model_copy(update={"cron_job_id": "123456789abc"})
     disabled = CORE.transition_workflow(current, CORE.WorkflowStatus.DISABLED, "admin@example.test")
     observed: list[tuple[str, str]] = []
-    dashboard = SimpleNamespace(_pause_cron_job_sync=lambda job_id, profile: observed.append((job_id, profile)))
+    dashboard = SimpleNamespace(
+        _get_cron_job_sync=lambda job_id, _profile: {"id": job_id, "state": "scheduled"},
+        _pause_cron_job_sync=lambda job_id, profile: observed.append((job_id, profile)),
+    )
     monkeypatch.setattr(api, "_cron_dashboard", lambda: dashboard)
 
     api._synchronize_scheduled_workflow(current, disabled)
@@ -230,6 +277,7 @@ def test_archive_pauses_before_persistence_then_deletes_after_commit(monkeypatch
     archived = CORE.transition_workflow(current, CORE.WorkflowStatus.ARCHIVED, "admin@example.test")
     observed: list[str] = []
     dashboard = SimpleNamespace(
+        _get_cron_job_sync=lambda job_id, _profile: {"id": job_id, "state": "scheduled"},
         _pause_cron_job_sync=lambda *_args: observed.append("pause"),
         _delete_cron_job_sync=lambda *_args: observed.append("delete"),
     )

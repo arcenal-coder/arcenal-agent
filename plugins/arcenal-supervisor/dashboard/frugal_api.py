@@ -265,19 +265,38 @@ def _update_cron_state(workflow: AutomationWorkflow, status: WorkflowStatus) -> 
 
 
 def _cron_job_exists(workflow: AutomationWorkflow) -> bool:
+    return _cron_job(workflow) is not None
+
+
+def _cron_job(workflow: AutomationWorkflow) -> dict[str, object] | None:
     if workflow.cron_job_id is None:
-        return False
+        return None
     try:
-        _cron_dashboard()._get_cron_job_sync(workflow.cron_job_id, workflow.profile_name or "default")
+        return cast(
+            dict[str, object],
+            _cron_dashboard()._get_cron_job_sync(workflow.cron_job_id, workflow.profile_name or "default"),
+        )
     except HTTPException as exc:
         if exc.status_code == 404:
-            return False
+            return None
         raise
-    return True
+
+
+def _replace_unusable_cron(current: AutomationWorkflow, updated: AutomationWorkflow) -> AutomationWorkflow:
+    if current.cron_job_id is None:
+        return updated
+    job = _cron_job(current)
+    terminal_recurring = job is not None and job.get("state") == "completed" and not _is_one_shot_schedule(updated.schedule)
+    if job is not None and not terminal_recurring:
+        return updated
+    return updated.model_copy(update={"cron_job_id": _create_cron_job(updated)})
 
 
 def _synchronize_scheduled_workflow(current: AutomationWorkflow, updated: AutomationWorkflow) -> AutomationWorkflow:
     if updated.schedule is None:
+        return updated
+    updated = _replace_unusable_cron(current, updated)
+    if updated.cron_job_id != current.cron_job_id:
         return updated
     if updated.status is CORE.WorkflowStatus.ACTIVE and not _cron_job_exists(current):
         return updated.model_copy(update={"cron_job_id": _create_cron_job(updated)})
@@ -329,6 +348,14 @@ def _schedule_matches(workflow: AutomationWorkflow, job: dict[str, object]) -> b
 
 def _is_relative_one_shot(schedule: str | None) -> bool:
     return schedule is not None and schedule.strip().casefold().startswith("in ")
+
+
+def _is_one_shot_schedule(schedule: str | None) -> bool:
+    if schedule is None:
+        return False
+    from cron.jobs import parse_schedule
+
+    return parse_schedule(schedule).get("kind") == "once"
 
 
 def _materialize_relative_schedule(workflow: AutomationWorkflow) -> AutomationWorkflow:
@@ -485,6 +512,7 @@ def _commit_workflow_transition(
         persisted = True
         _finalize_scheduled_workflow(updated)
         CORE.append_agent_event("frugal.workflow.transition", actor, _transition_details(current, updated, "success"))
+        _delete_replaced_cron(current, updated)
         return updated
     except Exception as original:
         try:
@@ -495,6 +523,19 @@ def _commit_workflow_transition(
             raise WorkflowConsistencyError("La transition nécessite une réconciliation automatique.") from original
         _audit_failed_transition(actor, current, updated)
         raise
+
+
+def _delete_replaced_cron(current: AutomationWorkflow, updated: AutomationWorkflow) -> None:
+    if current.cron_job_id is None or current.cron_job_id == updated.cron_job_id:
+        return
+    try:
+        _cron_dashboard()._delete_cron_job_sync(current.cron_job_id, current.profile_name or "default")
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return
+        LOGGER.exception("La suppression de l’ancienne tâche ARC a échoué.", exc_info=exc)
+    except Exception as exc:
+        LOGGER.exception("La suppression de l’ancienne tâche ARC a échoué.", exc_info=exc)
 
 
 @router.post("/workflows/{workflow_id}/transition")
