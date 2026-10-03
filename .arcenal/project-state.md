@@ -648,3 +648,19 @@ activables.
 Proposition uniquement : Lot 10 — placer `_run_agent`, le gateway de streaming
 et les sessions derrière l’interface minimale `ArcAgentRuntime`, en conservant
 un adaptateur HERMES temporaire et sans dupliquer les composants ARC existants.
+
+## Lot 10.1 — Publication Preview et recette réelle (2026-10-03)
+
+- La candidate `0.21.0-arcenal36` / `0.21.0~ynh54` a été publiée sur Preview,
+  installée par le mécanisme normal YunoHost et vérifiée sur la révision source
+  `4b7acf426fda42fd8576dbc764dd2360b6f3502a`.
+- Gemini, la reprise et l'archivage des conversations, AUTO/FIXED, la
+  persistance, le thème clair et la charge HTTP légère passent en usage réel.
+- Trois défauts HIGH restent ouverts : tâches planifiées hors gouvernance et
+  non exécutées, collision V1/V2 dans la LDA et routage des lectures vers le
+  mauvais socket du broker. Le fallback réel reste non recetté faute d'avoir
+  qualifié un second modèle `admin` avec le contrôle existant.
+- SilverBullet n'est pas configuré et le cycle destructif du paquet reste
+  réservé à une instance YunoHost jetable.
+- Verdict : `HARDENING REQUIRED`. Aucune promotion Stable et aucun lot
+  fonctionnel suivant ne sont autorisés avant contre-recette.

@@ -1,323 +1,276 @@
-# ARCenal Agent — LOT 10 — Recette Preview
+# ARCenal Agent — LOT 10.1 — Recette Preview
 
 Date de recette : 2026-10-03
 
-État : TERMINÉ — réserves bloquantes documentées
-
-Périmètre : version Preview installée sur `mail.onyx-ingenierie.com` et correction locale candidate non publiée.
+Périmètre : candidate Preview installée par la chaîne normale sur
+`mail.onyx-ingenierie.com`. Aucun fichier applicatif n'a été copié manuellement
+sur le serveur et aucun essai destructif n'a été réalisé sur l'instance
+principale.
 
 ## Règles de preuve
 
-Un résultat `PASS` n'est attribué qu'avec une preuve locale, YunoHost réelle ou fournisseur réel. Les validations du LOT 09R servent de baseline sans être présentées comme de nouvelles preuves. Les essais destructifs de paquet restent interdits sur le serveur principal.
+Un résultat `PASS` exige une preuve produite sur la candidate publiée. Un test
+local ne remplace pas une recette réelle. Les secrets ne sont ni affichés ni
+recopiés dans ce rapport. Les valeurs antérieures du rapport LOT 10 restent
+historiques et ne sont pas présentées comme des preuves LOT 10.1.
 
-## Preuves détaillées
-
-### LOT10-LLM-001 — Repli après indisponibilité temporaire
-
-- fonction : résilience multi-fournisseur AUTO ;
-- environnement : LOCAL TEST ;
-- précondition : deux fournisseurs et deux modèles admissibles ;
-- action : le premier fournisseur renvoie une indisponibilité HTTP 503 simulée ;
-- résultat attendu : un seul repli borné vers le second candidat ;
-- résultat réel : le second fournisseur répond ;
-- preuve : `tests/arcenal_security/test_provider_architecture.py::test_auto_mode_falls_back_after_gemini_503` ;
-- état : PASS ;
-- bug éventuel : aucun.
-
-### LOT10-LLM-002 — Repli après expiration de délai
-
-- fonction : résilience multi-fournisseur AUTO ;
-- environnement : LOCAL TEST ;
-- précondition : deux fournisseurs et deux modèles admissibles ;
-- action : le premier fournisseur lève une expiration de délai simulée ;
-- résultat attendu : repli vers le second candidat ;
-- résultat réel : le second fournisseur répond ;
-- preuve : `tests/arcenal_security/test_provider_architecture.py::test_auto_mode_falls_back_after_provider_timeout` ;
-- état : PASS ;
-- bug éventuel : aucun.
-
-### LOT10-LLM-003 — Absence de repli sur erreur non transitoire
-
-- fonction : politique de sécurité du repli ;
-- environnement : LOCAL TEST ;
-- précondition : deux fournisseurs admissibles ;
-- action : HTTP 401 puis HTTP 404 dans deux scénarios isolés ;
-- résultat attendu : aucune nouvelle tentative et aucun appel au fournisseur suivant ;
-- résultat réel : l'erreur `authentication` ou `configuration` est propagée après le seul appel initial ;
-- preuve : `tests/arcenal_security/test_provider_architecture.py::test_auto_mode_never_falls_back_on_non_temporary_provider_errors` ;
-- état : PASS ;
-- bug éventuel : `LOT10-BUG-001`, corrigé localement.
-
-### LOT10-LLM-004 — Politique local_only
-
-- fonction : interdiction stricte des fournisseurs distants ;
-- environnement : LOCAL TEST ;
-- précondition : seul un modèle distant est enregistré ;
-- action : routage d'une demande `local_only` ;
-- résultat attendu : zéro appel distant ;
-- résultat réel : aucun modèle distant n'est sélectionné ;
-- preuve : `tests/arcenal_security/test_provider_architecture.py::test_local_only_never_calls_remote_provider` ;
-- état : PASS ;
-- bug éventuel : aucun.
-
-### LOT10-LLM-005 — Appel Gemini réel
-
-- fonction : fournisseur primaire ;
-- environnement : REAL PROVIDER TEST ;
-- précondition : secret Gemini présent dans le coffre serveur ;
-- action : appel court à `gemini-3-flash-preview` ;
-- résultat attendu : HTTP 200 et réponse finale exploitable ;
-- résultat réel : HTTP 200, `LOT10-GEMINI-OK`, terminaison `STOP`, 1,341 s ;
-- preuve : appel depuis le serveur, secret chargé sans affichage ;
-- état : PASS ;
-- bug éventuel : aucun.
-
-### LOT10-LLM-006 — Appel OpenRouter réel
-
-- fonction : second fournisseur distant ;
-- environnement : REAL PROVIDER TEST ;
-- précondition : secret OpenRouter présent dans le coffre serveur ;
-- action : appel court à `cohere/north-mini-code:free` ;
-- résultat attendu : HTTP 200 et contenu exploitable ;
-- résultat réel : HTTP 200, un choix, `LOT10-OPENROUTER-OK`, coût déclaré nul ;
-- preuve : appel depuis le serveur, secret chargé sans affichage ;
-- état : PASS ;
-- bug éventuel : aucun.
-
-### LOT10-YNH-001 — Redémarrage et persistance
-
-- fonction : redémarrage contrôlé du service ARCenal ;
-- environnement : REAL YUNOHOST TEST ;
-- précondition : `arcenal.service` actif ;
-- action : empreinte des configurations, redémarrage du seul service, nouvelle empreinte ;
-- résultat attendu : nouveau processus, retour HTTP, données inchangées ;
-- résultat réel : PID `42011` remplacé par `85207`, HTTP 200 après démarrage, quatre empreintes identiques ;
-- preuve : `config.json`, `agents.json`, `chat-sessions.json` et `.env` comparés avant/après ;
-- état : PASS ;
-- bug éventuel : le premier contrôle HTTP était trop précoce, puis le service a répondu normalement après 33 secondes.
-
-### LOT10-YNH-002 — Permissions, services et journaux
-
-- fonction : exploitation YunoHost non intrusive ;
-- environnement : REAL YUNOHOST TEST ;
-- précondition : paquet `0.21.0~ynh53` installé ;
-- action : contrôle des unités, modes, propriétaire, UMask et journaux ;
-- résultat attendu : services actifs, 0700/0600, UMask 0077, aucun secret ;
-- résultat réel : six unités ARCenal contrôlées actives, propriétaire `arcenal:arcenal`, modes et UMask conformes, zéro motif de secret et zéro avertissement après redémarrage ;
-- preuve : état systemd, métadonnées de fichiers et journal local ;
-- état : PASS ;
-- bug éventuel : aucun.
-
-### LOT10-PERF-001 — Charge HTTP légère
-
-- fonction : disponibilité et concurrence légère ;
-- environnement : REAL YUNOHOST TEST ;
-- précondition : service revenu actif après redémarrage ;
-- action : dix lectures HTTP simultanées ;
-- résultat attendu : dix HTTP 200, aucun blocage SQLite ;
-- résultat réel : 10/10 HTTP 200, maximum 17,908 ms, zéro verrou SQLite journalisé ;
-- preuve : mesures `curl` locales au serveur et contrôle du journal ;
-- état : PASS ;
-- bug éventuel : aucun.
-
-### LOT10-UI-001 — Recette visuelle réelle
-
-- fonction : Chat, Conversations, Agents, Tâches planifiées, RAG/LDA et Paramètres ;
-- environnement : REAL YUNOHOST TEST ;
-- précondition : session SSO administrateur inspectable ;
-- action : parcours navigateur ;
-- résultat attendu : parcours complet avec thèmes et contraste ;
-- résultat réel : aucune session navigateur inspectable n'a permis de produire une preuve reproductible ;
-- preuve : aucune preuve visuelle exploitable ;
-- état : BLOCKED ;
-- bug éventuel : aucun bug produit attribué sans constat.
-
-### LOT10-PKG-001 — Cycle destructif du paquet
-
-- fonction : fresh install, restauration et désinstallation ;
-- environnement : NOT TESTED ;
-- précondition : instance YunoHost jetable ;
-- action : aucune sur le serveur principal ;
-- résultat attendu : cycle complet ;
-- résultat réel : instance jetable absente ;
-- preuve : règle de non-destruction du serveur principal ;
-- état : NOT TESTED ;
-- bug éventuel : aucun.
-
-## A — Version testée
+## Version publiée
 
 ```text
-ARCenal : 0.21.0-arcenal35
-YunoHost package : 0.21.0~ynh53
-Révision serveur : ff93c4c59f4307274163a264a94e44473b0ca2d0
-Révision locale de référence : 9c46f8fce4, avec correction LOT 10 non commitée
+ARCenal : 0.21.0-arcenal36
+Package YunoHost : 0.21.0~ynh54
+Révision source : 4b7acf426fda42fd8576dbc764dd2360b6f3502a
+Révision package : d2a3c0c5f0fe1506123f0f6ccb253b27ca386a39
+Tag : v0.21.0-arcenal36
+SHA-256 archive : 6e533aa82f518a5e7fd20755fb761e7c34a63a857851897cad61a8269755bc74
 Canal : preview
 ```
 
-## B — Chat
+Le manifeste public Preview annonce bien `0.21.0~ynh54` et la révision package
+attendue. Les workflows GitHub du catalogue `Verify` (37145603259) et `Publish`
+(37145603380) sont réussis. Aucun changement ARCenal n'a été promu sur Stable.
+Le dépôt applicatif ne déclenche pas de workflow sur la branche `arcenal` et le
+dépôt du paquet n'expose pas de workflow : cette absence est une limite de
+preuve CI, pas un succès implicite.
+
+## Mise à jour YunoHost
+
+La mise à jour a été effectuée avec le catalogue Preview et la commande normale
+YunoHost. La sauvegarde de pré-mise à jour a été créée, puis le paquet ynh54 a
+été installé avec succès.
 
 ```text
-Nouvelle conversation : NOT TESTED
-Réponse : PASS en REAL PROVIDER TEST, parcours UI non testé
-Persistance : PASS — 8 conversations conservées après restart
-Réouverture : NOT TESTED — présence en stockage prouvée, interaction UI non prouvée
-Archivage : PASS pour l'état stocké — 7 archivées ; action UI non testée
-Erreur provider : PASS en LOCAL TEST ; rendu UI réel non testé
-Contraste/thème : PASS en tests frontend ; recette visuelle réelle BLOCKED
+Version réellement installée : 0.21.0-arcenal36 / 0.21.0~ynh54
+Révision réellement installée : 4b7acf426fda42fd8576dbc764dd2360b6f3502a
+Backend : arc
+Migration : complete
+Service principal : active/running
+Services broker et contrôle : active/running
+HTTP local : 200
+Accès public anonyme : 302 vers le SSO YunoHost
+UMask : 0077
+Données : 0700 arcenal:arcenal
+Configuration, coffre et bases sensibles contrôlés : 0600 arcenal:arcenal
 ```
 
-## C — Agents
+Les empreintes de la configuration, du coffre, du registre des agents et des
+bases ont été conservées pendant la mise à jour.
+
+## Chat
 
 ```text
-Création : NOT TESTED
-Modification : NOT TESTED
-AUTO : PASS en tests ; ATS configuré AUTO sur serveur, exécution LOT 09R seulement
-FIXED : PASS en tests ; ARC configuré FIXED sur serveur, exécution LOT 09R seulement
-Changement modèle : NOT TESTED dans cette recette
-ACL : PASS — baseline LOT 09R et tests de non-régression
+Gemini : PASS — réponse réelle exacte « RECETTE LOT 10.1 OK »
+OpenRouter : FAIL — connexion réelle PASS, mais aucun modèle OpenRouter classé
+             admin n'est attribuable à ARC ; aucun chat réel ARC/OpenRouter
+Fallback : FAIL — en AUTO, le 429 Gemini n'a pas trouvé de candidat secondaire
+429 : PARTIAL — l'attente se termine et le chat redevient utilisable, mais le
+      message restitue encore une erreur fournisseur brute et trop détaillée
+503 : NOT TESTED REAL — couvert uniquement en test local
+Timeout : NOT TESTED REAL — couvert uniquement en test local
+Persistance : PASS — conversation rouverte avec ses messages après navigation
+Archivage : PASS — confirmation, archivage, puis nouvelle conversation
+Thème : PARTIAL — contraste clair PASS et commutateurs clair/sombre/système PASS ;
+        bulle du chat sombre non recapturée avant verrouillage du Mac
 ```
 
-## D — LLM
+Le repli local est couvert pour `429`, `503` et délai dépassé, avec interdiction
+sur authentification et configuration invalides. La preuve réelle demandée
+`primary → erreur transitoire → secondary → réponse` n'a pas été obtenue : les
+modèles OpenRouter découverts étaient encore classés `internal`. L'interface
+permet déjà une qualification explicite et auditée en `admin` ; cette
+précondition de recette n'a pas été satisfaite et ne doit pas être contournée
+par un déclassement silencieux des données.
 
-| Provider | Configuré | Contrat testé | Appel réel | Modèle | Résultat | Fallback |
-|---|---:|---:|---:|---|---|---:|
-| Gemini | oui | oui | oui | `gemini-3-flash-preview` | PASS | LOCAL TEST |
-| OpenRouter | oui | oui | oui | `cohere/north-mini-code:free` | PASS | LOCAL TEST |
-| OpenAI | non | oui | non | — | NOT CONFIGURED | non |
-| Anthropic | non | oui | non | — | NOT CONFIGURED | non |
-| Mistral | non | oui | non | — | NOT CONFIGURED | non |
-| Ollama | oui | oui | non | aucun modèle observé | UNAVAILABLE | non |
-| vLLM | non | oui | non | — | NOT CONFIGURED | non |
+## Modèles
 
 ```text
-Fallback 429 : PASS en LOCAL TEST
-Fallback 503 : PASS en LOCAL TEST
-Fallback timeout : PASS en LOCAL TEST
-Absence de fallback 401/404 : PASS en LOCAL TEST
-local_only : PASS en LOCAL TEST
-Fallback réel de bout en bout : NOT TESTED — ne pas provoquer une panne externe
-Registre serveur : 145 modèles, dont 45 Gemini et 100 OpenRouter
+Catalogue : PASS — 45 modèles Gemini et 100 modèles OpenRouter synchronisés
+Filtre fournisseur : PASS
+AUTO : PASS pour l'enregistrement et la persistance UI
+FIXED : PASS pour l'enregistrement et la persistance UI
+Changement modèle : PASS — FIXED → AUTO → FIXED sans erreur 500
+Modèle réellement exécuté : PASS pour Gemini FIXED
+Pseudo-modèle auto côté fournisseur : ABSENT
 ```
 
-## E — Documents
+Le fournisseur ne porte aucun modèle par défaut : le choix reste dans le
+harnais de chaque agent.
+
+## Automatisations
 
 ```text
-Upload : NOT TESTED
-Indexation : PASS pour l'état existant — 1 document et 2 fragments
-Recherche/RAG : PASS — baseline LOT 09R, stockage intact après restart
-Citation : PASS — baseline LOT 09R, non rejouée dans cette recette
-LDA : PASS — baseline LOT 09R, workflow de recette non rejoué
-V1/V2 : NOT TESTED
-Wiki : PASS — baseline LOT 09R, publication non rejouée
-SilverBullet : NOT TESTED — connecteur non configuré sur le serveur
+Tâches : FAIL — la tâche de recette est créée active malgré le libellé
+         « Créer en brouillon » et n'est pas exécutée à l'échéance
+Workflow : FAIL — aucun circuit draft → approval → active n'est relié aux
+           tâches planifiées de l'interface
+Historique : FAIL — aucun historique d'exécution exploitable dans l'écran
+Suspension : PASS — la tâche 639f8a02d310 est finalement suspendue
 ```
 
-## F — Automatisations
+La tâche non dangereuse demandait uniquement un bref état de disponibilité
+d'ARC. Elle avait une cadence d'une minute ; `last_run_at` est resté nul après
+l'échéance. Les marqueurs du ticker étaient anciens. Aucun état n'a été modifié
+directement pour simuler une réussite.
+
+## Documents
 
 ```text
-Tâche créée : NOT TESTED
-Validation : NOT TESTED
-Activation : NOT TESTED
-Exécution : NOT TESTED
-Historique : NOT TESTED
-Suspension : NOT TESTED
-Workflow : NOT TESTED
-Exception : NOT TESTED
+Upload : PASS — fichier Markdown non sensible chargé et extrait
+RAG : NOT TESTED REAL — quota Gemini épuisé et repli réel indisponible
+Citation : NOT TESTED REAL
+LDA : PARTIAL — document V1 stocké en 0600 et placé « À approuver »
+V1/V2 : FAIL — le chargement de V2 renvoie HTTP 409 car le chemin dérivé du
+        titre existe déjà ; V1 ne peut donc pas devenir obsolète au profit de V2
+Wiki : FAIL — aucune V2 Applicable à publier
+SilverBullet : NOT TESTED — connecteur non configuré, aucun état de
+               synchronisation ni coffre SilverBullet présent sur le serveur
 ```
 
-Aucun registre de workflow de recette n'était présent sur l'instance. Aucun état artificiel n'a été créé directement dans les données.
+Le champ de numérotation `REC-LDA-LOT10` est bien conservé dans les métadonnées,
+mais le chemin canonique est dérivé du titre (`procedure-recette-lot-10.md`). Le
+second dépôt utilisant le même titre est refusé avant le circuit de version.
 
-## G — Supervision
+## Supervision
 
 ```text
-Diagnostic : PASS — baseline LOT 09R
-Rapport : PASS — baseline LOT 09R
-Proposition : NOT TESTED dans cette recette
-Autorisation : NOT TESTED dans cette recette
-Exécution : NOT TESTED dans cette recette
-Vérification : PASS pour l'état des services
-Audit : PASS — 16 événements, dont requêtes, RAG et mémoire
-Refus action interdite : NOT TESTED dans cette recette
+Diagnostic : PASS — santé du canal de contrôle et catalogue fermé de 16 actions
+Autorisation : PASS — préparation de yunohost.version.read renvoie ready
+Action : FAIL — le broker refuse ensuite cette action allowlistée avec
+         « Action privilégiée non autorisée »
+Audit : PASS — action.requested puis action.failed, intégrité déclarée vraie
+Refus hors allowlist : PASS — shell.root.execute refusé en HTTP 422
 ```
 
-## H — YunoHost
+Le refus hors allowlist est correct. En revanche, l'API de contrôle envoie
+toutes les exécutions vers le socket privilégié, y compris les actions de
+lecture prévues pour le socket read-only. Le broker refuse donc correctement la
+lecture sur le mauvais canal ; la chaîne complète de supervision n'est pas
+validée.
+
+## Package
 
 ```text
-Upgrade réel : PASS — package ynh53 déjà installé
-Restart : PASS — service ARCenal uniquement
-Persistance : PASS — quatre empreintes inchangées
 Fresh install : NOT TESTED — INSTANCE JETABLE REQUIRED
-Backup : PASS — baseline LOT 09R
+Upgrade : PASS — mécanisme normal YunoHost/catalogue Preview
+Backup : PASS — sauvegarde automatique de pré-mise à jour créée
 Restore : NOT TESTED — INSTANCE JETABLE REQUIRED
 Uninstall : NOT TESTED — INSTANCE JETABLE REQUIRED
+Reinstall : NOT TESTED — INSTANCE JETABLE REQUIRED
 ```
 
-## I — Ressources
+## Ressources
 
 ```text
-RAM après restart : 134,9 MiB
-Tâches systemd avant restart : 10
-RAM observée avant restart : 271,3 MiB
-10 lectures HTTP simultanées : 10/10 HTTP 200
-Temps maximal des 10 lectures : 17,908 ms
-Blocage SQLite observé : 0
-Gemini réel : 1,341 s
+RAM service principal : 236 634 112 octets via systemd ; RSS 242 376 Kio
+CPU idle observé : 1,3 % sur deux relevés espacés de 5 secondes
+Chat Gemini réel : environ 30 secondes dans la recette navigateur
+RAG : NOT MEASURED — requête réelle non aboutie
+10 lectures HTTP séquentielles : 10/10 HTTP 200 ; 3,620 à 4,349 ms
+10 lectures HTTP simultanées : 10/10 HTTP 200 ; 20,832 à 27,432 ms
+SQLite locked : 0
+Crash : 0
 ```
 
-La variation mémoire avant/après ne constitue pas un benchmark de fuite : les durées d'activité diffèrent.
+## Logs et secrets
 
-## J — Tests
+Les journaux du service principal, du contrôle et du broker ont été inspectés
+après la mise à jour et les essais. Sur la fenêtre finale de trois heures :
 
 ```text
-Ruff ciblé : PASS
+Lignes du journal principal : 14
+Marqueurs traceback/SQLite locked : 0
+Marqueurs de secret : 0
+```
+
+Les messages d'erreur affichés dans le chat ne contenaient pas de secret, mais
+leur charge fournisseur brute reste une régression d'expérience utilisateur.
+
+## Tests
+
+```text
+Ruff : PASS
 ESLint : PASS — 0 erreur, 28 avertissements historiques
-ty ciblé : PASS
+ty : PASS
 TypeScript web : PASS
 TypeScript dashboard : PASS
-Python ARCenal : 242 tests PASS, 1 avertissement de dépendance
-Frontend : 463 tests PASS dans 68 fichiers
+Python ARCenal : 242 PASS
+Frontend : 463 PASS
 Build production : PASS
 Paquet YunoHost : 20 tests Python PASS et 9 scripts PASS
-Catalogue : 13 tests PASS
-ShellCheck : NOT TESTED — TOOL UNAVAILABLE
-git diff --check : PASS
+Catalogue : 13 PASS
+Reproductibilité des canaux : PASS
+git diff --check : PASS avant publication
 ```
 
-## K — Bugs
+## Bugs
 
-### LOT10-BUG-001
+### LOT10.1-BUG-002 — Gouvernance des tâches non reliée à l'écran planifié
 
-- sévérité : HIGH tant que la correction n'est pas publiée et recettée ;
-- cause : les erreurs fournisseur étaient converties en indisponibilité temporaire ; un 429 Gemini textuel n'était pas reconnu et un 401 encapsulé pouvait être masqué par le message transitoire de son exception externe ;
-- correction : classification explicite, priorité des statuts structurés non transitoires sur toute la chaîne d'erreurs, reconnaissance des 429 textuels et séparation des conditions de nouvelle tentative et de repli ;
-- preuve : tests `LOT10-LLM-001` à `LOT10-LLM-004`, suite ARCenal et build ;
-- état : CORRIGÉ LOCALEMENT, NON PUBLIÉ, NON RECETTÉ SUR YUNOHOST.
+- sévérité : HIGH ;
+- cause : l'écran crée directement un job cron actif au lieu d'un
+  `AutomationCandidate` brouillon soumis à approbation ; le scheduler n'exécute
+  pas le job créé ;
+- correction : aucune dans ce lot ;
+- preuve : libellé « Créer en brouillon », état actif immédiat, puis
+  `last_run_at=null` après échéance ;
+- état : OUVERT.
 
-## L — Dette restante
+### LOT10.1-BUG-003 — Collision du versionnement LDA
 
-- publier une future candidate Preview contenant `LOT10-BUG-001`, puis la recetter réellement ;
-- terminer les parcours navigateur Chat, historique, thèmes, Agents, Modèles et Paramètres ;
-- recetter tâches planifiées et automatisations avec données non dangereuses ;
-- recetter upload, versioning LDA V1/V2 et SilverBullet configuré ;
-- recetter Enterprise Memory avec une donnée de recette nettoyée ensuite ;
-- recetter une autorisation broker et un refus hors allowlist ;
-- exécuter fresh install, restore et uninstall sur une instance YunoHost jetable.
+- sévérité : HIGH ;
+- cause : l'upload transforme le titre en chemin unique et refuse un document
+  déjà présent avant de créer une nouvelle version ;
+- correction : aucune dans ce lot ;
+- preuve : V1 créée, V2 de même référence refusée en HTTP 409 ;
+- état : OUVERT.
 
-## M — Skills réellement utilisées
+### LOT10.1-BUG-004 — Action de lecture envoyée au mauvais socket
+
+- sévérité : HIGH ;
+- cause : `control_api.py` utilise le client du socket privilégié pour toutes
+  les actions, au lieu d'utiliser `execute_readonly` pour les actions READ ;
+- correction : aucune dans ce lot ;
+- preuve : préparation `ready`, exécution HTTP 500, audit `action.failed` ;
+- état : OUVERT.
+
+### LOT10.1-BUG-005 — Erreur fournisseur trop technique
+
+- sévérité : MEDIUM ;
+- cause : le rendu du chat conserve la charge textuelle détaillée de Gemini ;
+- correction : aucune dans ce lot ;
+- preuve : erreur 429 réelle affichée, chat débloqué ;
+- état : OUVERT.
+
+### LOT10.1-BUG-006 — Détection YunoHost incohérente dans Général
+
+- sévérité : MEDIUM ;
+- cause : à diagnostiquer ; l'écran indique « YunoHost non détecté » alors que
+  l'application s'exécute sur YunoHost 12.1.40.1 ;
+- correction : aucune dans ce lot ;
+- preuve : recette navigateur et contrôle serveur ;
+- état : OUVERT.
+
+## Skills réellement utilisées
 
 ```text
-arcenal-gauntlet — diagnostic, correction bornée, validation et mémoire projet — appliquée
-piloter-projet-digital — matrice de recette et contrôle du périmètre — appliquée
+arcenal-gauntlet — conduite du diagnostic, validation et mémoire projet
+piloter-projet-digital — matrice de recette et contrôle du périmètre
 ```
 
-Les skills externes recommandées par le CDC n'étaient pas installées. Elles n'ont été ni chargées ni déclarées comme utilisées.
+`agent-harness` et les skills tierces suggérées n'étaient pas disponibles ;
+elles n'ont été ni installées ni déclarées comme utilisées.
 
-## N — Verdict
+## Verdict
 
 ```text
 HARDENING REQUIRED
 ```
 
-Motifs déterminants : correction HIGH non publiée, recette visuelle et fonctionnelle incomplète, automatisations non recettées, SilverBullet non configuré et cycle destructif réservé à une instance jetable.
+Motifs déterminants : trois défauts HIGH ouverts, chat OpenRouter non prouvé,
+fallback réel non recetté, automatisations non gouvernées et non exécutées,
+versionnement documentaire bloqué, supervision allowlistée inexécutable et
+SilverBullet non configuré.
 
-Suite unique recommandée : `hardening supplémentaire` limité à la publication Preview de la correction puis à la levée des preuves manquantes. Aucun nouveau lot fonctionnel ne doit commencer avant cette clôture.
+Suite unique proposée : `hardening supplémentaire`, limité à la correction et
+à la contre-recette de ces écarts. Aucun lot fonctionnel suivant ne doit être
+commencé et aucune promotion Stable ne doit être effectuée.

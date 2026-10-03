@@ -145,3 +145,14 @@
   les routes du coffre ; les parcours documentaires restent séparés.
 - Conséquence : le prochain découplage concerne le runtime conversationnel,
   sans réimplémenter le RAG, la mémoire, le routage ou le cache.
+
+## LOT10-PREVIEW-001 — Confidentialité et verdict priment sur le fallback
+
+- Date : 2026-10-03
+- Décision : ne pas abaisser automatiquement la classe de confidentialité
+  `admin` d'ARC pour obtenir artificiellement un fallback OpenRouter.
+- Raison : un repli n'est valide que si le modèle secondaire respecte le même
+  contrat de données, de fournisseur et de harnais que le modèle primaire.
+- Conséquence : la candidate ynh54 reste en Preview avec le verdict
+  `HARDENING REQUIRED` jusqu'à l'attribution explicite d'un second modèle
+  admissible et une preuve réelle de bout en bout.

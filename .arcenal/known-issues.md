@@ -157,3 +157,54 @@
   restart contrôlé, persistance, permissions, absence de secret dans les logs,
   parcours ARC corrélé et exécution ATS cloisonnée validés sur le serveur.
 - Rapport : `docs/validation/LOT09R_PRODUCTION_COMPATIBILITY.md`.
+
+## LOT10.1-FALLBACK-001 — Précondition du fallback réel non satisfaite
+
+- État : preuve manquante, MEDIUM.
+- Impact : AUTO sélectionne Gemini mais ne peut pas se replier vers les modèles
+  OpenRouter découverts, dont la confidentialité reste `internal`.
+- Protection : le routeur refuse le déclassement silencieux des données.
+- Suite : utiliser le contrôle existant pour qualifier explicitement et auditer
+  un modèle secondaire en `admin`, puis rejouer un 429/503/timeout contrôlé.
+
+## LOT10.1-AUTOMATION-001 — Tâches hors circuit d'approbation
+
+- État : ouvert, HIGH.
+- Impact : « Créer en brouillon » crée un cron actif ; le job de recette n'a
+  pourtant pas été exécuté et aucun historique n'est présenté.
+- Suite : relier l'écran au cycle `draft → approval → active → execution →
+  audit → suspend` et au scheduler réellement lancé par le paquet.
+
+## LOT10.1-LDA-001 — V2 refusée sur le chemin de la V1
+
+- État : ouvert, HIGH.
+- Impact : le second dépôt de même titre est rejeté en HTTP 409 avant la
+  création d'une version ; V1 ne peut pas devenir obsolète au profit de V2.
+- Suite : adresser les documents par référence stable et enregistrer les
+  révisions dans l'historique gouverné avant publication du wiki.
+
+## LOT10.1-BROKER-001 — Lectures envoyées sur le socket privilégié
+
+- État : ouvert, HIGH.
+- Impact : l'API prépare `yunohost.version.read` comme action autorisée, puis
+  utilise le socket privilégié au lieu du socket read-only ; le broker la refuse
+  et la supervision sûre ne peut pas terminer son cycle.
+- Protection : les actions hors catalogue restent correctement refusées.
+- Suite : router les niveaux READ vers `execute_readonly`, puis rejouer la
+  lecture, la vérification et l'audit sur YunoHost.
+
+## LOT10.1-CHAT-001 — Erreur fournisseur trop technique
+
+- État : ouvert, MEDIUM.
+- Impact : le chat se débloque après un 429, mais affiche encore une charge
+  Gemini brute, trop détaillée et peu exploitable pour un administrateur.
+- Suite : conserver le diagnostic expurgé dans les logs et afficher dans le
+  chat une erreur courte, française et actionnable.
+
+## LOT10.1-YUNOHOST-001 — Détection plateforme incohérente
+
+- État : ouvert, MEDIUM.
+- Impact : Général affiche « YunoHost non détecté » sur l'instance YunoHost
+  12.1.40.1 pourtant correctement reconnue par le paquet et les services.
+- Suite : tracer la source de l'indicateur UI et la comparer à la détection
+  serveur sans ajouter de privilège ni de lecture globale.
