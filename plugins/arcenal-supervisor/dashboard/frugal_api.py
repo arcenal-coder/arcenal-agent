@@ -239,8 +239,15 @@ def _activate_cron_job(workflow: AutomationWorkflow) -> None:
         raise CORE.AutomationPolicyError("La planification approuvée est incomplète.")
     dashboard = _cron_dashboard()
     profile = workflow.profile_name or "default"
-    dashboard._update_cron_job_sync(workflow.cron_job_id, CronJobUpdate(updates={"schedule": workflow.schedule}), profile)
+    updates = {"schedule": workflow.schedule, "repeat": _repeat_limit(workflow.schedule)}
+    dashboard._update_cron_job_sync(workflow.cron_job_id, CronJobUpdate(updates=updates), profile)
     dashboard._resume_cron_job_sync(workflow.cron_job_id, profile)
+
+
+def _repeat_limit(schedule: str) -> int | None:
+    from cron.jobs import parse_schedule
+
+    return 1 if parse_schedule(schedule).get("kind") == "once" else None
 
 
 def _update_cron_state(workflow: AutomationWorkflow, status: WorkflowStatus) -> None:

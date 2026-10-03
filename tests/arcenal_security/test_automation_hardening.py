@@ -191,6 +191,26 @@ def test_cron_is_prepared_dormant_and_paused_before_linking(monkeypatch: pytest.
     assert observed == [(api.DORMANT_CRON_SCHEDULE, "default"), ("dormant-cron", "default")]
 
 
+@pytest.mark.parametrize(("schedule", "repeat"), (("every 5m", None), ("in 5m", 1)))
+def test_activation_aligns_repeat_limit_with_schedule(
+    monkeypatch: pytest.MonkeyPatch, schedule: str, repeat: int | None
+) -> None:
+    api = _load_frugal_api()
+    workflow = _scheduled_workflow(CORE.WorkflowStatus.ACTIVE).model_copy(
+        update={"cron_job_id": "123456789abc", "schedule": schedule}
+    )
+    observed: list[dict[str, object]] = []
+    dashboard = SimpleNamespace(
+        _update_cron_job_sync=lambda _job_id, body, _profile: observed.append(body.updates),
+        _resume_cron_job_sync=lambda *_args: None,
+    )
+    monkeypatch.setattr(api, "_cron_dashboard", lambda: dashboard)
+
+    api._activate_cron_job(workflow)
+
+    assert observed == [{"schedule": schedule, "repeat": repeat}]
+
+
 def test_disabling_an_approved_workflow_pauses_its_cron_job(monkeypatch: pytest.MonkeyPatch) -> None:
     api = _load_frugal_api()
     current = _scheduled_workflow(CORE.WorkflowStatus.ACTIVE).model_copy(update={"cron_job_id": "123456789abc"})
