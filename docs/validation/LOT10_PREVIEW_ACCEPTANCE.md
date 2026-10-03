@@ -307,3 +307,117 @@ globale référence/version LDA et SilverBullet non configuré.
 
 Cette clôture n'autorise ni promotion Stable ni nouveau lot fonctionnel. Elle
 ferme uniquement les trois HIGH explicitement confiés à ce hardening.
+
+---
+
+## LOT 10.3 — Integrity Closure
+
+### Candidate recettée
+
+```text
+ARCenal Agent : 0.21.0-arcenal41
+Paquet YunoHost : 0.21.0~ynh61
+Révision source : 668ca31afdb4fcf7dd9a05c392eabc1e526b905b
+Révision package : dbb99bba6e9e3b46d20d3e214c177ec25632f9d2
+Catalogue Preview : 7cf7be8402816335a24bb95d1a77a421521d795f
+Stable modifié : NON
+```
+
+### MEDIUM-01 — Atomicité des automatisations
+
+La cause était l'ordre non compensé entre création/reprise du cron,
+persistance du workflow et audit, aggravé par les activations concurrentes et
+par l'héritage d'une limite d'une exécution sur les planifications récurrentes.
+Le correctif sérialise la transition, n'expose l'état actif qu'après
+confirmation, compense les échecs et remplace de manière gouvernée un ancien
+cron récurrent terminal.
+
+Les tests couvrent les échecs scheduler, persistance et audit, le rollback,
+l'idempotence et la concurrence. Sur YunoHost, le workflow
+`recette-lot-10-3-atomicite-musx37zx` a conservé un seul cron
+`c27f9850f31d`. Une exécution réelle a fait passer son compteur de 0 à 1 le
+3 octobre 2026 à 22:12:30 UTC, tout en gardant `enabled=true`,
+`state=scheduled` et `repeat.times=null`. La suspension a produit
+`enabled=false/state=paused`; la réactivation a repris le même identifiant et
+le restart du seul service ARCenal a conservé workflow, cron et historique.
+L'audit chaîné contient les transitions, y compris un échec contrôlé resté
+hors de l'état actif.
+
+```text
+Activation nominale : PASS
+Échec scheduler : PASS
+Échec persistence : PASS
+Rollback : PASS
+Idempotence : PASS
+Concurrence : PASS
+Absence doublon : PASS
+Suspension : PASS
+Restart : PASS
+Audit : PASS
+MEDIUM-01 : CLOSED
+```
+
+### MEDIUM-02 — Intégrité LDA
+
+La source canonique est le coffre Markdown, pas une table SQLite. Le contrôle
+historique était court-circuité pour un nouveau chemin et ne protégeait pas
+deux créations concurrentes. La paire est maintenant normalisée en Unicode
+NFKC puis trim/casefold et contrôlée sous verrou processus et interprocessus
+avant écriture atomique. Un doublon retourne un HTTP 409 métier.
+
+La recette réelle a créé V1, V2 et V3 pour
+`RECETTE-INTEGRITE-LOT-10-3`. Les secondes créations exactes de V2 et V3 ont
+été refusées. V1 est archivée, V2 est Applicable et V3 reste À approuver ;
+le RAG et le wiki ne présentent que V2 comme version officielle. L'index et
+l'historique persistent après upgrade et restart.
+
+```text
+Audit données existantes : PASS
+Contrainte source de vérité : PASS
+Migration idempotente : PASS — aucun stockage à migrer
+V1/V2/V3 : PASS
+Doublon : REFUSED
+Concurrence : PASS
+API conflict : PASS — HTTP 409
+Frontend conflict : PASS
+Historique : PASS
+Applicable/obsolete : PASS
+RAG : PASS
+Wiki : PASS
+MEDIUM-02 : CLOSED
+```
+
+### Non-régression et exploitation
+
+- Ruff, ty, TypeScript et build de production passent.
+- 36 tests Python ciblés, 273 tests Python ARCenal et 464 tests frontend
+  passent.
+- Le paquet passe 20 tests Python et 9 scripts YunoHost ; le catalogue passe
+  13 tests. Les deux CI Preview sont vertes.
+- `arcenal`, `arcenal_control` et `arcenal_broker` sont actifs ; l'interface
+  locale répond HTTP 200 après restart.
+- Backend et coffre ARC sont actifs. Les données sensibles sont en `0600`, le
+  répertoire en `0700` et l'unité applique `UMask=0077`.
+- Les journaux post-upgrade et post-restart ne contiennent ni traceback,
+  verrou de base inattendu, erreur de permission, ni valeur de credential.
+- OpenRouter n'est pas retesté dans ce lot : aucun changement ne touche les
+  fournisseurs.
+
+### Revue et dette restante
+
+La revue indépendante conclut à 0 BLOCKER, 0 HIGH et 0 MEDIUM. Un LOW reste
+documenté : absence de test négatif dédié garantissant la conservation de
+l'identifiant d'un cron récurrent en état `error` récupérable. Aucune
+dépendance, base, unité ou architecture n'a été ajoutée.
+
+Les cycles fresh install, restore, uninstall et reinstall ne sont pas testés
+sur le serveur principal, conformément à l'interdiction des essais destructifs.
+Ils exigent une instance YunoHost jetable.
+
+### Verdict LOT 10.3
+
+```text
+STABLE CANDIDATE — INSTANCE JETABLE PACKAGE RECIPE REQUIRED
+```
+
+Prochaine étape unique : `RECETTE PACKAGE SUR INSTANCE YUNOHOST JETABLE`.

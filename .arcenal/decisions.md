@@ -170,3 +170,26 @@
   paquet n'ouvre en écriture que le journal CLI requis par YunoHost.
 - Conséquence : cette fermeture ne vaut ni promotion Stable ni acceptation des
   limites MEDIUM et preuves hors périmètre encore ouvertes.
+
+## LOT10.3-AUTOMATION-001 — Atomicité compensée des transitions planifiées
+
+- Date : 2026-10-04
+- Décision : sérialiser chaque transition de workflow, ne publier l'état actif
+  qu'après confirmation du cron et compenser toute création technique si la
+  persistance ou l'audit échoue.
+- Récurrence : un cron récurrent n'a pas de limite d'exécutions. Un cron terminal
+  hérité est remplacé de manière gouvernée ; un cron en erreur récupérable reste
+  lié pour permettre le diagnostic et la reprise.
+- Conséquence : activation, suspension, réactivation et restart conservent un
+  couple workflow/cron unique et auditable, sans nouveau service ni stockage.
+
+## LOT10.3-LDA-001 — Unicité documentaire dans la source Markdown
+
+- Date : 2026-10-04
+- Décision : la source canonique LDA reste le coffre Markdown. La paire
+  `référence + version`, normalisée en Unicode NFKC puis trim/casefold, est
+  contrôlée sous verrou processus et interprocessus avant toute écriture atomique.
+- Conflit : un doublon produit un HTTP 409 métier sans chemin interne, traceback
+  ni renommage implicite.
+- Conséquence : l'index, le RAG et le wiki restent des projections
+  reconstruisibles ; aucune base ou migration destructive n'est introduite.

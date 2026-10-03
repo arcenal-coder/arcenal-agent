@@ -1,0 +1,117 @@
+{
+  "schema": "agent-harness/plan.v1",
+  "goal": "Fermer avec preuves vérifiables les deux défauts MEDIUM restants : garantir l’atomicité du cycle cron/workflow et l’unicité globale référence + version dans la LDA, sans nouvelle architecture ni régression.",
+  "domain": "engineering",
+  "constraints": [
+    "Limiter les modifications à l’atomicité des automatisations et à l’intégrité LDA.",
+    "Ne pas ajouter de dépendance, service, base, ordonnanceur ou moteur.",
+    "Ne pas modifier le cœur YunoHost, SSOwat global, Nginx global, SSH ou le réseau.",
+    "Ne jamais modifier contributors/emails/agent@Agents-Mac-mini.local.",
+    "Publier uniquement sur le canal Preview ; ne jamais promouvoir Stable dans ce lot."
+  ],
+  "loop": {
+    "max_attempts_per_task": 3,
+    "max_loop_iterations": 15,
+    "budget_justification": "Le lot conserve la limite fonctionnelle de quinze itérations et trois tentatives par tâche."
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "skill": "arcenal-gauntlet",
+      "objective": "Établir la baseline et reproduire les deux défauts avant correction.",
+      "observable_result": "Les deux états partiels sont reproduits par des tests échouant sur la baseline.",
+      "max_attempts": 3,
+      "verification": [{"kind": "manual-evidence", "description": "Preuves de reproduction automation et LDA consignées."}]
+    },
+    {
+      "id": "T2",
+      "skill": "agent-harness",
+      "objective": "Identifier la cause racine de l’absence d’atomicité cron/workflow.",
+      "observable_result": "Le chemin d’écriture, ses fenêtres d’échec et sa stratégie de compensation sont documentés.",
+      "max_attempts": 3,
+      "verification": [{"kind": "manual-evidence", "description": "Cartographie du flux et cause racine validées."}]
+    },
+    {
+      "id": "T3",
+      "skill": "agent-harness",
+      "objective": "Rendre les transitions planifiées cohérentes, compensées, idempotentes et sérialisées.",
+      "observable_result": "Succès complet ou échec sans cron orphelin ni workflow actif incohérent.",
+      "max_attempts": 3,
+      "verification": [{"kind": "smoke", "cmd": "scripts/run_tests.sh tests/arcenal_security/test_automation_hardening.py -q", "expect_exit": 0}]
+    },
+    {
+      "id": "T4",
+      "skill": "rag-architect",
+      "objective": "Identifier la source de vérité et la cause racine de l’unicité LDA non globale.",
+      "observable_result": "La source canonique Markdown et la fenêtre de concurrence sont prouvées.",
+      "max_attempts": 3,
+      "verification": [{"kind": "manual-evidence", "description": "Audit du stockage réel et des données existantes consigné."}]
+    },
+    {
+      "id": "T5",
+      "skill": "rag-architect",
+      "objective": "Garantir globalement et concurremment l’unicité normalisée référence + version.",
+      "observable_result": "Une création concurrente réussit et l’autre reçoit un conflit HTTP 409 sans donnée partielle.",
+      "max_attempts": 3,
+      "verification": [{"kind": "smoke", "cmd": "scripts/run_tests.sh tests/arcenal_security/test_knowledge_workflow.py -q", "expect_exit": 0}]
+    },
+    {
+      "id": "T6",
+      "skill": "agent-harness",
+      "objective": "Exécuter les tests ciblés, d’idempotence et de concurrence.",
+      "observable_result": "Les scénarios nominaux, limites, échecs et courses passent.",
+      "max_attempts": 3,
+      "verification": [
+        {"kind": "smoke", "cmd": "scripts/run_tests.sh tests/arcenal_security/test_automation_hardening.py tests/arcenal_security/test_knowledge_workflow.py -q", "expect_exit": 0}
+      ]
+    },
+    {
+      "id": "T7",
+      "skill": "agent-harness",
+      "objective": "Exécuter la non-régression complète dans l’ordre imposé.",
+      "observable_result": "Linters, types, Python, frontend, build et paquets passent au minimum de la baseline.",
+      "max_attempts": 3,
+      "verification": [{"kind": "manual-evidence", "description": "Matrice complète des commandes et résultats."}]
+    },
+    {
+      "id": "T8",
+      "skill": "pr-review-expert",
+      "objective": "Effectuer une revue indépendante du diff et des preuves.",
+      "observable_result": "Aucun BLOCKER, HIGH ou MEDIUM ouvert dans le périmètre.",
+      "max_attempts": 3,
+      "verification": [{"kind": "manual-evidence", "description": "Revue indépendante classée par sévérité."}]
+    },
+    {
+      "id": "T9",
+      "skill": "arcenal-gauntlet",
+      "objective": "Publier la candidate uniquement dans Preview par la chaîne normale.",
+      "observable_result": "Source, tag, paquet et catalogue Preview concordent ; Stable reste intact.",
+      "max_attempts": 3,
+      "verification": [{"kind": "manual-evidence", "description": "Versions, révisions, archive et CI Preview prouvées."}]
+    },
+    {
+      "id": "T10",
+      "skill": "piloter-projet-digital",
+      "objective": "Recetter réellement les deux corrections sur YunoHost sans opération destructive.",
+      "observable_result": "Automatisation et LDA V1→V2→V3 passent sur la version installée.",
+      "max_attempts": 3,
+      "verification": [{"kind": "manual-evidence", "description": "Recette réelle, restart et intégrité documentés."}]
+    },
+    {
+      "id": "T11",
+      "skill": "arcenal-gauntlet",
+      "objective": "Mettre à jour le rapport et la mémoire projet sans réécrire l’historique.",
+      "observable_result": "Les quatre documents de suivi et le rapport LOT 10.3 portent les preuves exactes.",
+      "max_attempts": 3,
+      "verification": [{"kind": "smoke", "cmd": "git diff --check", "expect_exit": 0}]
+    },
+    {
+      "id": "T12",
+      "skill": "agent-harness",
+      "objective": "Clore le lot avec le verdict autorisé et l’hygiène Git.",
+      "observable_result": "Commits atomiques, aucun secret/fichier privé, verdict unique et arrêt du développement.",
+      "max_attempts": 3,
+      "verification": [{"kind": "manual-evidence", "description": "Git, dette, package recipe et verdict vérifiés."}]
+    }
+  ]
+}

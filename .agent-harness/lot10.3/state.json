@@ -1,0 +1,364 @@
+{
+  "schema": "agent-harness/state.v1",
+  "goal": "Fermer avec preuves v\u00e9rifiables les deux d\u00e9fauts MEDIUM restants : garantir l\u2019atomicit\u00e9 du cycle cron/workflow et l\u2019unicit\u00e9 globale r\u00e9f\u00e9rence + version dans la LDA, sans nouvelle architecture ni r\u00e9gression.",
+  "domain": "engineering",
+  "plan_file": ".agent-harness/lot10.3/plan.json",
+  "created_at": "2026-10-03T21:10:52Z",
+  "iteration": 12,
+  "max_loop_iterations": 15,
+  "status": "closed",
+  "tasks": [
+    {
+      "id": "T1",
+      "skill": "arcenal-gauntlet",
+      "objective": "\u00c9tablir la baseline et reproduire les deux d\u00e9fauts avant correction.",
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Preuves de reproduction automation et LDA consign\u00e9es."
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T21:11:29Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Baseline contr\u00f4l\u00e9e; tests de caract\u00e9risation ajout\u00e9s avant correctif."
+        },
+        {
+          "at": "2026-10-03T21:11:29Z",
+          "phase": "verify",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Reproduction: persistance workflow en \u00e9chec laisse le cron cr\u00e9\u00e9; deux chemins distincts acceptent la m\u00eame paire PR-QSSE-001/V1, y compris en concurrence (2 succ\u00e8s au lieu de 1 succ\u00e8s + 409)."
+        }
+      ]
+    },
+    {
+      "id": "T2",
+      "skill": "agent-harness",
+      "objective": "Identifier la cause racine de l\u2019absence d\u2019atomicit\u00e9 cron/workflow.",
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Cartographie du flux et cause racine valid\u00e9es."
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T21:14:00Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Cause racine: cr\u00e9ation/reprise cron avant save_workflow puis audit, sans verrou de transition ni compensation; deux requ\u00eates lisent le m\u00eame \u00e9tat TESTING."
+        },
+        {
+          "at": "2026-10-03T21:14:00Z",
+          "phase": "verify",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Flux cartographi\u00e9 API -> transition -> cron -> JSON workflows -> audit; fen\u00eatre d\u2019\u00e9tat partiel reproduite sur \u00e9chec de persistance."
+        }
+      ]
+    },
+    {
+      "id": "T3",
+      "skill": "agent-harness",
+      "objective": "Rendre les transitions planifi\u00e9es coh\u00e9rentes, compens\u00e9es, idempotentes et s\u00e9rialis\u00e9es.",
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "scripts/run_tests.sh tests/arcenal_security/test_automation_hardening.py -q",
+          "expect_exit": 0
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T21:14:00Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Verrou de transition, activation idempotente, compensation cron et rollback de persistance ajout\u00e9s; audit succ\u00e8s/\u00e9chec structur\u00e9."
+        },
+        {
+          "at": "2026-10-03T21:14:02Z",
+          "phase": "verify-run",
+          "checks": [
+            {
+              "cmd": "scripts/run_tests.sh tests/arcenal_security/test_automation_hardening.py -q",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "  <1s: 1 files (100%)  <2s: 1 files (100%)",
+                "  Top 10 slowest:",
+                "      0.70s  tests/arcenal_security/test_automation_hardening.py"
+              ]
+            }
+          ],
+          "attempt": 1
+        }
+      ]
+    },
+    {
+      "id": "T4",
+      "skill": "rag-architect",
+      "objective": "Identifier la source de v\u00e9rit\u00e9 et la cause racine de l\u2019unicit\u00e9 LDA non globale.",
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Audit du stockage r\u00e9el et des donn\u00e9es existantes consign\u00e9."
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T21:14:02Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Audit: aucune table LDA SQLite; les Markdown sont la source canonique et knowledge-index.json une projection reconstruisible. La v\u00e9rification globale \u00e9tait court-circuit\u00e9e pour un chemin nouveau et non s\u00e9rialis\u00e9e."
+        },
+        {
+          "at": "2026-10-03T21:14:02Z",
+          "phase": "verify",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Source de v\u00e9rit\u00e9 confirm\u00e9e par LDA_CURRENT_STATE.md et knowledge_api.py; strat\u00e9gie minimale: verrou processus + flock interprocessus autour du contr\u00f4le et de l\u2019\u00e9criture atomique."
+        }
+      ]
+    },
+    {
+      "id": "T5",
+      "skill": "rag-architect",
+      "objective": "Garantir globalement et concurremment l\u2019unicit\u00e9 normalis\u00e9e r\u00e9f\u00e9rence + version.",
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "scripts/run_tests.sh tests/arcenal_security/test_knowledge_workflow.py -q",
+          "expect_exit": 0
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T21:14:02Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Unicit\u00e9 normalis\u00e9e NFKC/trim/casefold impos\u00e9e sous verrou sur toutes les cr\u00e9ations et \u00e9critures; conflit m\u00e9tier HTTP 409."
+        },
+        {
+          "at": "2026-10-03T21:14:02Z",
+          "phase": "verify-run",
+          "checks": [
+            {
+              "cmd": "scripts/run_tests.sh tests/arcenal_security/test_knowledge_workflow.py -q",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "  <1s: 1 files (100%)  <2s: 1 files (100%)",
+                "  Top 10 slowest:",
+                "      0.43s  tests/arcenal_security/test_knowledge_workflow.py"
+              ]
+            }
+          ],
+          "attempt": 1
+        }
+      ]
+    },
+    {
+      "id": "T6",
+      "skill": "agent-harness",
+      "objective": "Ex\u00e9cuter les tests cibl\u00e9s, d\u2019idempotence et de concurrence.",
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "scripts/run_tests.sh tests/arcenal_security/test_automation_hardening.py tests/arcenal_security/test_knowledge_workflow.py -q",
+          "expect_exit": 0
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 0,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T21:14:16Z",
+          "phase": "execute",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "19 sc\u00e9narios cibl\u00e9s passent, incluant \u00e9checs scheduler/persistance/audit, activation concurrente/idempotente, unicit\u00e9 globale, normalisation Unicode et concurrence LDA."
+        },
+        {
+          "at": "2026-10-03T21:14:17Z",
+          "phase": "verify-run",
+          "checks": [
+            {
+              "cmd": "scripts/run_tests.sh tests/arcenal_security/test_automation_hardening.py tests/arcenal_security/test_knowledge_workflow.py -q",
+              "exit": 0,
+              "passed": true,
+              "tail": [
+                "  Top 10 slowest:",
+                "      0.62s  tests/arcenal_security/test_automation_hardening.py",
+                "      0.46s  tests/arcenal_security/test_knowledge_workflow.py"
+              ]
+            }
+          ],
+          "attempt": 1
+        }
+      ]
+    },
+    {
+      "id": "T7",
+      "skill": "agent-harness",
+      "objective": "Ex\u00e9cuter la non-r\u00e9gression compl\u00e8te dans l\u2019ordre impos\u00e9.",
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Matrice compl\u00e8te des commandes et r\u00e9sultats."
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 1,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T22:15:00Z",
+          "phase": "verify",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Ruff PASS; ESLint 0 erreur et 28 avertissements historiques; ty PASS; TypeScript et build PASS; 36 tests Python ciblés, 273 tests Python ARCenal, 464 tests frontend, 20 tests Python paquet, 9 scripts YunoHost et 13 tests catalogue PASS."
+        }
+      ]
+    },
+    {
+      "id": "T8",
+      "skill": "pr-review-expert",
+      "objective": "Effectuer une revue ind\u00e9pendante du diff et des preuves.",
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Revue ind\u00e9pendante class\u00e9e par s\u00e9v\u00e9rit\u00e9."
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 1,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T22:16:00Z",
+          "phase": "verify",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Revue indépendante finale: 0 BLOCKER, 0 HIGH, 0 MEDIUM; un LOW de couverture pour le cas négatif d'un cron récurrent récupérable en état error. Aucun breaking change, dépendance ou élargissement de privilège."
+        }
+      ]
+    },
+    {
+      "id": "T9",
+      "skill": "arcenal-gauntlet",
+      "objective": "Publier la candidate uniquement dans Preview par la cha\u00eene normale.",
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Versions, r\u00e9visions, archive et CI Preview prouv\u00e9es."
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 1,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T22:17:00Z",
+          "phase": "verify",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Chaîne Preview publiée: source 668ca31afd, tag v0.21.0-arcenal41, paquet dbb99bba6e/0.21.0~ynh61, catalogue 7cf7be8402; CI verify 37157204018 et publish 37157204040 success; Stable inchangé."
+        }
+      ]
+    },
+    {
+      "id": "T10",
+      "skill": "piloter-projet-digital",
+      "objective": "Recetter r\u00e9ellement les deux corrections sur YunoHost sans op\u00e9ration destructive.",
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Recette r\u00e9elle, restart et int\u00e9grit\u00e9 document\u00e9s."
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 1,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T22:18:00Z",
+          "phase": "verify",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "YunoHost réel ynh61/arcenal41: cycle automation draft-testing-active, exécution récurrente completed=1, suspension, réactivation avec le même cron c27f9850f31d, absence de doublon et restart persistant; LDA V1/V2/V3, conflits 409, V2 Applicable seule dans RAG/wiki; services, HTTP 200, permissions et logs conformes."
+        }
+      ]
+    },
+    {
+      "id": "T11",
+      "skill": "arcenal-gauntlet",
+      "objective": "Mettre \u00e0 jour le rapport et la m\u00e9moire projet sans r\u00e9\u00e9crire l\u2019historique.",
+      "verification": [
+        {
+          "kind": "smoke",
+          "cmd": "git diff --check",
+          "expect_exit": 0
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 1,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T22:19:00Z",
+          "phase": "verify",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Rapport consolidé, état projet, décisions, dette et runbook existant mis à jour sans réécriture de l'historique; git diff --check PASS."
+        }
+      ]
+    },
+    {
+      "id": "T12",
+      "skill": "agent-harness",
+      "objective": "Clore le lot avec le verdict autoris\u00e9 et l\u2019hygi\u00e8ne Git.",
+      "verification": [
+        {
+          "kind": "manual-evidence",
+          "description": "Git, dette, package recipe et verdict v\u00e9rifi\u00e9s."
+        }
+      ],
+      "max_attempts": 3,
+      "attempts": 1,
+      "status": "verified",
+      "evidence": [
+        {
+          "at": "2026-10-03T22:20:00Z",
+          "phase": "verify",
+          "exit_code": 0,
+          "attempt": 1,
+          "evidence": "Tous les T1-T12 sont vérifiés sans waiver ni tentative épuisée; fichier utilisateur exclu; aucune donnée sensible; verdict Stable Candidate limité à Preview avec recette package jetable requise."
+        }
+      ]
+    }
+  ]
+}

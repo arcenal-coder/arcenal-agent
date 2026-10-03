@@ -686,3 +686,25 @@ un adaptateur HERMES temporaire et sans dupliquer les composants ARC existants.
   réservé à une instance YunoHost jetable.
 - Verdict : `HARDENING REQUIRED`. Aucune promotion Stable et aucun lot
   fonctionnel suivant ne sont autorisés avant contre-recette.
+
+## Lot 10.3 — Integrity Closure (2026-10-04)
+
+- La candidate `0.21.0-arcenal41` / `0.21.0~ynh61`, révision source
+  `668ca31afdb4fcf7dd9a05c392eabc1e526b905b`, est publiée uniquement sur
+  Preview et installée par la chaîne normale YunoHost.
+- Les transitions workflow/cron sont sérialisées, compensées et idempotentes.
+  La recette réelle a prouvé une exécution récurrente, une suspension, une
+  réactivation avec le même identifiant, l'absence de doublon et la persistance
+  après restart du seul service ARCenal.
+- La paire LDA normalisée `référence + version` est unique dans la source
+  Markdown sous verrou. La recette V1/V2/V3, les refus HTTP 409, l'historique,
+  l'applicabilité, le RAG et le wiki passent sur l'instance réelle.
+- Validation : Ruff, ty, TypeScript, 36 tests Python ciblés, 273 tests Python
+  ARCenal, 464 tests frontend, build de production, 20 tests Python du paquet,
+  9 scripts YunoHost et 13 tests catalogue passent. La revue indépendante ne
+  conserve aucun BLOCKER, HIGH ou MEDIUM.
+- Les CI de vérification et de publication du catalogue Preview réussissent sur
+  `7cf7be8402816335a24bb95d1a77a421521d795f`. Stable reste inchangé.
+- Les cycles fresh install, restore, uninstall et reinstall restent à prouver
+  sur une instance YunoHost jetable avant toute décision humaine de promotion.
+- Verdict : `STABLE CANDIDATE — INSTANCE JETABLE PACKAGE RECIPE REQUIRED`.

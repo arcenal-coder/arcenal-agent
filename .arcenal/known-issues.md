@@ -209,19 +209,36 @@
 
 ## LOT10.1-AUTOMATION-002 — Activation non atomique
 
-- État : ouvert, MEDIUM.
+- État : fermé le 2026-10-04, anciennement MEDIUM.
 - Impact : une erreur de persistance ou d'audit après la création du cron peut
   laisser un job technique sans liaison durable avec son workflow.
 - Protection : la recette nominale et la recréation d'un cron manquant passent ;
   le cron piloté est masqué de l'interface générale.
-- Suite : ajouter une compensation bornée ou une persistance transactionnelle
-  sans nouvelle base ni nouveau service.
+- Résolution : verrou de transition, persistance/rollback compensatoire,
+  activation idempotente et remplacement gouverné des crons récurrents
+  terminaux, sans nouvelle base ni nouveau service.
+- Preuve : tests d'échec et de concurrence, puis cycle réel Preview avec une
+  exécution, suspension, réactivation sans doublon et restart persistant.
 
 ## LOT10.1-LDA-002 — Unicité référence/version non globale
 
-- État : ouvert, MEDIUM.
+- État : fermé le 2026-10-04, anciennement MEDIUM.
 - Impact : deux titres distincts pourraient enregistrer la même référence et la
   même version si leurs chemins canoniques diffèrent.
 - Protection : le cycle demandé V1→V2 d'un même document refuse les doublons et
   conserve des chemins et pièces jointes distincts.
-- Suite : contrôler globalement la paire `référence + version` avant écriture.
+- Résolution : contrôle global normalisé sous verrou processus et `flock`,
+  écriture atomique et conflit métier HTTP 409.
+- Preuve : tests concurrents et recette réelle V1/V2/V3 ; V2 et V3 exactes
+  refusées, V2 seule Applicable dans le RAG et le wiki.
+
+## LOT10.3-AUTOMATION-001 — Couverture du cron en erreur récupérable
+
+- État : ouvert, LOW.
+- Impact : le comportement de conservation de l'identifiant pour un cron
+  récurrent en état `error` est couvert par la logique et la revue, mais ne
+  possède pas encore de test négatif dédié.
+- Protection : les tests d'activation, d'échec, de rollback, d'idempotence et
+  de concurrence passent ; la recette réelle n'a laissé aucun doublon.
+- Suite : ajouter ce cas ciblé lors d'un prochain lot de tests, sans rouvrir le
+  périmètre du LOT 10.3.
