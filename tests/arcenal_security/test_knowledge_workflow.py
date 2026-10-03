@@ -40,7 +40,24 @@ Contenu applicable.
 """
 
 
+def _versioned_document(version: int, status: str = "À approuver") -> str:
+    return _document(status).replace("version: 4", f"version: {version}").replace("Contenu applicable.", f"Contenu V{version}.")
+
+
 class KnowledgeWorkflowTests(TestCase):
+    def test_second_version_gets_a_distinct_path_and_replaces_the_applicable_version(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"HERMES_HOME": directory}):
+            first = MODULE.create_document(MODULE.DocumentWrite(path="procedure.md", content=_versioned_document(1)))
+            MODULE.transition_document(first["document"]["path"], "Applicable", "admin")
+            second = MODULE.create_document(MODULE.DocumentWrite(path="procedure.md", content=_versioned_document(2)))
+            MODULE.transition_document(second["document"]["path"], "Applicable", "admin")
+            documents = {item["path"]: item for item in MODULE.list_documents()}
+            wiki = MODULE.wiki_overview()
+
+        self.assertEqual(second["document"]["path"], "procedure-v2.md")
+        self.assertEqual(documents["procedure.md"]["status"], "Archivé")
+        self.assertEqual([item["path"] for item in wiki["documents"]], ["procedure-v2.md"])
+
     def test_approval_records_actor_and_builds_lda(self) -> None:
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"HERMES_HOME": directory}):
             MODULE.write_document(MODULE.DocumentWrite(path="procedure.md", content=_document("À approuver")))

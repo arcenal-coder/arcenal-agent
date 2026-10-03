@@ -363,10 +363,33 @@ def write_document(payload: DocumentWrite, allow_status_change: bool = True) -> 
 
 
 def create_document(payload: DocumentWrite) -> dict[str, Any]:
+    payload = _versioned_payload(payload)
     target = _safe_path(payload.path, writable=True)
     if target.exists():
         raise HTTPException(status_code=409, detail="Un document existe déjà à cet emplacement.")
     return write_document(payload)
+
+
+def _versioned_payload(payload: DocumentWrite) -> DocumentWrite:
+    target = _safe_path(payload.path, writable=True)
+    if not target.exists():
+        return payload
+    reference, version = _document_identity(payload.content)
+    current_reference, _current_version = _document_identity(target.read_text(encoding="utf-8"))
+    if not reference or reference != current_reference:
+        raise HTTPException(status_code=409, detail="Un document existe déjà à cet emplacement.")
+    if any(item["reference"] == reference and str(item["version"]) == version for item in list_documents()):
+        raise HTTPException(status_code=409, detail="Cette version documentaire existe déjà.")
+    version_slug = re.sub(r"[^a-z0-9]+", "-", version.casefold()).strip("-")
+    if not version_slug:
+        raise HTTPException(status_code=422, detail="La version documentaire est obligatoire.")
+    relative = target.with_name(f"{target.stem}-v{version_slug}.md").relative_to(knowledge_root()).as_posix()
+    return payload.model_copy(update={"path": relative})
+
+
+def _document_identity(content: str) -> tuple[str, str]:
+    metadata, _body = _frontmatter(content)
+    return metadata.get("reference", "").strip(), metadata.get("version", metadata.get("revision", "")).strip()
 
 
 def _reject_initial_publication(content: str) -> None:
@@ -469,6 +492,7 @@ def _authenticated_actor(request: Request) -> str:
 def create_document_with_attachment(
     payload: DocumentWrite, filename: str, media_type: str, data: bytes
 ) -> dict[str, Any]:
+    payload = _versioned_payload(payload)
     target = _safe_path(payload.path, writable=True)
     if target.exists():
         raise HTTPException(status_code=409, detail="Un document existe déjà à cet emplacement.")
