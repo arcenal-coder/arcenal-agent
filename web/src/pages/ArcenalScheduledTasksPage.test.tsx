@@ -5,7 +5,6 @@ import ArcenalScheduledTasksPage from "./ArcenalScheduledTasksPage";
 
 const apiMocks = vi.hoisted(() => ({
   createArcenalWorkflow: vi.fn(),
-  createCronJob: vi.fn(),
   deleteCronJob: vi.fn(),
   getArcenalAutomations: vi.fn(),
   getCronJobs: vi.fn(),
@@ -57,7 +56,6 @@ beforeEach(() => {
   apiMocks.getCronJobs.mockResolvedValue([]);
   apiMocks.getArcenalAutomations.mockResolvedValue({ candidates: [], workflows: [] });
   apiMocks.getProfiles.mockResolvedValue({ profiles: [DEFAULT_PROFILE] });
-  apiMocks.createCronJob.mockResolvedValue({ id: "daily", enabled: true });
   apiMocks.createArcenalWorkflow.mockResolvedValue({ id: "incident", status: "draft" });
   apiMocks.transitionArcenalWorkflow.mockResolvedValue({ id: "incident", status: "testing" });
   loadManagedAgents.mockResolvedValue([ARC_AGENT]);
@@ -66,21 +64,18 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("tâches planifiées ARCenal", () => {
-  it("crée une planification sans modèle global", async () => {
+  it("crée une planification gouvernée en brouillon", async () => {
     render(<ArcenalScheduledTasksPage />);
     await screen.findByRole("heading", { name: "0 automatisations" });
     fireEvent.change(screen.getByLabelText("Nom"), { target: { value: "Rapport quotidien" } });
     fireEvent.change(screen.getByLabelText("Instruction"), { target: { value: "Analyse les services" } });
     fireEvent.change(screen.getByLabelText("Quand ?"), { target: { value: "every day 8am" } });
     fireEvent.click(screen.getByRole("button", { name: "Créer en brouillon" }));
-    await waitFor(() => expect(apiMocks.createCronJob).toHaveBeenCalledWith({
-      deliver: "local",
-      model: null,
-      name: "Rapport quotidien",
-      prompt: "Analyse les services",
-      provider: null,
+    await waitFor(() => expect(apiMocks.createArcenalWorkflow).toHaveBeenCalledWith(expect.objectContaining({
+      agent_id: "default",
+      profile_name: "default",
       schedule: "every day 8am",
-    }, "default"));
+    })));
   });
 
   it("crée un déclencheur rattaché au harnais de l’agent", async () => {

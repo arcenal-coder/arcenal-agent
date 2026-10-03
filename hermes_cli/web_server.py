@@ -459,12 +459,13 @@ async def _lifespan(app: "FastAPI"):
     )
     hosted_room_start_thread.start()
 
-    # Desktop-spawned backends (HERMES_DESKTOP=1) fire cron jobs themselves,
-    # since the app has no gateway running the scheduler. Server `hermes
-    # dashboard` is unaffected — it relies on its own gateway.
+    # Les backends desktop et ARCenal YunoHost exécutent le scheduler existant
+    # car aucun processus gateway séparé ne leur est associé.
     cron_stop: "threading.Event | None" = None
     cron_thread: "threading.Thread | None" = None
-    if os.getenv("HERMES_DESKTOP") == "1":
+    is_desktop = os.getenv("HERMES_DESKTOP") == "1"
+    start_dashboard_cron = is_desktop or bool(os.getenv("ARCENAL_RELEASE"))
+    if is_desktop:
         # Before forking a fresh gateway, reap any orphan left by a previous
         # serve session. Graceful shutdown reaps the managed child, but an
         # abnormal exit (crash, SIGKILL, power loss, forced update) reparents
@@ -491,13 +492,9 @@ async def _lifespan(app: "FastAPI"):
         except Exception:
             _log.exception("Desktop startup: orphan gateway reap failed")
 
+    if start_dashboard_cron:
         cron_stop = threading.Event()
-        cron_thread = threading.Thread(
-            target=_start_desktop_cron_ticker,
-            args=(cron_stop,),
-            daemon=True,
-            name="desktop-cron-ticker",
-        )
+        cron_thread = threading.Thread(target=_start_desktop_cron_ticker, args=(cron_stop,), daemon=True, name="desktop-cron-ticker")
         cron_thread.start()
 
     # Reap idle/dead keep-alive PTY sessions in the background (30-min TTL).
@@ -523,7 +520,7 @@ async def _lifespan(app: "FastAPI"):
         selftest_task.cancel()
         auto_archive_task.cancel()
         await PTY_REGISTRY.close_all()
-        if os.getenv("HERMES_DESKTOP") == "1":
+        if is_desktop:
             _terminate_desktop_managed_gateway()
 
 

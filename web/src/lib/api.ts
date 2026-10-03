@@ -2889,6 +2889,9 @@ export interface ArcenalWorkflow {
   status: ArcenalWorkflowStatus;
   agent_id: string;
   trigger: string;
+  schedule: string | null;
+  profile_name: string | null;
+  cron_job_id: string | null;
   autonomy: "automatic" | "controlled" | "approval_required";
   approved_by: string | null;
   executions: number;
@@ -2904,6 +2907,8 @@ export interface ArcenalWorkflowCreate {
   id: string;
   name: string;
   permissions: string[];
+  profile_name: string | null;
+  schedule: string | null;
   steps: Array<{ id: string; operation: "agent_prompt" | "template"; template: string; tool: null }>;
   trigger: string;
   version: number;

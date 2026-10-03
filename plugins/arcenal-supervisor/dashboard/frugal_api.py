@@ -8,9 +8,13 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+if TYPE_CHECKING:
+    from arc_core.frugal_models import AutomationWorkflow, WorkflowStatus
 
 
 router = APIRouter(prefix="/frugal/v1")
@@ -155,6 +159,43 @@ def create_workflow(request: Request, payload: dict[str, object]) -> dict[str, o
         raise _translate(exc) from exc
 
 
+def _cron_dashboard() -> ModuleType:
+    from hermes_cli import web_server
+
+    return web_server
+
+
+def _create_cron_job(workflow: AutomationWorkflow) -> str:
+    from hermes_cli.web_models import CronJobCreate
+
+    body = CronJobCreate(prompt=workflow.description, schedule=workflow.schedule, name=workflow.name, deliver="local")
+    job = _cron_dashboard()._create_cron_job_sync(body, workflow.profile_name or "default")
+    return str(job["id"])
+
+
+def _update_cron_state(workflow: AutomationWorkflow, status: WorkflowStatus) -> None:
+    if workflow.cron_job_id is None:
+        return
+    dashboard = _cron_dashboard()
+    profile = workflow.profile_name or "default"
+    if status is CORE.WorkflowStatus.ACTIVE:
+        dashboard._resume_cron_job_sync(workflow.cron_job_id, profile)
+        return
+    if status is CORE.WorkflowStatus.ARCHIVED:
+        dashboard._delete_cron_job_sync(workflow.cron_job_id, profile)
+        return
+    dashboard._pause_cron_job_sync(workflow.cron_job_id, profile)
+
+
+def _synchronize_scheduled_workflow(current: AutomationWorkflow, updated: AutomationWorkflow) -> AutomationWorkflow:
+    if updated.schedule is None:
+        return updated
+    if updated.status is CORE.WorkflowStatus.ACTIVE and current.cron_job_id is None:
+        return updated.model_copy(update={"cron_job_id": _create_cron_job(updated)})
+    _update_cron_state(current, updated.status)
+    return updated
+
+
 @router.post("/workflows/{workflow_id}/transition")
 def change_workflow(workflow_id: str, payload: WorkflowTransition, request: Request) -> dict[str, object]:
     actor = _actor(request)
@@ -164,6 +205,7 @@ def change_workflow(workflow_id: str, payload: WorkflowTransition, request: Requ
         raise HTTPException(status_code=404, detail="Workflow introuvable.")
     try:
         updated = CORE.transition_workflow(current, CORE.WorkflowStatus(payload.status), actor)
+        updated = _synchronize_scheduled_workflow(current, updated)
         store.save_workflow(updated)
         CORE.append_agent_event("frugal.workflow.transition", actor, {"workflow_id": workflow_id, "status": payload.status})
         return updated.model_dump(mode="json")

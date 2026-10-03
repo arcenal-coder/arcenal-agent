@@ -60,7 +60,7 @@ class WorkflowEngine:
         return EngineOutput(response=values, usage={"workflow_agent_prompt": delegated, "workflow_id": workflow.id, "workflow_version": workflow.version})
 
     def _matches(self, workflow: AutomationWorkflow, context: EffectiveContext, message: str) -> bool:
-        return workflow.status is WorkflowStatus.ACTIVE and workflow.agent_id == context.agent.id and workflow.approved_by is not None and workflow.trigger.casefold() in message.casefold()
+        return workflow.schedule is None and workflow.status is WorkflowStatus.ACTIVE and workflow.agent_id == context.agent.id and workflow.approved_by is not None and workflow.trigger.casefold() in message.casefold()
 
     def _validate_permissions(self, workflow: AutomationWorkflow, context: EffectiveContext) -> None:
         if not set(workflow.permissions).issubset(context.permissions):

@@ -226,6 +226,9 @@ class AutomationWorkflow(StrictModel):
     status: WorkflowStatus = WorkflowStatus.DRAFT
     agent_id: str
     trigger: str = Field(min_length=1, max_length=500)
+    schedule: str | None = Field(default=None, max_length=500)
+    profile_name: str | None = Field(default=None, pattern=r"^[a-zA-Z0-9_.-]{1,80}$")
+    cron_job_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{12}$")
     steps: tuple[WorkflowStep, ...]
     permissions: tuple[Permission, ...] = ()
     autonomy: str = Field(pattern=r"^(automatic|controlled|approval_required)$")

@@ -2,7 +2,7 @@ import { Archive, CalendarClock, PauseCircle, PlayCircle, Plus, Trash2, Workflow
 import { useCallback, useEffect, useState, type Dispatch, type FormEvent, type ReactElement, type SetStateAction } from "react";
 import { api, type ArcenalWorkflow, type CronJob, type ProfileInfo } from "@/lib/api";
 import { loadManagedAgents, type ManagedAgent } from "@/lib/arcenal-agent-manager";
-import { buildScheduledJob, buildTriggeredWorkflow, emptyScheduledTaskDraft, type ScheduledTaskDraft } from "@/lib/arcenal-scheduled-tasks";
+import { buildScheduledWorkflow, buildTriggeredWorkflow, emptyScheduledTaskDraft, type ScheduledTaskDraft } from "@/lib/arcenal-scheduled-tasks";
 
 interface TaskWorkspaceState {
   agents: ManagedAgent[];
@@ -41,7 +41,7 @@ async function loadWorkspace(setState: (state: TaskWorkspaceState) => void): Pro
 
 async function createTask(draft: ScheduledTaskDraft): Promise<void> {
   if (draft.mode === "schedule") {
-    await api.createCronJob(buildScheduledJob(draft), draft.agentId || "default");
+    await api.createArcenalWorkflow(buildScheduledWorkflow(draft, workflowId(draft.name)));
     return;
   }
   await api.createArcenalWorkflow(buildTriggeredWorkflow(draft, workflowId(draft.name)));
