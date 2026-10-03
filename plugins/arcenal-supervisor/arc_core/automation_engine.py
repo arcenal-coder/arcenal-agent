@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+import fcntl
+import threading
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Iterator
 from uuid import uuid4
 
 from .errors import AutomationPolicyError
@@ -13,8 +17,13 @@ from .frugal_store import JsonCollectionStore
 from .models import EffectiveContext, EngineOutput
 
 
+WORKFLOW_STORE_LOCK = threading.RLock()
+WORKFLOW_EXECUTION_LOCK = threading.RLock()
+
+
 class AutomationStore:
     def __init__(self, root: Path) -> None:
+        self._root = root
         self._workflows = JsonCollectionStore(root / "workflows.json", AutomationWorkflow, "workflows")
         self._candidates = JsonCollectionStore(root / "automation-candidates.json", AutomationCandidate, "candidates")
         self._observations = JsonCollectionStore(root / "process-observations.json", ProcessObservation, "observations")
@@ -29,9 +38,49 @@ class AutomationStore:
         return self._observations.load()
 
     def save_workflow(self, workflow: AutomationWorkflow) -> AutomationWorkflow:
-        values = tuple(item for item in self.workflows() if item.id != workflow.id)
-        self._workflows.save((*values, workflow))
+        with self._workflow_lock():
+            values = tuple(item for item in self.workflows() if item.id != workflow.id)
+            self._workflows.save((*values, workflow))
         return workflow
+
+    @contextmanager
+    def _workflow_lock(self) -> Iterator[None]:
+        lock_path = self._root / ".workflow-store.lock"
+        self._root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        with WORKFLOW_STORE_LOCK, lock_path.open("a+b") as handle:
+            lock_path.chmod(0o600)
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+    @contextmanager
+    def _execution_lock(self) -> Iterator[None]:
+        lock_path = self._root / ".workflow-transition.lock"
+        self._root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        with WORKFLOW_EXECUTION_LOCK, lock_path.open("a+b") as handle:
+            lock_path.chmod(0o600)
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+    def record_execution(self, workflow_id: str, exception: bool = False) -> None:
+        with self._execution_lock():
+            with self._workflow_lock():
+                self._record_execution_locked(workflow_id, exception)
+
+    def _record_execution_locked(self, workflow_id: str, exception: bool) -> None:
+        workflows = self.workflows()
+        current = next((item for item in workflows if item.id == workflow_id), None)
+        if current is None or current.status is not WorkflowStatus.ACTIVE:
+            return
+        field = "exceptions" if exception else "executions"
+        updated = current.model_copy(update={field: getattr(current, field) + 1, "updated_at": datetime.now(timezone.utc)})
+        values = tuple(updated if item.id == workflow_id else item for item in workflows)
+        self._workflows.save(values)
 
     def save_candidate(self, candidate: AutomationCandidate) -> AutomationCandidate:
         values = tuple(item for item in self.candidates() if item.id != candidate.id)
@@ -54,8 +103,7 @@ class WorkflowEngine:
         values = self._steps(workflow, context)
         if values is None:
             return None
-        updated = workflow.model_copy(update={"executions": workflow.executions + 1, "updated_at": datetime.now(timezone.utc)})
-        self._store.save_workflow(updated)
+        self._store.record_execution(workflow.id)
         delegated = any(step.operation == "agent_prompt" for step in workflow.steps)
         return EngineOutput(response=values, usage={"workflow_agent_prompt": delegated, "workflow_id": workflow.id, "workflow_version": workflow.version})
 
@@ -79,8 +127,7 @@ class WorkflowEngine:
         return result or None
 
     def _exception(self, workflow: AutomationWorkflow) -> None:
-        updated = workflow.model_copy(update={"exceptions": workflow.exceptions + 1, "updated_at": datetime.now(timezone.utc)})
-        self._store.save_workflow(updated)
+        self._store.record_execution(workflow.id, exception=True)
         return None
 
 
