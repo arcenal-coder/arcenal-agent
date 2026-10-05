@@ -272,7 +272,7 @@ def test_hermes_engine_passes_policy_context_and_filters_usage() -> None:
 
 @pytest.mark.parametrize(
     ("provider_id", "runtime_provider", "base_url", "api_key"),
-    (("compatible", "custom", "https://llm.example.test/v1", "secret-test"), ("ollama", "ollama", "http://127.0.0.1:11434/v1", None)),
+    (("compatible", "custom", "https://llm.example.test/v1", "secret-test"), ("ollama", "ollama", "http://127.0.0.1:11434/v1", None), ("groq", "groq", "https://api.groq.com/openai/v1", "groq-secret")),
 )
 def test_hermes_engine_uses_the_runtime_selected_by_arc(provider_id: str, runtime_provider: str, base_url: str, api_key: str | None) -> None:
     from arcenal_arc_core.hermes_engine import HermesAgentEngine

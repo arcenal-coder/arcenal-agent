@@ -266,6 +266,19 @@ def test_runtime_enables_provider_from_process_secret(tmp_path: Path, monkeypatc
     assert "test-secret-never-persisted" not in (tmp_path / "provider-registry.json").read_text(encoding="utf-8")
 
 
+def test_runtime_exposes_groq_without_persisting_its_secret(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GROQ_API_KEY", "groq-secret-never-persisted")
+    runtime = CORE.FrugalRuntime(tmp_path)
+    runtime.ensure_providers()
+
+    provider = runtime.providers.get("groq")
+    assert provider is not None
+    assert provider.enabled is True
+    assert provider.base_url == "https://api.groq.com/openai/v1"
+    assert provider.secret_reference == "GROQ_API_KEY"
+    assert "groq-secret-never-persisted" not in (tmp_path / "provider-registry.json").read_text(encoding="utf-8")
+
+
 def test_runtime_reconciles_provider_after_native_configuration_changes(tmp_path: Path) -> None:
     config = CORE.ArcNativeConfigStore(tmp_path / "config.json")
     vault = CORE.ArcFileVault(tmp_path / ".env")

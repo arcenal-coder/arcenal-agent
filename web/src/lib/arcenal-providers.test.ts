@@ -23,6 +23,16 @@ describe("connexions LLM ARC", () => {
     expect(connections.find((item) => item.id === "internal")).toMatchObject({ configurableUrl: true, enabled: false });
   });
 
+  it("expose Groq comme fournisseur natif avec sa clé dédiée", () => {
+    const connections = buildProviderConnections({ GROQ_API_KEY: { is_set: true } });
+
+    expect(connections.find((item) => item.id === "groq")).toMatchObject({
+      configured: true,
+      defaultBaseUrl: "https://api.groq.com/openai/v1",
+      envKey: "GROQ_API_KEY",
+    });
+  });
+
   it("valide le nom d’une clé personnalisée", () => {
     expect(normalizeCustomEnvKey(" ma-cle api ")).toBe("MA_CLE_API");
     expect(normalizeCustomEnvKey("PATH")).toBe("");

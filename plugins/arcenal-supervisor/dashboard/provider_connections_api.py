@@ -24,6 +24,7 @@ PROVIDERS: dict[str, dict[str, str]] = {
     "openai": {"env": "OPENAI_API_KEY", "url": "https://api.openai.com/v1/models"},
     "anthropic": {"env": "ANTHROPIC_API_KEY", "url": "https://api.anthropic.com/v1/models"},
     "mistral": {"env": "MISTRAL_API_KEY", "url": "https://api.mistral.ai/v1/models"},
+    "groq": {"env": "GROQ_API_KEY", "url": "https://api.groq.com/openai/v1/models"},
     "gemini": {"env": "GEMINI_API_KEY", "url": "https://generativelanguage.googleapis.com/v1beta/models"},
     "ollama": {"env": "", "url": "http://127.0.0.1:11434/v1/models"},
     "vllm": {"env": "", "url": "http://127.0.0.1:8000/v1/models"},

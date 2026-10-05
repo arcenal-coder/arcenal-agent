@@ -20,6 +20,7 @@ const PROVIDERS = [
   { configurableUrl: false, defaultBaseUrl: "https://api.openai.com/v1", envKey: "OPENAI_API_KEY", id: "openai", keyRequired: true, label: "OpenAI", local: false },
   { configurableUrl: false, defaultBaseUrl: "https://api.anthropic.com/v1", envKey: "ANTHROPIC_API_KEY", id: "anthropic", keyRequired: true, label: "Anthropic", local: false },
   { configurableUrl: false, defaultBaseUrl: "https://api.mistral.ai/v1", envKey: "MISTRAL_API_KEY", id: "mistral", keyRequired: true, label: "Mistral", local: false },
+  { configurableUrl: false, defaultBaseUrl: "https://api.groq.com/openai/v1", envKey: "GROQ_API_KEY", id: "groq", keyRequired: true, label: "Groq", local: false },
   { configurableUrl: false, defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta", envKey: "GEMINI_API_KEY", id: "gemini", keyRequired: true, label: "Google Gemini", local: false },
   { configurableUrl: true, defaultBaseUrl: "http://127.0.0.1:11434/v1", envKey: "", id: "ollama", keyRequired: false, label: "Ollama", local: true },
   { configurableUrl: true, defaultBaseUrl: "http://127.0.0.1:8000/v1", envKey: "VLLM_API_KEY", id: "vllm", keyRequired: false, label: "vLLM", local: true },

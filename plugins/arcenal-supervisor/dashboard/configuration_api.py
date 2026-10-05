@@ -20,7 +20,7 @@ PROVIDER_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,63}$")
 PROVIDER_SECRETS = {
     "anthropic": "ANTHROPIC_API_KEY", "compatible": "OPENAI_COMPATIBLE_API_KEY",
     "gemini": "GEMINI_API_KEY", "internal": "ARCENAL_INTERNAL_LLM_API_KEY",
-    "mistral": "MISTRAL_API_KEY", "openai": "OPENAI_API_KEY",
+    "groq": "GROQ_API_KEY", "mistral": "MISTRAL_API_KEY", "openai": "OPENAI_API_KEY",
     "openrouter": "OPENROUTER_API_KEY", "vllm": "VLLM_API_KEY",
 }
 

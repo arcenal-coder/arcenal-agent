@@ -61,6 +61,7 @@ def _default_providers(configuration: ArcRuntimeConfiguration) -> tuple[Provider
         _provider(configuration, "gemini", "Google Gemini", "https://generativelanguage.googleapis.com/v1beta", "GEMINI_API_KEY", ModelLocation.REMOTE, common + (ProviderCapability.EMBEDDINGS,), 300),
         _provider(configuration, "anthropic", "Anthropic", "https://api.anthropic.com", "ANTHROPIC_API_KEY", ModelLocation.REMOTE, common, 400),
         _provider(configuration, "mistral", "Mistral", "https://api.mistral.ai/v1", "MISTRAL_API_KEY", ModelLocation.REMOTE, common, 450),
+        _provider(configuration, "groq", "Groq", "https://api.groq.com/openai/v1", "GROQ_API_KEY", ModelLocation.REMOTE, common, 475),
         _provider(configuration, "ollama", "Ollama", "http://127.0.0.1:11434/v1", None, ModelLocation.LOCAL, common + (ProviderCapability.EMBEDDINGS,), 10),
         _provider(configuration, "vllm", "vLLM", "http://127.0.0.1:8000/v1", None, ModelLocation.LOCAL, common, 20),
         _provider(configuration, "compatible", "Endpoint compatible OpenAI", "", "OPENAI_COMPATIBLE_API_KEY", ModelLocation.REMOTE, common, 500),

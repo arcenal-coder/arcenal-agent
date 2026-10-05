@@ -138,7 +138,7 @@ def test_legacy_mode_rejects_configuration_writes(tmp_path: Path, monkeypatch) -
     assert "lecture seule" in response.json()["detail"]
 
 
-@pytest.mark.parametrize("provider", ["openrouter", "openai", "gemini", "anthropic", "mistral", "ollama", "vllm", "compatible"])
+@pytest.mark.parametrize("provider", ["openrouter", "openai", "gemini", "anthropic", "mistral", "groq", "ollama", "vllm", "compatible"])
 def test_supported_provider_configuration_round_trip(provider: str, tmp_path: Path, monkeypatch) -> None:
     runtime = _runtime(tmp_path)
     client = _client(runtime, monkeypatch)

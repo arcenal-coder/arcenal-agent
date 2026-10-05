@@ -51,6 +51,13 @@ class ProviderConnectionTests(TestCase):
             MODULE._probe_url("internal", "https://admin:secret@llm.example.test/v1")
         self.assertEqual(raised.exception.status_code, 422)
 
+    def test_groq_uses_its_official_models_endpoint_and_bearer_token(self) -> None:
+        self.assertEqual(MODULE._probe_url("groq", None), "https://api.groq.com/openai/v1/models")
+        self.assertEqual(
+            MODULE._headers("groq", "secret"),
+            {"accept": "application/json", "authorization": "Bearer secret"},
+        )
+
     def test_model_parser_accepts_openai_and_gemini_formats(self) -> None:
         openai = {"data": [
             {"id": "gpt-test"},
