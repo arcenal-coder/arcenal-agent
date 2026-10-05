@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactElement } from "react";
 import { Bot, Plus, X } from "lucide-react";
 import { api, type ArcenalModelDescriptor } from "@/lib/api";
-import { buildAgentModelPolicy, createManagedAgent, loadManagedAgents, modelsForAgent, modelsForPrivacy, modelsForProvider, requiredAgentPrivacy, updateManagedAgent, type AgentAutonomy, type AgentHarness, type AgentModelMode, type ManagedAgent, type ManagedAgentUpdate } from "@/lib/arcenal-agent-manager";
+import { authorizeModelForAgent, buildAgentModelPolicy, createManagedAgent, loadManagedAgents, modelMeetsAgentPrivacy, modelsForAgent, modelsForPrivacy, modelsForProvider, requiredAgentPrivacy, selectableModels, updateManagedAgent, type AgentAutonomy, type AgentHarness, type AgentModelMode, type ManagedAgent, type ManagedAgentUpdate } from "@/lib/arcenal-agent-manager";
 
 const AUTONOMY_LABELS: Record<AgentAutonomy, string> = {
   approval_required: "Validation requise",
@@ -141,16 +141,32 @@ function HarnessFields({ harness, update }: { harness: AgentHarness; update: (fi
 function AgentModelPolicyEditor({ agent, models, onSave }: { agent: ManagedAgent; models: ArcenalModelDescriptor[]; onSave: (update: ManagedAgentUpdate) => Promise<void> }): ReactElement {
   const compatibleModels = modelsForAgent(models, agent);
   const [mode, setMode] = useState<AgentModelMode>(agent.model_policy.mode);
-  const [provider, setProvider] = useState(agent.model_policy.allowed_providers[0] || compatibleModels[0]?.provider || "");
+  const allSelectable = selectableModels(models, false);
+  const [provider, setProvider] = useState(agent.model_policy.allowed_providers[0] || compatibleModels[0]?.provider || allSelectable[0]?.provider || "");
   const [modelId, setModelId] = useState(agent.model_policy.allowed_models[0] || "");
   const [localOnly, setLocalOnly] = useState(agent.model_policy.local_only);
   const [localPreferred, setLocalPreferred] = useState(agent.model_policy.local_preferred);
-  const available = localOnly ? compatibleModels.filter((model) => model.location === "local") : compatibleModels;
+  const [saveError, setSaveError] = useState("");
+  const available = selectableModels(models, localOnly);
   const choices = modelsForProvider(available, provider);
-  const providers = [...new Set(available.filter((model) => model.enabled && model.availability !== "unavailable").map((model) => model.provider))];
+  const providers = [...new Set(available.map((model) => model.provider))];
+  const selected = choices.find((model) => model.id === modelId);
+  const requiresGrant = selected ? !modelMeetsAgentPrivacy(selected, agent) : false;
   const canSave = mode === "auto" || choices.some((model) => model.id === modelId);
-  const save = (): void => void onSave({ model_policy: buildAgentModelPolicy(mode, provider, modelId, localOnly, localPreferred, models, agent.model_policy) });
-  return <fieldset className="arc-agent-policy"><legend>Modèle de l’agent</legend><p>Confidentialité minimale requise : {requiredAgentPrivacy(agent)}. Les autres modèles sont exclus du sélecteur.</p><label>Mode<select value={mode} onChange={(event) => setMode(event.target.value as AgentModelMode)}><option value="auto">AUTO — routage ARC</option><option value="fixed">FIXED — modèle imposé</option></select></label>{mode === "fixed" && <FixedModelFields choices={choices} modelId={modelId} provider={provider} providers={providers} setModelId={setModelId} setProvider={setProvider} />}<label><input checked={localPreferred} onChange={(event) => setLocalPreferred(event.target.checked)} type="checkbox" /> Préférer un modèle local</label><label><input checked={localOnly} onChange={(event) => setLocalOnly(event.target.checked)} type="checkbox" /> Modèles locaux uniquement</label><button disabled={!canSave} onClick={save} type="button">Enregistrer la politique modèle</button></fieldset>;
+  const save = (): void => { void saveAgentModelPolicy(agent, selected, mode, provider, modelId, localOnly, localPreferred, models, onSave, setSaveError); };
+  const buttonLabel = requiresGrant ? `Autoriser ce modèle pour les données ${requiredAgentPrivacy(agent)} et l’attribuer` : "Enregistrer la politique modèle";
+  return <fieldset className="arc-agent-policy"><legend>Modèle de l’agent</legend><p>Confidentialité minimale requise : {requiredAgentPrivacy(agent)}. Un modèle moins autorisé reste visible mais exige votre validation explicite.</p><label>Mode<select value={mode} onChange={(event) => setMode(event.target.value as AgentModelMode)}><option value="auto">AUTO — routage ARC</option><option value="fixed">FIXED — modèle imposé</option></select></label>{mode === "fixed" && <FixedModelFields choices={choices} modelId={modelId} provider={provider} providers={providers} setModelId={setModelId} setProvider={setProvider} />}{requiresGrant && <p className="arc-alert">Ce modèle est limité aux données {selected?.privacy_class}. L’autoriser ici permet au fournisseur de recevoir le contexte {requiredAgentPrivacy(agent)} de cet agent.</p>}{saveError && <p className="arc-alert arc-alert-error">{saveError}</p>}<label><input checked={localPreferred} onChange={(event) => setLocalPreferred(event.target.checked)} type="checkbox" /> Préférer un modèle local</label><label><input checked={localOnly} onChange={(event) => setLocalOnly(event.target.checked)} type="checkbox" /> Modèles locaux uniquement</label><button disabled={!canSave} onClick={save} type="button">{buttonLabel}</button></fieldset>;
+}
+
+async function saveAgentModelPolicy(agent: ManagedAgent, selected: ArcenalModelDescriptor | undefined, mode: AgentModelMode, provider: string, modelId: string, localOnly: boolean, localPreferred: boolean, models: ArcenalModelDescriptor[], onSave: (update: ManagedAgentUpdate) => Promise<void>, setError: (message: string) => void): Promise<void> {
+  try {
+    const policy = buildAgentModelPolicy(mode, provider, modelId, localOnly, localPreferred, models, agent.model_policy);
+    if (mode === "fixed" && selected && !modelMeetsAgentPrivacy(selected, agent)) await api.saveArcenalModel(authorizeModelForAgent(selected, agent));
+    await onSave({ model_policy: policy });
+    setError("");
+  } catch (cause) {
+    setError(errorMessage(cause));
+  }
 }
 
 function FixedModelFields({ choices, modelId, provider, providers, setModelId, setProvider }: { choices: ArcenalModelDescriptor[]; modelId: string; provider: string; providers: string[]; setModelId: (value: string) => void; setProvider: (value: string) => void }): ReactElement {

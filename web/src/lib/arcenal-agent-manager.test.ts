@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchJSON, type ArcenalModelDescriptor } from "./api";
-import { buildAgentModelPolicy, createManagedAgent, loadManagedAgents, modelsForAgent, modelsForPrivacy, modelsForProvider, requiredAgentPrivacy, updateManagedAgent, type ManagedAgent } from "./arcenal-agent-manager";
+import { authorizeModelForAgent, buildAgentModelPolicy, createManagedAgent, loadManagedAgents, modelMeetsAgentPrivacy, modelsForAgent, modelsForPrivacy, modelsForProvider, requiredAgentPrivacy, selectableModels, updateManagedAgent, type ManagedAgent } from "./arcenal-agent-manager";
 
 vi.mock("./api", () => ({ fetchJSON: vi.fn() }));
 
@@ -86,6 +86,18 @@ describe("registre ARC Core", () => {
   it("exclut les modèles incompatibles avec la confidentialité de l’agent", () => {
     expect(requiredAgentPrivacy(ARC_AGENT)).toBe("admin");
     expect(modelsForAgent(MODELS, ARC_AGENT).map((model) => model.id)).toEqual(["openrouter-admin"]);
+  });
+
+  it("garde les fournisseurs disponibles visibles avant leur autorisation", () => {
+    expect(selectableModels(MODELS, false).map((model) => model.provider)).toContain("gemini");
+    expect(modelMeetsAgentPrivacy(MODELS[1], ARC_AGENT)).toBe(false);
+  });
+
+  it("autorise explicitement un modèle au niveau requis par l’agent", () => {
+    const authorized = authorizeModelForAgent(MODELS[1], ARC_AGENT);
+
+    expect(authorized).toMatchObject({ id: "gemini-flash", privacy_class: "admin" });
+    expect(MODELS[1].privacy_class).toBe("internal");
   });
 
   it("conserve le niveau interne pour un agent sans permission sensible", () => {

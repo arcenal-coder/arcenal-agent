@@ -94,6 +94,23 @@ export function modelsForAgent(models: ArcenalModelDescriptor[], agent: ManagedA
   return modelsForPrivacy(models, requiredAgentPrivacy(agent));
 }
 
+export function selectableModels(models: ArcenalModelDescriptor[], localOnly: boolean): ArcenalModelDescriptor[] {
+  return models.filter((model) => (
+    model.enabled
+    && model.availability !== "unavailable"
+    && (!localOnly || model.location === "local")
+  ));
+}
+
+export function modelMeetsAgentPrivacy(model: ArcenalModelDescriptor, agent: ManagedAgent): boolean {
+  return PRIVACY_RANK[model.privacy_class] >= PRIVACY_RANK[requiredAgentPrivacy(agent)];
+}
+
+export function authorizeModelForAgent(model: ArcenalModelDescriptor, agent: ManagedAgent): ArcenalModelDescriptor {
+  if (modelMeetsAgentPrivacy(model, agent)) return model;
+  return { ...model, privacy_class: requiredAgentPrivacy(agent) };
+}
+
 export function modelsForPrivacy(models: ArcenalModelDescriptor[], privacy: PrivacyClass): ArcenalModelDescriptor[] {
   const minimum = PRIVACY_RANK[privacy];
   return models.filter((model) => PRIVACY_RANK[model.privacy_class] >= minimum);
